@@ -1,51 +1,120 @@
+"""
+@ship - Synapse Deploy Script
+==============================
+Uso desde PowerShell:   python deploy.py
+Uso con alias global:   ship
+
+Que hace:
+  1. Merge de dev -> main (opcional, si estas en dev)
+  2. Push a GitHub
+  3. SSH al servidor -> git pull -> docker restart
+"""
 import os
+import sys
+import subprocess
 import paramiko
-from scp import SCPClient
 
-HOST = "10.147.18.204"
-USER = "root"
-PASSWORD = "Twinc3pt.2"
+# ── Configuracion del servidor ──────────────────────────────
+HOST       = "10.147.18.204"
+USER       = "root"
+PASSWORD   = "Twinc3pt.2"
 REMOTE_DIR = "/opt/stacks/synapse-app/Synapse"
-LOCAL_DIR = r"c:\source\Synapse"
+LOCAL_DIR  = r"c:\source\Synapse"
 
-ssh = paramiko.SSHClient()
-ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+# ── Colores para la consola ─────────────────────────────────
+OK   = "\033[92m[OK]\033[0m"
+ERR  = "\033[91m[ERROR]\033[0m"
+INFO = "\033[94m[>>]\033[0m"
+WARN = "\033[93m[!]\033[0m"
 
-try:
-    print("Conectando a SSH...")
-    ssh.connect(HOST, username=USER, password=PASSWORD)
-    
-    print("Iniciando transferencia SCP...")
-    scp = SCPClient(ssh.get_transport())
-    
-    # Upload everything needed
-    dirs_to_sync = ['backend', 'frontend', 'nginx']
-    files_to_sync = ['docker-compose.yml', 'web-service.yml']
-    
-    for d in dirs_to_sync:
-        local_path = os.path.join(LOCAL_DIR, d)
-        if os.path.exists(local_path):
-            print(f"Subiendo {d}...")
-            scp.put(local_path, recursive=True, remote_path=REMOTE_DIR)
-            
-    for f in files_to_sync:
-        local_path = os.path.join(LOCAL_DIR, f)
-        if os.path.exists(local_path):
-            print(f"Subiendo {f}...")
-            scp.put(local_path, remote_path=REMOTE_DIR)
-            
-    scp.close()
-    
-    print("Ejecutando reinicio de Docker...")
-    stdin, stdout, stderr = ssh.exec_command(f"cd {REMOTE_DIR} && docker compose -f web-service.yml up -d --build")
-    out = stdout.read().decode('utf-8')
-    err = stderr.read().decode('utf-8')
-    print("STDOUT:", out)
-    if err:
-        print("STDERR:", err)
-        
-    print("Despliegue completado con exito.")
-except Exception as e:
-    print("Error:", e)
-finally:
-    ssh.close()
+def run_local(cmd, cwd=LOCAL_DIR):
+    """Ejecuta un comando local y muestra output en tiempo real."""
+    result = subprocess.run(cmd, shell=True, cwd=cwd)
+    return result.returncode == 0
+
+def run_git(args, cwd=LOCAL_DIR):
+    """Ejecuta git con lista de argumentos (sin problemas de quoting en Windows)."""
+    result = subprocess.run(["git"] + args, cwd=cwd)
+    return result.returncode == 0
+
+def git_push():
+    """Merge dev->main y push a GitHub."""
+    print(f"\n{INFO} Paso 1: Subiendo codigo a GitHub...")
+
+    # Detectar rama actual
+    result = subprocess.run(["git", "branch", "--show-current"], cwd=LOCAL_DIR, capture_output=True, text=True)
+    current_branch = result.stdout.strip()
+    print(f"   Rama actual: {current_branch}")
+
+    if current_branch == "dev":
+        print(f"   Mergeando dev -> main...")
+        if not run_git(["checkout", "main"]):
+            print(f"{ERR} Error al cambiar a main"); return False
+        if not run_git(["merge", "dev", "--no-ff", "-m", "deploy: merge dev into main"]):
+            print(f"{ERR} Error en merge"); run_git(["checkout", "dev"]); return False
+
+    if not run_git(["push", "origin", "main"]):
+        print(f"{ERR} Error en git push"); return False
+
+    # Volver a dev si veniamos de ahi, y push dev tambien
+    if current_branch == "dev":
+        run_git(["checkout", "dev"])
+        run_git(["push", "origin", "dev"])  # mantener dev actualizado en GitHub
+
+    print(f"{OK} Codigo subido a GitHub")
+    return True
+
+def deploy_server():
+    """SSH al servidor: git pull + docker restart."""
+    print(f"\n{INFO} Paso 2: Conectando al servidor {HOST}...")
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        ssh.connect(HOST, username=USER, password=PASSWORD, timeout=15)
+        print(f"{OK} Conectado via SSH")
+
+        # Comandos a ejecutar en el servidor
+        commands = [
+            f"cd {REMOTE_DIR} && git pull origin main",
+            f"cd {REMOTE_DIR} && docker compose -f web-service.yml up -d --build",
+        ]
+
+        labels = [
+            "Bajando codigo nuevo del servidor...",
+            "Reiniciando Docker (puede tardar 1-2 min)...",
+        ]
+
+        for label, cmd in zip(labels, commands):
+            print(f"\n   {label}")
+            stdin, stdout, stderr = ssh.exec_command(cmd, timeout=180)
+            out = stdout.read().decode('utf-8', errors='ignore').strip()
+            err = stderr.read().decode('utf-8', errors='ignore').strip()
+            if out: print(f"   {out}")
+            if err and "error" in err.lower(): print(f"{WARN} {err}")
+
+        print(f"\n{OK} Servidor actualizado. Abre http://amc.synapse/ para verificar.")
+
+    except Exception as e:
+        print(f"{ERR} Error SSH: {e}")
+        return False
+    finally:
+        ssh.close()
+
+    return True
+
+if __name__ == "__main__":
+    print("=" * 50)
+    print("  >> @ship  Synapse Deploy")
+    print("=" * 50)
+
+    if not git_push():
+        sys.exit(1)
+
+    if not deploy_server():
+        sys.exit(1)
+
+    print("\n" + "=" * 50)
+    print("  [OK]  Deploy completado exitosamente!")
+    print("=" * 50)
