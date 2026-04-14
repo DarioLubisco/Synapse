@@ -32,28 +32,34 @@ def run_local(cmd, cwd=LOCAL_DIR):
     result = subprocess.run(cmd, shell=True, cwd=cwd)
     return result.returncode == 0
 
+def run_git(args, cwd=LOCAL_DIR):
+    """Ejecuta git con lista de argumentos (sin problemas de quoting en Windows)."""
+    result = subprocess.run(["git"] + args, cwd=cwd)
+    return result.returncode == 0
+
 def git_push():
     """Merge dev->main y push a GitHub."""
     print(f"\n{INFO} Paso 1: Subiendo codigo a GitHub...")
 
     # Detectar rama actual
-    result = subprocess.run("git branch --show-current", shell=True, cwd=LOCAL_DIR, capture_output=True, text=True)
+    result = subprocess.run(["git", "branch", "--show-current"], cwd=LOCAL_DIR, capture_output=True, text=True)
     current_branch = result.stdout.strip()
     print(f"   Rama actual: {current_branch}")
 
     if current_branch == "dev":
         print(f"   Mergeando dev -> main...")
-        if not run_local("git checkout main"):
+        if not run_git(["checkout", "main"]):
             print(f"{ERR} Error al cambiar a main"); return False
-        if not run_local("git merge dev --no-ff -m 'deploy: merge dev into main'"):
-            print(f"{ERR} Error en merge"); run_local("git checkout dev"); return False
+        if not run_git(["merge", "dev", "--no-ff", "-m", "deploy: merge dev into main"]):
+            print(f"{ERR} Error en merge"); run_git(["checkout", "dev"]); return False
 
-    if not run_local("git push origin main"):
+    if not run_git(["push", "origin", "main"]):
         print(f"{ERR} Error en git push"); return False
 
-    # Volver a dev si veníamos de ahí
+    # Volver a dev si veniamos de ahi, y push dev tambien
     if current_branch == "dev":
-        run_local("git checkout dev")
+        run_git(["checkout", "dev"])
+        run_git(["push", "origin", "dev"])  # mantener dev actualizado en GitHub
 
     print(f"{OK} Codigo subido a GitHub")
     return True
