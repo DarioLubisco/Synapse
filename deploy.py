@@ -22,10 +22,10 @@ REMOTE_DIR = "/opt/stacks/synapse-app/Synapse"
 LOCAL_DIR  = r"c:\source\Synapse"
 
 # ── Colores para la consola ─────────────────────────────────
-OK   = "\033[92m✅\033[0m"
-ERR  = "\033[91m❌\033[0m"
-INFO = "\033[94m🚀\033[0m"
-WARN = "\033[93m⚠️ \033[0m"
+OK   = "\033[92m[OK]\033[0m"
+ERR  = "\033[91m[ERROR]\033[0m"
+INFO = "\033[94m[>>]\033[0m"
+WARN = "\033[93m[!]\033[0m"
 
 def run_local(cmd, cwd=LOCAL_DIR):
     """Ejecuta un comando local y muestra output en tiempo real."""
@@ -106,7 +106,7 @@ def deploy_server():
 
 if __name__ == "__main__":
     print("=" * 50)
-    print("  🚀  @ship — Synapse Deploy")
+    print("  >> @ship  Synapse Deploy")
     print("=" * 50)
 
     if not git_push():
@@ -116,5 +116,5 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print("\n" + "=" * 50)
-    print("  ✅  Deploy completado exitosamente!")
+    print("  [OK]  Deploy completado exitosamente!")
     print("=" * 50)
