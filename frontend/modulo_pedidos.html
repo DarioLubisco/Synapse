@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Synapse Suite — Pedido de Moléculas</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* ── Pedidos-specific overrides ─────────────────────────────── */
+    .pedidos-layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+    
+    .sidebar-categories {
+      max-height: calc(100vh - 200px);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .categories-list-container {
+      overflow-y: auto;
+      flex-grow: 1;
+      margin-top: 1rem;
+      padding-right: 0.5rem;
+    }
+
+    .categories-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .category-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: var(--radius-md);
+      transition: all var(--transition-fast);
+      cursor: pointer;
+      border: 1px solid transparent;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .category-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+    }
+
+    .category-item.selected {
+      background: rgba(99, 102, 241, 0.1);
+      border-color: var(--primary-accent);
+      color: var(--primary-accent);
+    }
+
+    .file-drop-area {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem;
+      border: 2px dashed var(--border-subtle);
+      border-radius: var(--radius-xl);
+      transition: all var(--transition-fast);
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.02);
+      text-align: center;
+    }
+
+    .file-drop-area.dragover {
+      border-color: var(--primary-accent);
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .upload-icon {
+      font-size: 2.5rem;
+      color: var(--text-secondary);
+      margin-bottom: 1rem;
+    }
+
+    .file-msg {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .file-list-container {
+      margin-top: 1.5rem;
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .file-chip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      font-size: 0.85rem;
+    }
+
+    .file-chip .remove-btn {
+      color: var(--danger);
+      cursor: pointer;
+      padding: 0.25rem;
+    }
+
+    /* Badge */
+    .badge {
+      background: var(--primary-accent);
+      color: white;
+      padding: 0.2rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+  </style>
+</head>
+<body>
+<div class="app-container">
+
+  <!-- ── SIDEBAR INYECTADO POR JS ── -->
+  <aside class="sidebar" id="sidebar-container"></aside>
+
+  <!-- ── Main ─────────────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- ── Top Header ── -->
+    <div class="top-header">
+      <div class="header-left">
+        <h1>Pedido de Moléculas 🧬</h1>
+        <p class="subtitle">Generador inteligente de compras basado en inventario y ventas</p>
+      </div>
+    </div>
+
+    <div class="pedidos-layout">
+        
+        <!-- Columna Izquierda: Filtros de Categorías -->
+        <aside class="section-card sidebar-categories">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h3 style="margin:0; font-size: 1rem;"><i class="fas fa-tags"></i> Categorías</h3>
+                <span id="categoryCount" class="badge">0 Seleccionadas</span>
+            </div>
+            
+            <div class="search-container" style="position: relative; margin-bottom: 1rem;">
+                <i data-lucide="search" style="position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); width: 14px; color: var(--text-secondary);"></i>
+                <input type="text" id="categorySearch" class="form-control" placeholder="Filtrar categorías..." style="padding-left: 2.2rem; font-size: 0.85rem; height: 36px;">
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <button id="btnSelectAll" class="btn btn-secondary" style="flex:1; padding: 0.3rem; font-size: 0.75rem;">Todas</button>
+                <button id="btnSelectNone" class="btn btn-secondary" style="flex:1; padding: 0.3rem; font-size: 0.75rem;">Ninguna</button>
+            </div>
+
+            <div class="categories-list-container">
+                <ul id="categoriesList" class="categories-list">
+                    <li style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                        <div class="loader" style="margin: 0 auto 1rem;"></div>
+                        Cargando familias...
+                    </li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Columna Derecha: Configuración y Generación -->
+        <section class="section-card">
+            <h3><i class="fas fa-cog"></i> Configuración del Pedido</h3>
+            
+            <form id="generateForm" style="display: grid; gap: 1.5rem; margin-top: 1.5rem;">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="input-group">
+                        <label>Días de Pedido (Stock para)</label>
+                        <select id="pedidoDays" class="form-control" required style="height: 48px;">
+                            <option value="9">9 Días (Reposición rápida)</option>
+                            <option value="14">14 Días</option>
+                            <option value="21">21 Días</option>
+                            <option value="30" selected>30 Días (Estándar)</option>
+                            <option value="45">45 Días</option>
+                            <option value="60">60 Días</option>
+                            <option value="75">75 Días</option>
+                            <option value="90">90 Días</option>
+                            <option value="120">120 Días</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Límite de Filas (Top Items)</label>
+                        <input type="number" id="numRows" class="form-control" value="5000" min="1" style="height: 48px;"/>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>Archivos de Resta (Opcional)</label>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                        Sube archivos Excel con columnas 'BARRA' y 'CANTIDAD' para descontar del pedido final.
+                    </p>
+                    
+                    <div class="file-drop-area" id="dropArea">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <span class="file-msg">Arrastra archivos .xlsx o haz clic aquí</span>
+                        <input type="file" id="subtractionFiles" multiple accept=".xlsx" style="display: none;"/>
+                    </div>
+
+                    <div id="fileListContainer" class="file-list-container">
+                        <!-- Listado de archivos cargados -->
+                    </div>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn btn-primary" style="height: 56px; font-size: 1.1rem; font-weight: 700;">
+                    <i class="fas fa-file-excel"></i> <span id="btnText">Generar Pedido Maestro</span>
+                </button>
+
+            </form>
+
+            <div id="alertBox" class="alert" style="display:none; margin-top: 1.5rem; padding: 1rem; border-radius: var(--radius-lg);"></div>
+        </section>
+
+    </div>
+
+  </main>
+</div>
+
+<!-- SCRIPTS -->
+<script src="js/sidebar.js"></script>
+<script src="js/app_pedidos.js"></script>
+
+<script>
+  // Inicializa Lucide Icons si hay alguno
+  lucide.createIcons();
+</script>
+</body>
+</html>
