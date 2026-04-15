@@ -1005,9 +1005,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
-            e.preventDefault();
-            const viewId = item.getAttribute('data-view') || item.closest('.nav-item, .nav-item-sub').getAttribute('data-view');
-            if (viewId) switchView(viewId);
+            const viewId = item.getAttribute('data-view') || item.closest('.nav-item, .nav-item-sub')?.getAttribute('data-view');
+            if (viewId) {
+                e.preventDefault();
+                switchView(viewId);
+            }
         });
     });
 

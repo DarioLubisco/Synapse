@@ -98,11 +98,11 @@
       <div id="cuadre-workspace" style="display:none;">
 
         <!-- ── Totales Sistema (stat cards) ── -->
-        <div class="dashboard-stats" id="stats-sistema">
+        <div class="dashboard-stats" id="stats-sistema" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
           <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper blue"><i class="fas fa-money-bill-wave fa-lg"></i></div>
             <div class="stat-info">
-              <h3>Efectivo (Sistema)</h3>
+              <h3 style="font-size:0.75rem;">Efectivo (Sistema)</h3>
               <p id="sys-efectivo">Bs. 0.00</p>
             </div>
           </div>
@@ -111,17 +111,35 @@
               <i class="fas fa-credit-card fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3>Tarjetas (Sistema)</h3>
+              <h3 style="font-size:0.75rem;">Tarjetas (TDD+TDC)</h3>
               <p id="sys-tarjeta">Bs. 0.00</p>
             </div>
           </div>
           <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper" style="background:rgba(168,85,247,.1);color:#a855f7;">
-              <i class="fas fa-check-double fa-lg"></i>
+              <i class="fas fa-mobile-alt fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3>Cheques (Sistema)</h3>
-              <p id="sys-cheque">Bs. 0.00</p>
+              <h3 style="font-size:0.75rem;">Pago Móvil (Sis)</h3>
+              <p id="sys-pagomovil">Bs. 0.00</p>
+            </div>
+          </div>
+          <div class="stat-card glassmorphism">
+            <div class="stat-icon-wrapper" style="background:rgba(245,158,11,.1);color:var(--warning);">
+              <i class="fas fa-fingerprint fa-lg"></i>
+            </div>
+            <div class="stat-info">
+              <h3 style="font-size:0.75rem;">Biopago (Sis)</h3>
+              <p id="sys-biopago">Bs. 0.00</p>
+            </div>
+          </div>
+          <div class="stat-card glassmorphism">
+            <div class="stat-icon-wrapper" style="background:rgba(34,197,94,.1);color:var(--success);">
+              <i class="fas fa-dollar-sign fa-lg"></i>
+            </div>
+            <div class="stat-info">
+              <h3 style="font-size:0.75rem;">Dólares (Calc. Mixta)</h3>
+              <p id="sys-dolares">$ 0.00</p>
             </div>
           </div>
         </div>
@@ -245,10 +263,6 @@
                 <div class="summary-row">
                   <span class="summary-label"><i class="fas fa-fingerprint fa-sm"></i> Biopago (Sis.)</span>
                   <span class="summary-value" id="res-sys-bio">Bs. 0.00</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-check-double fa-sm"></i> Cheques</span>
-                  <span class="summary-value" id="res-sys-ch">Bs. 0.00</span>
                 </div>
               </div>
 
@@ -1093,8 +1107,19 @@ async function iniciarCuadre() {
 
     // Show system totals
     document.getElementById('sys-efectivo').textContent = fmt(state.sysEfectivo);
-    document.getElementById('sys-tarjeta').textContent  = fmt(state.sysTarjeta);
-    document.getElementById('sys-cheque').textContent   = fmt(state.sysCheque);
+    document.getElementById('sys-tarjeta').textContent  = fmt(state.sysTDD + state.sysTDC); // Suma débito y crédito
+    document.getElementById('sys-pagomovil').textContent = fmt(state.sysPagoMovil);
+    document.getElementById('sys-biopago').textContent   = fmt(state.sysBiopago);
+    
+    // Fetch dolares from Calculadora Mixta
+    fetch(`/caja/calculadora/reporte?fecha=${state.fecha}&vendedor_codigo=${encodeURIComponent(state.vendedor)}`)
+      .then(r => r.json())
+      .then(d => {
+         if (d.status === 'success' && d.summary) {
+             document.getElementById('sys-dolares').textContent = `$ ${d.summary.total_efectivo_usd.toFixed(2)}`;
+         }
+      })
+      .catch(err => console.error('Error loading dolares', err));
 
     // Reflect in summary (desglosado)
     document.getElementById('res-sys-ef').textContent  = fmt(state.sysEfectivo);
@@ -1103,7 +1128,6 @@ async function iniciarCuadre() {
     document.getElementById('res-sys-tdc').textContent = fmt(state.sysTDC);
     document.getElementById('res-sys-pm').textContent  = fmt(state.sysPagoMovil);
     document.getElementById('res-sys-bio').textContent = fmt(state.sysBiopago);
-    document.getElementById('res-sys-ch').textContent  = fmt(state.sysCheque);
 
     // Load precierre if exists
     if (data.has_precierre && data.borrador_actual) {
