@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from database import get_db_connection
 from datetime import date
+from typing import List, Optional
 import pyodbc
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -1024,13 +1025,13 @@ async def generar_pdf_cierre(cierre_id: int):
 # ── Pago Móvil — Bandeja de Captura ─────────────────────────────────────────
 
 class CapturarPagoMovilRequest(BaseModel):
-    registros_ids: list[int]       # IDs de Procurement.CajaPagoMovil a capturar
-    cod_usua: str                  # Quien captura (usuario Saint)
-    cierre_id: int | None = None   # ID del cierre al que se asocian (opcional, para vincular)
+    registros_ids: List[int]             # IDs de Procurement.CajaPagoMovil a capturar
+    cod_usua: str                        # Quien captura (usuario Saint)
+    cierre_id: Optional[int] = None      # ID del cierre al que se asocian (opcional, para vincular)
 
 
 @router.get("/caja/pagomovil/pendientes")
-async def get_pagomovil_pendientes(fecha: str | None = None):
+async def get_pagomovil_pendientes(fecha: Optional[str] = None):
     """
     Retorna todos los registros de Procurement.CajaPagoMovil que aún no han sido
     procesados (procesado = 0), opcionalmente filtrados por fecha.

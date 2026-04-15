@@ -1,13 +1,22 @@
-fastapi
-uvicorn
-pyodbc
-python-dotenv
-pydantic
-reportlab
-pandas
-openpyxl
-python-multipart
-numpy<1.26.0
-google-api-python-client
-google-auth-httplib2
-google-auth-oauthlib
+# =============================================================
+# requirements.txt - Versiones EXACTAS probadas y funcionales
+# Generado desde Python 3.13 local (la misma versión del Docker)
+# =============================================================
+
+fastapi==0.135.3
+uvicorn==0.41.0
+starlette==0.52.1
+pydantic==2.12.5
+pydantic-settings==2.13.1
+
+reportlab==4.4.10
+pandas==2.2.3
+numpy==2.3.4
+openpyxl==3.1.5
+python-multipart==0.0.22
+pyodbc==5.2.0
+python-dotenv==1.2.2
+
+google-api-python-client==2.193.0
+google-auth-httplib2==0.2.1
+google-auth-oauthlib==1.2.3

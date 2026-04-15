@@ -23,7 +23,10 @@
     <!-- ── Top Header ── -->
     <div class="top-header" style="justify-content: space-between;">
       <div class="header-left">
-        <h1 id="module-title">Módulo Financiero / Caja</h1>
+        <div class="d-flex align-items-center gap-3">
+          <h2 class="m-0" id="module-title" style="font-weight: 700; font-size: 1.8rem; letter-spacing: -0.5px;">Módulo Financiero / Caja</h2>
+          <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.75rem; padding: 4px 8px;">V2.2 — PAGO MÓVIL REINGRESADO</span>
+        </div>
         <p class="subtitle" id="module-subtitle">Navega en las pestañas para gestionar el flujo</p>
       </div>
 
@@ -890,6 +893,10 @@ const state = {
 
 const BS_DENOMS  = [1, 5, 10, 20, 50, 100, 200, 500];
 const USD_DENOMS = [1, 5, 10, 20, 50, 100];
+
+function fmt(n) {
+  return parseFloat(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -2154,7 +2161,15 @@ async function capturarSeleccionadosPM() {
 
 // Hook: mostrar la bandeja automáticamente al iniciar cuadre
 const _originalIniciarCuadre = iniciarCuadre;
-// (se parchea al final para no romper el flujo)
+iniciarCuadre = async function() {
+    await _originalIniciarCuadre();
+    console.log("Hook Iniciar Cuadre Ejecutado - Abriendo Bandeja PM");
+    const pmWrapper = document.getElementById('pm-bandeja-wrapper');
+    if (pmWrapper) pmWrapper.style.display = 'block';
+    if (typeof cargarBandejaPM === 'function') {
+        cargarBandejaPM();
+    }
+};
 
 </script>
 <script src="js/sidebar.js"></script>
