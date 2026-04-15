@@ -13,11 +13,13 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "Twinc3pt.")
 def get_db_connection():
     # Detectar drivers disponibles para evitar errores de "Driver not found"
     available = pyodbc.drivers()
-    driver_name = os.getenv("DRIVER", "ODBC Driver 18 for SQL Server")
+    driver_name = os.getenv("DRIVER", "ODBC Driver 18 for SQL Server").strip("{}")
     
     # Si el driver configurado no existe en el sistema, buscar uno que sí exista
     if driver_name not in available:
-        if "ODBC Driver 17 for SQL Server" in available:
+        if "ODBC Driver 18 for SQL Server" in available:
+            driver_name = "ODBC Driver 18 for SQL Server"
+        elif "ODBC Driver 17 for SQL Server" in available:
             driver_name = "ODBC Driver 17 for SQL Server"
         elif "SQL Server" in available:
             driver_name = "SQL Server"
