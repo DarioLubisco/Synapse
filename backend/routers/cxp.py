@@ -518,7 +518,7 @@ async def get_provider_conditions():
         if 'conn' in locals():
             conn.close()
 
-@router.put("/api/procurement/providers/{cod_prov}")
+@router.put("/api/procurement/providers/{cod_prov:path}")
 async def update_provider_condition(cod_prov: str, payload: ProveedorCondicion):
     try:
         conn = database.get_db_connection()
