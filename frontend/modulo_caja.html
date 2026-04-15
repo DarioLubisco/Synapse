@@ -23,7 +23,10 @@
     <!-- ── Top Header ── -->
     <div class="top-header" style="justify-content: space-between;">
       <div class="header-left">
-        <h1 id="module-title">Módulo Financiero / Caja</h1>
+        <div class="d-flex align-items-center gap-3">
+          <h2 class="m-0" id="module-title" style="font-weight: 700; font-size: 1.8rem; letter-spacing: -0.5px;">Módulo Financiero / Caja</h2>
+          <span class="badge" style="background: rgba(168, 85, 247, 0.2); color: #a855f7; border: 1px solid rgba(168, 85, 247, 0.3); font-size: 0.75rem; padding: 4px 8px;">V2.2 — PAGO MÓVIL REINGRESADO</span>
+        </div>
         <p class="subtitle" id="module-subtitle">Navega en las pestañas para gestionar el flujo</p>
       </div>
 
@@ -315,6 +318,102 @@
           </div><!-- /RIGHT COLUMN -->
 
         </div><!-- /cuadre-grid -->
+
+        <!-- ── BANDEJA PAGO MÓVIL (expandible) ─────────────────────────── -->
+        <div id="pm-bandeja-wrapper" style="margin-top:1.25rem; display:none;">
+          <div class="section-card" style="border-left: 4px solid #a855f7; padding:0;">
+
+            <!-- Header colapsable -->
+            <div id="pm-bandeja-header" onclick="toggleBandejaPM()"
+                 style="display:flex; align-items:center; justify-content:space-between;
+                        padding:0.85rem 1.25rem; cursor:pointer; user-select:none;
+                        background:rgba(168,85,247,0.06); border-radius:var(--radius-md);
+                        transition:background 0.2s;">
+              <div style="display:flex; align-items:center; gap:0.75rem;">
+                <div style="width:34px; height:34px; background:rgba(168,85,247,0.15);
+                            border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                  <i class="fas fa-mobile-alt" style="color:#a855f7; font-size:0.95rem;"></i>
+                </div>
+                <div>
+                  <span style="font-weight:700; font-size:0.95rem;">Bandeja de Pago Móvil</span>
+                  <span id="pm-badge-count"
+                        style="margin-left:0.6rem; background:#a855f7; color:#fff;
+                               font-size:0.7rem; font-weight:700; padding:1px 8px;
+                               border-radius:999px; vertical-align:middle;">0</span>
+                  <span style="margin-left:0.5rem; font-size:0.78rem; color:var(--text-muted);">
+                    pendientes sin capturar
+                  </span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:0.75rem;">
+                <button class="btn btn-secondary" id="pm-btn-refresh"
+                        onclick="event.stopPropagation(); cargarBandejaPM()"
+                        style="padding:0.3rem 0.65rem; font-size:0.8rem;">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+                <i id="pm-chevron" class="fas fa-chevron-down"
+                   style="color:var(--text-muted); transition:transform 0.25s;"></i>
+              </div>
+            </div>
+
+            <!-- Cuerpo del panel -->
+            <div id="pm-bandeja-body" style="display:none; padding:1rem 1.25rem 1.25rem;">
+
+              <!-- Selector "todos" + botón capturar -->
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+                <label style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-secondary); cursor:pointer;">
+                  <input type="checkbox" id="pm-check-all" onchange="toggleTodosChkPM(this)"
+                         style="width:16px; height:16px; accent-color:#a855f7;" />
+                  Seleccionar todos
+                </label>
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                  <span id="pm-sel-label" style="font-size:0.8rem; color:var(--text-muted);">0 seleccionados</span>
+                  <button class="btn" id="pm-btn-capturar"
+                          onclick="capturarSeleccionadosPM()"
+                          disabled
+                          style="padding:0.4rem 1rem; font-size:0.85rem; font-weight:700;
+                                 background:linear-gradient(135deg,#a855f7,#7c3aed);
+                                 color:#fff; border:none; border-radius:var(--radius-md);
+                                 opacity:0.45; cursor:not-allowed; transition:all 0.2s;">
+                    <i class="fas fa-hand-pointer"></i> Capturar al Cuadre
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tabla de registros -->
+              <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+                <table id="pm-tabla" style="font-size:0.83rem;">
+                  <thead>
+                    <tr>
+                      <th style="width:40px;"></th>
+                      <th style="width:52px;">ID</th>
+                      <th>Banco</th>
+                      <th>Referencia</th>
+                      <th style="text-align:right;">Monto</th>
+                      <th>Hora</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pm-tabla-body">
+                    <tr>
+                      <td colspan="6" style="text-align:center; padding:2rem; color:var(--text-muted);">
+                        <i class="fas fa-spinner fa-spin" style="font-size:1.4rem;"></i>
+                        <br>Cargando...
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Total seleccionado -->
+              <div style="display:flex; justify-content:flex-end; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">
+                <span style="font-size:0.82rem; color:var(--text-muted); margin-right:0.5rem;">Total a capturar:</span>
+                <span id="pm-total-sel" style="font-weight:800; color:#a855f7; font-size:0.95rem;">Bs. 0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /BANDEJA PAGO MÓVIL -->
+
       </div><!-- /cuadre-workspace -->
     </section>
 
@@ -795,6 +894,10 @@ const state = {
 const BS_DENOMS  = [1, 5, 10, 20, 50, 100, 200, 500];
 const USD_DENOMS = [1, 5, 10, 20, 50, 100];
 
+function fmt(n) {
+  return parseFloat(n || 0).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('inp-fecha').value = new Date().toISOString().slice(0,10);
@@ -1013,6 +1116,12 @@ async function iniciarCuadre() {
     document.getElementById('module-subtitle').textContent =
       `Vendedor: ${state.vendedor} — ${state.fecha}`;
     recalculate();
+
+    // ── Mostrar + cargar Bandeja Pago Móvil ─────────────────────────────────
+    const pmWrapper = document.getElementById('pm-bandeja-wrapper');
+    if (pmWrapper) pmWrapper.style.display = 'block';
+    cargarBandejaPM();
+    // Auto-abrir si hay registros (se procesa asíncronamente en cargarBandejaPM)
 
   } catch(e) {
     alert('Error al cargar totales: ' + e.message);
@@ -1838,24 +1947,230 @@ async function cargarResumenDiarioAdmin() {
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function fmt(n) { return 'Bs. ' + parseFloat(n || 0).toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+// ── BANDEJA PAGO MÓVIL ────────────────────────────────────────────────────────
 
-function showToast(msg, type='success') {
-  const t = document.createElement('div');
-  t.innerHTML = msg;
-  Object.assign(t.style, {
-    position:'fixed', bottom:'1.5rem', right:'1.5rem', zIndex:'99999',
-    padding:'.85rem 1.25rem', borderRadius:'var(--radius-lg)', maxWidth:'380px',
-    background: type === 'success' ? 'rgba(16,185,129,.15)' : 'rgba(239,68,68,.15)',
-    border: `1px solid ${type === 'success' ? 'var(--success)' : 'var(--danger)'}`,
-    color:'var(--text-primary)', backdropFilter:'blur(12px)',
-    boxShadow:'var(--shadow-lg)', fontSize:'.9rem', lineHeight:'1.5',
-    animation:'fadeIn .3s ease'
-  });
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 5000);
+// Estado de la bandeja
+const pmState = { registros: [], abierta: false };
+
+/**
+ * Carga registros pendientes de Procurement.CajaPagoMovil y renderiza la tabla.
+ * Se llama al iniciar cuadre y al hacer click en el botón refresh.
+ */
+async function cargarBandejaPM() {
+  const btn = document.getElementById('pm-btn-refresh');
+  if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; }
+
+  try {
+    const fecha = state.fecha || new Date().toISOString().slice(0, 10);
+    const res = await fetch(`/caja/pagomovil/pendientes?fecha=${fecha}`);
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+
+    pmState.registros = data.data || [];
+    renderTablaPM();
+
+    // Actualizar badge
+    const badge = document.getElementById('pm-badge-count');
+    if (badge) {
+      badge.textContent = pmState.registros.length;
+      badge.style.background = pmState.registros.length > 0 ? '#a855f7' : '#6b7280';
+    }
+
+    // Auto-abrir si hay registros pendientes
+    if (pmState.registros.length > 0 && !pmState.abierta) {
+      toggleBandejaPM();
+    }
+
+  } catch (e) {
+    document.getElementById('pm-tabla-body').innerHTML =
+      `<tr><td colspan="6" style="text-align:center; color:var(--danger); padding:1.5rem;">
+         <i class="fas fa-exclamation-triangle"></i> Error: ${e.message}
+       </td></tr>`;
+  } finally {
+    if (btn) { btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; btn.disabled = false; }
+  }
 }
+
+/** Renderiza las filas de la tabla de pago móvil pendientes */
+function renderTablaPM() {
+  const tbody = document.getElementById('pm-tabla-body');
+  if (!tbody) return;
+
+  if (pmState.registros.length === 0) {
+    tbody.innerHTML = `<tr>
+      <td colspan="6" style="text-align:center; padding:2.5rem; color:var(--text-muted);">
+        <i class="fas fa-check-circle" style="font-size:2rem; color:var(--success); margin-bottom:0.5rem; display:block;"></i>
+        No hay pagos móviles pendientes de captura
+      </td>
+    </tr>`;
+    return;
+  }
+
+  tbody.innerHTML = pmState.registros.map(r => {
+    const hora = r.created_at ? r.created_at.substring(11, 16) : '--:--';
+    const monto = parseFloat(r.monto || 0).toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    const banco = (r.banco || 'N/A').toUpperCase();
+    // Color del banco (visual aid)
+    const bancoColors = {
+      'BANESCO': '#1e40af', 'BNC': '#0f766e', 'MERCANTIL': '#b45309',
+      'PROVINCIAL': '#6d28d9', 'VENEZUELA': '#be123c', 'BOD': '#065f46'
+    };
+    const bc = bancoColors[banco] || '#6b7280';
+
+    return `<tr id="pm-row-${r.id}" style="transition: background 0.2s;">
+      <td style="text-align:center;">
+        <input type="checkbox" class="pm-chk" data-id="${r.id}" data-monto="${r.monto || 0}"
+               onchange="actualizarSeleccionPM()"
+               style="width:16px; height:16px; accent-color:#a855f7; cursor:pointer;" />
+      </td>
+      <td style="text-align:center;">
+        <span style="font-family:monospace; font-size:0.78rem; color:var(--text-muted);">#${r.id}</span>
+      </td>
+      <td>
+        <span style="background:${bc}22; color:${bc}; font-size:0.72rem; font-weight:700;
+                     padding:2px 8px; border-radius:999px; border:1px solid ${bc}44;">
+          ${banco}
+        </span>
+      </td>
+      <td style="font-family:monospace; font-size:0.82rem; color:var(--text-secondary);">
+        ${r.referencia || '—'}
+      </td>
+      <td style="text-align:right; font-weight:700; color:#a855f7;">Bs. ${monto}</td>
+      <td style="font-size:0.8rem; color:var(--text-muted);">${hora}</td>
+    </tr>`;
+  }).join('');
+}
+
+/** Expande / colapsa el panel */
+function toggleBandejaPM() {
+  pmState.abierta = !pmState.abierta;
+  const body    = document.getElementById('pm-bandeja-body');
+  const chevron = document.getElementById('pm-chevron');
+  if (body)    body.style.display    = pmState.abierta ? 'block' : 'none';
+  if (chevron) chevron.style.transform = pmState.abierta ? 'rotate(180deg)' : 'rotate(0deg)';
+}
+
+/** Seleccionar / deseleccionar todos los checkboxes */
+function toggleTodosChkPM(masterChk) {
+  document.querySelectorAll('.pm-chk').forEach(c => { c.checked = masterChk.checked; });
+  actualizarSeleccionPM();
+}
+
+/** Recalcula count, total y habilita/deshabilita el botón Capturar */
+function actualizarSeleccionPM() {
+  const checks = [...document.querySelectorAll('.pm-chk:checked')];
+  const count  = checks.length;
+  const total  = checks.reduce((s, c) => s + parseFloat(c.dataset.monto || 0), 0);
+
+  const lblSel  = document.getElementById('pm-sel-label');
+  const btnCap  = document.getElementById('pm-btn-capturar');
+  const totEl   = document.getElementById('pm-total-sel');
+
+  if (lblSel) lblSel.textContent = `${count} seleccionado${count !== 1 ? 's' : ''}`;
+  if (totEl)  totEl.textContent  = 'Bs. ' + total.toLocaleString('es-VE', {minimumFractionDigits:2,maximumFractionDigits:2});
+
+  if (btnCap) {
+    btnCap.disabled = count === 0;
+    btnCap.style.opacity  = count > 0 ? '1'          : '0.45';
+    btnCap.style.cursor   = count > 0 ? 'pointer'    : 'not-allowed';
+  }
+
+  // Actualizar "seleccionar todos"
+  const master = document.getElementById('pm-check-all');
+  if (master) {
+    const allChks = document.querySelectorAll('.pm-chk');
+    master.indeterminate = count > 0 && count < allChks.length;
+    master.checked = count > 0 && count === allChks.length;
+  }
+}
+
+/** Captura los registros seleccionados y los agrega como tickets al cuadre */
+async function capturarSeleccionadosPM() {
+  const checks = [...document.querySelectorAll('.pm-chk:checked')];
+  if (!checks.length) return;
+
+  // Validar que el usuario esté logueado
+  const codUsua = document.getElementById('inp-cod-usua')?.value?.trim();
+  if (!codUsua) {
+    showToast('<i class="fas fa-exclamation-circle"></i> Debes validar tu usuario primero (botón "Validar" en el header)', 'danger');
+    return;
+  }
+
+  const ids = checks.map(c => parseInt(c.dataset.id));
+  const btn = document.getElementById('pm-btn-capturar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Capturando...';
+
+  try {
+    const res = await fetch('/caja/pagomovil/capturar', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        registros_ids: ids,
+        cod_usua: codUsua,
+        cierre_id: state.cierreId || null
+      })
+    });
+    const data = await res.json();
+
+    if (data.status === 'warning') {
+      showToast(`<i class="fas fa-info-circle"></i> ${data.message}`, 'danger');
+      return;
+    }
+
+    if (data.status !== 'success') throw new Error(data.detail || 'Error desconocido');
+
+    // ── Agregar cada registro capturado como ticket PAGO_MOVIL ──
+    const capturados = data.capturados || [];
+    capturados.forEach(r => {
+      // Determinar el "punto de venta" basado en el banco
+      const pos = r.banco ? r.banco.toUpperCase() : 'PAGO MÓVIL';
+      // Usar referencia del banco como referencia del ticket
+      const ref = r.referencia || `PM-${r.id}`;
+      addTicketToState('PAGO_MOVIL', pos, `[PM#${r.id}] ${ref}`, r.monto);
+    });
+    renderTickets();
+    recalculate();
+
+    // ── Quitar filas capturadas de la bandeja ──
+    pmState.registros = pmState.registros.filter(r => !ids.includes(r.id));
+    renderTablaPM();
+
+    // Actualizar badge
+    const badge = document.getElementById('pm-badge-count');
+    if (badge) {
+      badge.textContent = pmState.registros.length;
+      badge.style.background = pmState.registros.length > 0 ? '#a855f7' : '#6b7280';
+    }
+
+    // Reset selección
+    actualizarSeleccionPM();
+    const masterChk = document.getElementById('pm-check-all');
+    if (masterChk) masterChk.checked = false;
+
+    showToast(`<i class="fas fa-mobile-alt"></i> ${capturados.length} pago(s) móvil capturado(s) y agregado(s) al cuadre`, 'success');
+
+  } catch (e) {
+    showToast(`<i class="fas fa-times-circle"></i> Error al capturar: ${e.message}`, 'danger');
+  } finally {
+    btn.innerHTML = '<i class="fas fa-hand-pointer"></i> Capturar al Cuadre';
+    // disabled se actualiza via actualizarSeleccionPM()
+    actualizarSeleccionPM();
+  }
+}
+
+// Hook: mostrar la bandeja automáticamente al iniciar cuadre
+const _originalIniciarCuadre = iniciarCuadre;
+iniciarCuadre = async function() {
+    await _originalIniciarCuadre();
+    console.log("Hook Iniciar Cuadre Ejecutado - Abriendo Bandeja PM");
+    const pmWrapper = document.getElementById('pm-bandeja-wrapper');
+    if (pmWrapper) pmWrapper.style.display = 'block';
+    if (typeof cargarBandejaPM === 'function') {
+        cargarBandejaPM();
+    }
+};
+
 </script>
 <script src="js/sidebar.js"></script>
 <script>

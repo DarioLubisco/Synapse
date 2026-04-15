@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from database import get_db_connection
 from datetime import date
+from typing import List, Optional
 import pyodbc
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -1021,3 +1022,144 @@ async def generar_pdf_cierre(cierre_id: int):
     )
 
 
+# ── Pago Móvil — Bandeja de Captura ─────────────────────────────────────────
+
+class CapturarPagoMovilRequest(BaseModel):
+    registros_ids: List[int]             # IDs de Procurement.CajaPagoMovil a capturar
+    cod_usua: str                        # Quien captura (usuario Saint)
+    cierre_id: Optional[int] = None      # ID del cierre al que se asocian (opcional, para vincular)
+
+
+@router.get("/caja/pagomovil/pendientes")
+async def get_pagomovil_pendientes(fecha: Optional[str] = None):
+    """
+    Retorna todos los registros de Procurement.CajaPagoMovil que aún no han sido
+    procesados (procesado = 0), opcionalmente filtrados por fecha.
+    Muestra el id único para trazabilidad.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        if fecha:
+            cursor.execute("""
+                SELECT id, banco, monto, referencia, texto_original, created_at
+                FROM Procurement.CajaPagoMovil
+                WHERE (procesado = 0 OR procesado IS NULL)
+                  AND CAST(created_at AS DATE) = ?
+                ORDER BY created_at DESC
+            """, (fecha,))
+        else:
+            # Sin filtro de fecha: muestra pendientes de hoy y ayer (ventana de 2 días)
+            cursor.execute("""
+                SELECT id, banco, monto, referencia, texto_original, created_at
+                FROM Procurement.CajaPagoMovil
+                WHERE (procesado = 0 OR procesado IS NULL)
+                  AND created_at >= DATEADD(DAY, -1, CAST(GETDATE() AS DATE))
+                ORDER BY created_at DESC
+            """)
+
+        cols = [c[0] for c in cursor.description]
+        rows = []
+        for r in cursor.fetchall():
+            item = dict(zip(cols, r))
+            # Serialise datetime / decimal
+            for k, v in item.items():
+                if hasattr(v, 'isoformat'):
+                    item[k] = v.isoformat()
+                elif v is None:
+                    item[k] = None
+                else:
+                    try:
+                        item[k] = float(v) if isinstance(v, object) and hasattr(v, '__float__') else v
+                    except Exception:
+                        item[k] = str(v)
+            rows.append(item)
+
+        return {"status": "success", "total": len(rows), "data": rows}
+
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@router.post("/caja/pagomovil/capturar")
+async def capturar_pagomovil(payload: CapturarPagoMovilRequest):
+    """
+    Marca uno o más registros de Procurement.CajaPagoMovil como procesados.
+    Registra el usuario que los capturó (cod_usua) y el cierre_id si se provee.
+    Opera de forma atómica — si algún registro ya fue procesado, ignora ese ID.
+    Retorna la lista de registros efectivamente capturados para que el frontend
+    los agregue como tickets al cuadre activo.
+    """
+    if not payload.registros_ids:
+        raise HTTPException(status_code=400, detail="Debe indicar al menos un ID.")
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Construir placeholders para IN clause
+        placeholders = ",".join(["?" for _ in payload.registros_ids])
+
+        # Leer los registros pendientes que aún no fueron tomados (previene doble captura)
+        cursor.execute(f"""
+            SELECT id, banco, monto, referencia
+            FROM Procurement.CajaPagoMovil
+            WHERE id IN ({placeholders})
+              AND (procesado = 0 OR procesado IS NULL)
+        """, payload.registros_ids)
+
+        disponibles = cursor.fetchall()
+        if not disponibles:
+            return {"status": "warning", "message": "Todos los registros seleccionados ya fueron procesados.", "capturados": []}
+
+        ids_disponibles = [r[0] for r in disponibles]
+        placeholders2 = ",".join(["?" for _ in ids_disponibles])
+
+        # Marcar como procesados en bloque atómico
+        params = [1, payload.cod_usua]
+        if payload.cierre_id:
+            params.append(payload.cierre_id)
+            cursor.execute(f"""
+                UPDATE Procurement.CajaPagoMovil
+                SET procesado      = ?,
+                    capturado_por  = ?,
+                    capturado_en   = GETDATE(),
+                    cierre_id      = ?
+                WHERE id IN ({placeholders2})
+            """, params + ids_disponibles)
+        else:
+            cursor.execute(f"""
+                UPDATE Procurement.CajaPagoMovil
+                SET procesado      = ?,
+                    capturado_por  = ?,
+                    capturado_en   = GETDATE()
+                WHERE id IN ({placeholders2})
+            """, params + ids_disponibles)
+
+        conn.commit()
+
+        # Armar respuesta con detalles de los capturados
+        capturados = [
+            {
+                "id": r[0],
+                "banco": str(r[1]).strip() if r[1] else "N/A",
+                "monto": float(r[2]) if r[2] else 0.0,
+                "referencia": str(r[3]).strip() if r[3] else ""
+            }
+            for r in disponibles
+        ]
+
+        return {
+            "status": "success",
+            "message": f"{len(capturados)} registro(s) capturado(s) por {payload.cod_usua}",
+            "capturados": capturados
+        }
+
+    except pyodbc.Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
