@@ -2643,7 +2643,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (!res.ok) {
                     const err = await res.json();
-                    throw new Error(err.detail || 'Error al guardar parametrización');
+                    let errMsg = err.detail || 'Error al guardar parametrización';
+                    if (typeof errMsg === 'object') {
+                        errMsg = JSON.stringify(errMsg, null, 2);
+                    }
+                    throw new Error(errMsg);
                 }
                 closeEditProviderModal();
                 fetchProviders(); // Refresh config list
@@ -2659,7 +2663,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error(error);
-                alert('Error al guardar condiciones.');
+                alert(`Error al guardar condiciones:\n${error.message}`);
             } finally {
                 btn.textContent = originalText;
                 btn.disabled = false;

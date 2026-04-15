@@ -2090,11 +2090,17 @@ async function capturarSeleccionadosPM() {
   if (!checks.length) return;
 
   // Validar que el usuario esté logueado
-  const codUsua = document.getElementById('inp-cod-usua')?.value?.trim();
-  if (!codUsua) {
-    showToast('<i class="fas fa-exclamation-circle"></i> Debes validar tu usuario primero (botón "Validar" en el header)', 'danger');
+  if (!state.perfil || !state.perfil.cod_usua) {
+    showToast('<i class="fas fa-exclamation-circle"></i> Debes identificarte con tu Usuario Saint primero (botón "Validar" en el panel)', 'danger');
+    // Animación visual al usuario
+    const uLabel = document.getElementById('current-user-label');
+    if (uLabel) {
+      uLabel.style.color = 'var(--danger)';
+      setTimeout(() => uLabel.style.color = '', 3000);
+    }
     return;
   }
+  const codUsua = state.perfil.cod_usua;
 
   const ids = checks.map(c => parseInt(c.dataset.id));
   const btn = document.getElementById('pm-btn-capturar');
