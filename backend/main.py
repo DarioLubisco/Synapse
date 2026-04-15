@@ -34,6 +34,8 @@ async def log_requests(request, call_next):
             pass
         return response
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         try:
             with open(log_file, "a") as f:
                 f.write(f"ERR: {str(e)}\n")
