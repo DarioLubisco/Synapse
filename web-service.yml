@@ -13,6 +13,8 @@ services:
       - DB_USERNAME=sa
       - DB_PASSWORD=Twinc3pt.
       - DRIVER={ODBC Driver 18 for SQL Server}
+    extra_hosts:
+      - "amc.sql:10.200.8.5"
     volumes:
       - ./backend:/app
     deploy:
