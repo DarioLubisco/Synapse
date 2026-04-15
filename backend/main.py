@@ -17,17 +17,28 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request, call_next):
-    # Log incoming requests to understand browser fetch issue
-    with open("c:/source/Synapse/scratch/requests_log.txt", "a") as f:
-        f.write(f"REQ: {request.method} {request.url}\n")
+    # Log incoming requests safely across environments (Windows/Linux)
+    log_file = "requests_log.txt" if not os.path.exists("c:/") else "c:/source/Synapse/scratch/requests_log.txt"
+    try:
+        with open(log_file, "a") as f:
+            f.write(f"REQ: {request.method} {request.url}\n")
+    except Exception:
+        pass # Ignore log fail in prod to avoid crashing API
+        
     try:
         response = await call_next(request)
-        with open("c:/source/Synapse/scratch/requests_log.txt", "a") as f:
-            f.write(f"RES: {response.status_code}\n")
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"RES: {response.status_code}\n")
+        except Exception:
+            pass
         return response
     except Exception as e:
-        with open("c:/source/Synapse/scratch/requests_log.txt", "a") as f:
-            f.write(f"ERR: {str(e)}\n")
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"ERR: {str(e)}\n")
+        except Exception:
+            pass
         raise
 async def health_check():
     """El Orquestador usa esto para saber si el Backend está vivo"""
