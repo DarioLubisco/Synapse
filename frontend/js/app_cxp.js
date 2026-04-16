@@ -2654,6 +2654,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 closeEditProviderModal();
                 fetchProviders(); // Refresh config list
 
+                // Auto-recalculate any open payment modal for this provider
+                if (typeof window._abRecalcAfterProviderSave === 'function') {
+                    window._abRecalcAfterProviderSave(codProv);
+                }
+                if (typeof window._pmRecalcAfterProviderSave === 'function') {
+                    window._pmRecalcAfterProviderSave(codProv);
+                }
+
                 // Update type in current data cache if it exists
                 if (window.currentData) {
                     window.currentData.forEach(item => {
@@ -3381,6 +3389,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         fillDefaultPaymentAmount(false); 
         calculateUsdAmount();
+    };
+    // Expose for external triggers (e.g., after saving provider conditions)
+    window._abRecalcAfterProviderSave = async (codProv) => {
+        if (!abonosModal.classList.contains('active')) return;
+        if (!currentCxpStatus || currentCxpStatus.CodProv !== codProv) return;
+        // Re-fetch provider conditions embedded in cxp-status
+        const cod = abCodProv.value;
+        const num = abNumeroD.value;
+        const nroU = abonosModal.dataset.nrounico || null;
+        if (!cod || !num) return;
+        await fetchCxpStatus(cod, num, nroU);
+        checkIndexationStatus();
+        showToast('✅ Montos recalculados con las nuevas condiciones del proveedor.', 'success');
     };
 
     const fillDefaultPaymentAmount = (forceUserToggle = false) => {
@@ -4124,6 +4145,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const roundFixed = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
         window.closePagoMultipleModal = () => pmModal?.classList.remove('active');
+
+        // Expose PM recalc for external triggers (e.g., after saving provider conditions)
+        window._pmRecalcAfterProviderSave = async (codProv) => {
+            if (!pmModal?.classList.contains('active')) return;
+            // Check if any row belongs to this provider
+            const rows = document.querySelectorAll('#pmInvoicesTable tr');
+            let affected = 0;
+            for (const row of rows) {
+                const rKey = row.dataset.rowkey;
+                const cxp  = pmCxpStatuses[rKey];
+                if (!cxp || cxp.CodProv !== codProv) continue;
+                // Re-fetch the latest cxp-status for this invoice
+                try {
+                    let url = `/api/procurement/cxp-status?cod_prov=${encodeURIComponent(cxp.CodProv)}&numero_d=${encodeURIComponent(cxp.NumeroD)}`;
+                    if (rKey) url += `&nro_unico=${encodeURIComponent(rKey)}`;
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const json = await res.json();
+                        pmCxpStatuses[rKey] = json.data;
+                    }
+                } catch(e) { console.warn('PM recalc: error re-fetching cxp-status', e); }
+                pmCalcRow(row);
+                affected++;
+            }
+            if (affected > 0) {
+                pmRecalcTotals();
+                showToast(`✅ ${affected} fila(s) recalculada(s) con las nuevas condiciones del proveedor.`, 'success');
+            }
+        };
 
         document.getElementById('pmGoBtnRetIva')?.addEventListener('click', () => {
             const btn = document.getElementById('pmGoBtnRetIva');
