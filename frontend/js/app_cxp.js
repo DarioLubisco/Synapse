@@ -4072,6 +4072,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const pmForm  = document.getElementById('pagoMultipleForm');
         let pmItems      = [];
         let pmCxpStatuses = {};       // keyed by NumeroD
+        window.pmCxpStatuses = pmCxpStatuses; // Accessible globally for retention UI updates
         let lastProcessedPagos = [];  // saved after successful processing for re-send
 
         document.getElementById('pmIndexadoMaster')?.addEventListener('change', (e) => {
@@ -4207,22 +4208,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!cxp) return;
 
             const historicalTasa = parseFloat(cxp.TasaEmision) || 1;
-            const tasaDia   = parseFloat(row.querySelector('.pm-tasa')?.value) || historicalTasa;
-            const indexado  = row.querySelector('.pm-indexado')?.checked;
-            const indexaIva = row.querySelector('.pm-indexado-iva') !== null ? row.querySelector('.pm-indexado-iva').checked : (cxp.IndexaIVA ?? true);
-            const prontoPago= row.querySelector('.pm-pronto-pago')?.checked;
-            const pctDesc   = prontoPago ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0;
-            const islrRate  = parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0;
-
-            const fin = calculateInvoiceFinancials(cxp, {
-                tasaDia: tasaDia,
-                aplicaIndex: indexado,
-                aplicaIndexIva: indexaIva,
-                pctDesc: pctDesc,
-                descBasePct: pmGetDescBase(cxp, row),
-                islrRate: islrRate,
-                deduceIvaBase: pmGetDeduceIvaBase(cxp),
-                deduceIvaPP: pmGetDeduceIvaPP(cxp, pctDesc)
             });
 
             // Update row hidden labels for Global Summary
@@ -4662,7 +4647,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     pmCalcRow(row);
                 });
-                row.querySelector('.pm-desc')?.addEventListener('change', () => pmCalcRow(row));
+                row.querySelector('.pm-desc')?.addEventListener('change', () => window.pmCalcRow(row));
+                row.querySelector('.pm-desc-base-check')?.addEventListener('change', () => window.pmCalcRow(row));
                 row.querySelector('.pm-btn-calc')?.addEventListener('click', () => pmOpenRowDynamic(row));
             });
 
@@ -5427,15 +5413,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             it.RetencionIvaAbonada = (parseFloat(it.RetencionIvaAbonada) || 0) + parseFloat(f.MontoRetenido);
                             
                             // Also update pmCxpStatuses which drives the UI rows
-                            const rKey = Object.keys(pmCxpStatuses).find(k => pmCxpStatuses[k].NroUnico === it.NroUnico);
-                            if (rKey) {
-                                pmCxpStatuses[rKey].HistorialAbonos = pmCxpStatuses[rKey].HistorialAbonos || [];
-                                pmCxpStatuses[rKey].HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
-                                pmCxpStatuses[rKey].RetencionIvaAbonada = it.RetencionIvaAbonada;
-                                
-                                // Re-trigger calculation to update row visually
-                                const row = document.querySelector(`.pm-table-row[data-rowkey="${rKey}"]`);
-                                if (row) pmCalcRow(row);
+                            if (window.pmCxpStatuses && window.pmCalcRow) {
+                                const rKey = Object.keys(window.pmCxpStatuses).find(k => window.pmCxpStatuses[k].NroUnico === it.NroUnico);
+                                if (rKey) {
+                                    window.pmCxpStatuses[rKey].HistorialAbonos = window.pmCxpStatuses[rKey].HistorialAbonos || [];
+                                    window.pmCxpStatuses[rKey].HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
+                                    window.pmCxpStatuses[rKey].RetencionIvaAbonada = it.RetencionIvaAbonada;
+                                    
+                                    // Re-trigger calculation to update row visually
+                                    const row = document.querySelector(`.pm-table-row[data-rowkey="${rKey}"]`);
+                                    if (row) window.pmCalcRow(row);
+                                }
                             }
                         }
                     });
@@ -5642,15 +5630,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             it.RetencionIslrAbonada = (parseFloat(it.RetencionIslrAbonada) || 0) + parseFloat(f.MontoRetenido);
                             
                             // Also update pmCxpStatuses which drives the UI rows
-                            const rKey = Object.keys(pmCxpStatuses).find(k => pmCxpStatuses[k].NroUnico === it.NroUnico);
-                            if (rKey) {
-                                pmCxpStatuses[rKey].HistorialAbonos = pmCxpStatuses[rKey].HistorialAbonos || [];
-                                pmCxpStatuses[rKey].HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
-                                pmCxpStatuses[rKey].RetencionIslrAbonada = it.RetencionIslrAbonada;
-                                
-                                // Re-trigger calculation to update row visually
-                                const row = document.querySelector(`.pm-table-row[data-rowkey="${rKey}"]`);
-                                if (row) pmCalcRow(row);
+                            if (window.pmCxpStatuses && window.pmCalcRow) {
+                                const rKey = Object.keys(window.pmCxpStatuses).find(k => window.pmCxpStatuses[k].NroUnico === it.NroUnico);
+                                if (rKey) {
+                                    window.pmCxpStatuses[rKey].HistorialAbonos = window.pmCxpStatuses[rKey].HistorialAbonos || [];
+                                    window.pmCxpStatuses[rKey].HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
+                                    window.pmCxpStatuses[rKey].RetencionIslrAbonada = it.RetencionIslrAbonada;
+                                    
+                                    // Re-trigger calculation to update row visually
+                                    const row = document.querySelector(`.pm-table-row[data-rowkey="${rKey}"]`);
+                                    if (row) window.pmCalcRow(row);
+                                }
                             }
                         }
                     });
