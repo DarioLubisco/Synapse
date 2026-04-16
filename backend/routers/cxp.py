@@ -348,7 +348,7 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
                        SUM(CASE WHEN TipoAbono = 'RETENCION_IVA' THEN MontoBsAbonado ELSE 0 END) AS TotalIVA,
                        SUM(CASE WHEN TipoAbono = 'RETENCION_ISLR' THEN MontoBsAbonado ELSE 0 END) AS TotalISLR
                 FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos A 
-                WHERE A.CodProv = SAACXP.CodProv AND A.NumeroD = SAACXP.NumeroD
+                WHERE A.CodProv = SAACXP.CodProv AND A.NumeroD = SAACXP.NumeroD AND ISNULL(A.AfectaSaldo, 1) = 1
             ) abonos
             OUTER APPLY (
                 SELECT TOP 1 NumeroD
@@ -1100,6 +1100,39 @@ async def registrar_abonos_batch(
             monto_abono = float(p.get('MontoBsAbonado', 0))
             monto_ajuste = float(p.get('MontoAjusteBs', 0))
             
+            # Phase 14: Log Discounts in Batch (Feature Parity)
+            monto_desc = float(p.get('MontoDescuentoBs', 0))
+            if monto_desc > 0:
+                cursor.execute("SELECT ISNULL(MAX(AbonoID), 0) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos")
+                max_desc_id = int(cursor.fetchone()[0]) + 1
+                cursor.execute("""
+                    INSERT INTO EnterpriseAdmin_AMC.dbo.CxP_Abonos 
+                    (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado,
+                     AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, MotivoAjusteID, AfectaSaldo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'DESCUENTO APLICADO (LOTE)', NULL, 0, ?, ?, 'DESCUENTO', ?, 0)
+                """, (
+                    max_desc_id, p['NumeroD'], p['CodProv'], p['FechaAbono'],
+                    monto_desc, float(p.get('TasaCambioDiaAbono', 0)),
+                    monto_desc / float(p.get('TasaCambioDiaAbono', 1)) if float(p.get('TasaCambioDiaAbono', 0)) > 0 else 0,
+                    aplica_idx, tasa_orig, mto_orig, p.get('MotivoDescuentoID')
+                ))
+
+            monto_desc_base = float(p.get('MontoDescuentoBaseBs', 0))
+            if monto_desc_base > 0:
+                cursor.execute("SELECT ISNULL(MAX(AbonoID), 0) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos")
+                max_desc_base_id = int(cursor.fetchone()[0]) + 1
+                cursor.execute("""
+                    INSERT INTO EnterpriseAdmin_AMC.dbo.CxP_Abonos 
+                    (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado,
+                     AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, MotivoAjusteID, AfectaSaldo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'DESCUENTO BASE (LOTE)', NULL, 0, ?, ?, 'DESCUENTO_BASE', NULL, 0)
+                """, (
+                    max_desc_base_id, p['NumeroD'], p['CodProv'], p['FechaAbono'],
+                    monto_desc_base, float(p.get('TasaCambioDiaAbono', 0)),
+                    monto_desc_base / float(p.get('TasaCambioDiaAbono', 1)) if float(p.get('TasaCambioDiaAbono', 0)) > 0 else 0,
+                    aplica_idx, tasa_orig, mto_orig
+                ))
+
             if monto_ajuste > 0:
                 monto_abono += monto_ajuste
                 cursor.execute("SELECT ISNULL(MAX(AbonoID), 0) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos")
@@ -1115,6 +1148,7 @@ async def registrar_abonos_batch(
                     monto_ajuste, tasa_dia, monto_ajuste / tasa_dia if tasa_dia > 0 else 0,
                     aplica_idx, tasa_orig, mto_orig, motivo_ajuste_id
                 ))
+
             
             # Update SACOMP.MtoPagos and SAACXP.Saldo for consistency
             nro_unico = p.get('NroUnico')
@@ -1164,7 +1198,7 @@ async def registrar_abonos_batch(
                 saacxp_row = cursor.fetchone()
                 if saacxp_row:
                     orig_bs = float(saacxp_row[0])
-                    cursor.execute("SELECT SUM(MontoBsAbonado) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WITH (NOLOCK) WHERE NumeroD = ? AND CodProv = ?", (p['NumeroD'], p['CodProv']))
+                    cursor.execute("SELECT SUM(MontoBsAbonado) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WITH (NOLOCK) WHERE NumeroD = ? AND CodProv = ? AND ISNULL(AfectaSaldo, 1) = 1", (p['NumeroD'], p['CodProv']))
                     total_paid_bs = cursor.fetchone()[0] or 0
                     
                     discrepancia = float(total_paid_bs) - orig_bs

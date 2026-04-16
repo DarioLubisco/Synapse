@@ -4715,18 +4715,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const rawNumeroD = row.dataset.numerod;
                 
+                // Phase 14: Calculate Discounts for Batch (Feature Parity)
+                let montoDescBs = 0;
+                let montoDescBaseBs = 0;
+                let motivoDescID = null;
+
+                if (cxp) {
+                    const pctDesc = row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0;
+                    const descBasePct = pmGetDescBase(cxp, row);
+                    
+                    if (pctDesc > 0 || descBasePct > 0) {
+                        const finParams = {
+                            tasaDia: tasa || cxp.TasaEmision || 1,
+                            aplicaIndex: indexado,
+                            aplicaIndexIva: row.querySelector('.pm-indexado-iva') !== null ? row.querySelector('.pm-indexado-iva').checked : (cxp.IndexaIVA ?? true),
+                            islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
+                            deduceIvaBase: pmGetDeduceIvaBase(cxp),
+                            deduceIvaPP: pmGetDeduceIvaPP(cxp, pctDesc)
+                        };
+                        const f0 = calculateInvoiceFinancials(cxp, { ...finParams, pctDesc: 0, descBasePct: 0 });
+                        const fB = calculateInvoiceFinancials(cxp, { ...finParams, pctDesc: 0, descBasePct: descBasePct });
+                        const fA = calculateInvoiceFinancials(cxp, { ...finParams, pctDesc: pctDesc, descBasePct: descBasePct });
+                        
+                        montoDescBaseBs = +(f0.finalBs - fB.finalBs).toFixed(2);
+                        montoDescBs = +(fB.finalBs - fA.finalBs).toFixed(2);
+                        
+                        if (montoDescBs > 0) {
+                            const selMotivo = document.getElementById('pmMotivoAjuste');
+                            const ppOpt = Array.from(selMotivo?.options || []).find(o => o.text.includes('100') || o.text.toLowerCase().includes('pronto pago'));
+                            if (ppOpt) motivoDescID = ppOpt.value;
+                        }
+                    }
+                }
+
                 // Calculate missing amount for this row
                 let montoAjusteBs = 0;
                 let finalMontoBs = montoBs;
                 let finalMontoUsd = montoUsd;
                 
                 if (isAjusteActivo) {
-                    const motiElement = document.getElementById('pmMotivoAjuste');
-                    const motiText = motiElement && motiElement.selectedIndex >= 0 ? motiElement.options[motiElement.selectedIndex].text : '';
                     if (cxp) {
                         let deudaReal = cxp.Saldo || 0;
                         if (deudaReal <= 0) deudaReal = cxp.Monto || 0;
                         
+                        // Recalculate financial requirement including discounts
+                        const finExigido = calculateInvoiceFinancials(cxp, {
+                            tasaDia: tasa || cxp.TasaEmision || 1,
+                            aplicaIndex: indexado,
+                            aplicaIndexIva: row.querySelector('.pm-indexado-iva') !== null ? row.querySelector('.pm-indexado-iva').checked : (cxp.IndexaIVA ?? true),
+                            pctDesc: row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0,
+                            descBasePct: pmGetDescBase(cxp, row),
+                            islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
+                            deduceIvaBase: pmGetDeduceIvaBase(cxp),
+                            deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0)
+                        });
+
+                        const deudaExigidaHoy = finExigido.finalBs;
+
                         // Universal Auto-split overpayment shield (protect ERP balances)
                         if (montoBs > deudaReal && deudaReal > 0) {
                             montoAjusteBs = +(montoBs - deudaReal).toFixed(2);
@@ -4734,10 +4779,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             const tasaAplicada = tasa || cxp.TasaEmision || 1;
                             finalMontoUsd = +(finalMontoBs / tasaAplicada).toFixed(2);
                         } else {
-                            const dif = +(deudaReal - montoBs).toFixed(2);
+                            // Waterfall-to-Adjustment: If we paid less than the exiged amount, we adjust the difference
+                            const dif = +(deudaExigidaHoy - montoBs).toFixed(2);
                             if (dif > 0) {
                                 montoAjusteBs = dif;
-                                if (dif > (deudaReal * 0.10)) {
+                                if (dif > (deudaExigidaHoy * 0.10)) {
                                     showAlert10Pct = true;
                                 }
                             }
@@ -4753,11 +4799,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     MontoBsAbonado: finalMontoBs,
                     MontoAjusteBs: montoAjusteBs,
                     MotivoAjusteID: document.getElementById('pmMotivoAjuste')?.value || null,
+                    MontoDescuentoBs: montoDescBs,
+                    MotivoDescuentoID: motivoDescID,
+                    MontoDescuentoBaseBs: montoDescBaseBs,
                     TasaCambioDiaAbono: indexado ? tasa : (cxp?.TasaEmision || 0),
                     MontoUsdAbonado: finalMontoUsd,
                     AplicaIndexacion: indexado || false,
                     Referencia: referencia
                 });
+
             });
 
             if (pagos.length === 0) {
