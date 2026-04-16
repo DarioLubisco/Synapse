@@ -1087,8 +1087,8 @@ async def registrar_abonos_batch(
             
             cursor.execute("""
                 INSERT INTO EnterpriseAdmin_AMC.dbo.CxP_Abonos 
-                (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAGO_MANUAL')
+                (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, AfectaSaldo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAGO_MANUAL', 1)
             """, (
                 max_abono_id, p['NumeroD'], p['CodProv'], p['FechaAbono'],
                 float(p.get('MontoBsAbonado', 0)), float(p.get('TasaCambioDiaAbono', 0)),
@@ -1108,8 +1108,8 @@ async def registrar_abonos_batch(
                 motivo_ajuste_id = p.get('MotivoAjusteID') or None
                 cursor.execute("""
                     INSERT INTO EnterpriseAdmin_AMC.dbo.CxP_Abonos 
-                    (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, MotivoAjusteID)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AJUSTE DE SISTEMA', NULL, 0, ?, ?, 'AJUSTE', ?)
+                    (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, MotivoAjusteID, AfectaSaldo)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AJUSTE DE SISTEMA', NULL, 0, ?, ?, 'AJUSTE', ?, 1)
                 """, (
                     max_abono_id2, p['NumeroD'], p['CodProv'], p['FechaAbono'],
                     monto_ajuste, tasa_dia, monto_ajuste / tasa_dia if tasa_dia > 0 else 0,
@@ -1290,8 +1290,8 @@ async def registrar_abono(
 
         insert_query = """
             INSERT INTO EnterpriseAdmin_AMC.dbo.CxP_Abonos 
-            (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAGO_MANUAL')
+            (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, AfectaSaldo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PAGO_MANUAL', 1)
         """
         cursor.execute(insert_query, (
             max_abono_id, NumeroD, CodProv, FechaAbono,
@@ -1340,8 +1340,8 @@ async def registrar_abono(
             max_abono_id2 = int(cursor.fetchone()[0]) + 1
             insert_ajuste = """
                 INSERT INTO EnterpriseAdmin_AMC.dbo.CxP_Abonos 
-                (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, MotivoAjusteID)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AJUSTE DE SISTEMA', NULL, 0, ?, ?, 'AJUSTE', ?)
+                (AbonoID, NumeroD, CodProv, FechaAbono, MontoBsAbonado, TasaCambioDiaAbono, MontoUsdAbonado, AplicaIndexacion, Referencia, RutaComprobante, NotificarCorreo, TasaCambioOrig, MontoMExOrig, TipoAbono, MotivoAjusteID, AfectaSaldo)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AJUSTE DE SISTEMA', NULL, 0, ?, ?, 'AJUSTE', ?, 1)
             """
             cursor.execute(insert_ajuste, (
                 max_abono_id2, NumeroD, CodProv, FechaAbono,
@@ -1365,7 +1365,7 @@ async def registrar_abono(
             saacxp_row = cursor.fetchone()
             if saacxp_row:
                 orig_bs = float(saacxp_row[0])
-                cursor.execute("SELECT SUM(MontoBsAbonado) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WITH (NOLOCK) WHERE NumeroD = ? AND CodProv = ?", (NumeroD, CodProv))
+                cursor.execute("SELECT SUM(MontoBsAbonado) FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WITH (NOLOCK) WHERE NumeroD = ? AND CodProv = ? AND ISNULL(AfectaSaldo, 1) = 1", (NumeroD, CodProv))
                 total_paid_bs = cursor.fetchone()[0] or 0
                 
                 discrepancia = float(total_paid_bs) - orig_bs
@@ -1832,7 +1832,7 @@ async def get_cxp_status(cod_prov: str = Query(...), numero_d: str = Query(...),
                        SUM(CASE WHEN TipoAbono = 'RETENCION_IVA' THEN MontoBsAbonado ELSE 0 END) AS TotalIVA,
                        SUM(CASE WHEN TipoAbono = 'RETENCION_ISLR' THEN MontoBsAbonado ELSE 0 END) AS TotalISLR
                 FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos
-                WHERE CodProv = cxp.CodProv AND NumeroD = cxp.NumeroD
+                WHERE CodProv = cxp.CodProv AND NumeroD = cxp.NumeroD AND ISNULL(AfectaSaldo, 1) = 1
             ) abonos
             OUTER APPLY (
                 SELECT TOP 1 dolarbcv 
@@ -1983,7 +1983,7 @@ async def get_debit_notes(search: Optional[str] = None, estatus: Optional[str] =
             CROSS APPLY (
                 SELECT SUM(a.MontoBsAbonado) as TotalBsAbonado
                 FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos a
-                WHERE a.CodProv = cxp.CodProv AND a.NumeroD = cxp.NumeroD
+                WHERE a.CodProv = cxp.CodProv AND a.NumeroD = cxp.NumeroD AND ISNULL(a.AfectaSaldo, 1) = 1
             ) abonos
         """
         params = []

@@ -3230,7 +3230,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const fin = calculateInvoiceFinancials(d, {
                 tasaDia: tasaDia,
                 aplicaIndex: aplicaIndex,
-                aplicaIndexIva: abIndexaIva?.checked ?? true,
+                aplicaIndexIva: document.getElementById('abIndexaIVA')?.checked ?? true,
                 pctDesc: pctDescuento,
                 descBasePct: descBasePct,
                 islrRate: islrRateModal,
@@ -3419,7 +3419,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fin = calculateInvoiceFinancials(d, {
             tasaDia: tasaActual,
             aplicaIndex: aplicaIndexacion,
-            aplicaIndexIva: abIndexaIva?.checked ?? true,
+            aplicaIndexIva: document.getElementById('abIndexaIVA')?.checked ?? true,
             pctDesc: pctDescuento,
             descBasePct: descBase,
             islrRate: islrRate,
@@ -3535,7 +3535,7 @@ document.addEventListener('DOMContentLoaded', () => {
         calculateUsdAmount();
     });
     
-    abIndexaIva?.addEventListener('change', (e) => {
+    document.getElementById('abIndexaIVA')?.addEventListener('change', (e) => {
         if (e.target.checked && !abAplicaIndex.checked) {
             e.target.checked = false;
         } else {
@@ -3545,8 +3545,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     abAplicaIndex?.addEventListener('change', (e) => {
-        if (!e.target.checked && abIndexaIva) {
-            abIndexaIva.checked = false;
+        const abIndexIva = document.getElementById('abIndexaIVA');
+        if (!e.target.checked && abIndexIva) {
+            abIndexIva.checked = false;
         }
     });
     
@@ -3696,19 +3697,23 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             let pagoReal = parseFloat(abMontoBs.value) || 0;
             const deudaAcumuladaBs = fin.finalBs; // Lo que realmente se exige hoy en día
+            let diferencia = (deudaAcumuladaBs - pagoReal);
             
-            let diferencia = 0;
-            if (pagoReal > deudaAcumuladaBs) {
-                // SOBREPAGO: El usuario paga céntimos o bolívares extra sobre la deuda indexada
-                diferencia = (pagoReal - deudaAcumuladaBs); 
-                pagoReal = deudaAcumuladaBs; // Cap what we log as direct PAGO 
-                
-                const tasaAplicada = abAplicaIndex.checked ? (parseFloat(abTasa.value) || 1) : (currentCxpStatus.TasaEmision || 1);
-                formData.set('MontoBsAbonado', pagoReal.toFixed(2));
-                formData.set('MontoUsdAbonado', (pagoReal / tasaAplicada).toFixed(2));
-            } else if (pagoReal < deudaAcumuladaBs) {
-                // SUBPAGO: El usuario paga de menos, la factura se asume con Ajuste
-                diferencia = (deudaAcumuladaBs - pagoReal);
+            // Universal Auto-Split overpayment shield: Si pagan más de la deuda ERP, exigimos split para proteger Saint
+            let deudaOriginalBs = currentCxpStatus.Saldo || 0;
+            if (deudaOriginalBs <= 0) deudaOriginalBs = currentCxpStatus.Monto || 0;
+            
+            if (pagoReal > deudaOriginalBs && deudaOriginalBs > 0) {
+                 const tasaAplicada = abAplicaIndex.checked ? (parseFloat(abTasa.value) || 1) : (currentCxpStatus.TasaEmision || 1);
+                 const overpay = pagoReal - deudaOriginalBs;
+                 pagoReal = deudaOriginalBs; // Cap what goes into ERP
+                 const usdProrrateado = pagoReal / tasaAplicada;
+                 
+                 formData.set('MontoBsAbonado', pagoReal.toFixed(2));
+                 formData.set('MontoUsdAbonado', usdProrrateado.toFixed(2));
+                 diferencia = overpay; // The excess goes to Ajuste local table
+            } else {
+                 diferencia = (deudaAcumuladaBs - pagoReal); // Normal discrepancy 
             }
             
             if (diferencia > 0) {
