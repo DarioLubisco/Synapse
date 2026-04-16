@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  # -- Backend: FastAPI para Cierre de Caja --
+  # ── Synapse Backend: FastAPI ──
   synapse-api:
-    build: 
+    build:
       context: ./backend
     container_name: synapse-api
     restart: unless-stopped
@@ -22,7 +22,7 @@ services:
         limits:
           memory: 256M
 
-  # -- Frontend: Dashboard Glassmorphism --
+  # ── Synapse Frontend: Nginx ──
   synapse-frontend:
     image: nginx:alpine
     container_name: synapse-frontend
@@ -35,4 +35,123 @@ services:
     deploy:
       resources:
         limits:
+          memory: 128M
+
+  # ═══════════════════════════════════════════════════════════
+  # PostgreSQL Compartido (Synapse + Chatwoot)
+  # ═══════════════════════════════════════════════════════════
+  postgres-db:
+    image: pgvector/pgvector:pg16
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=chatwoot_production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+  # ═══════════════════════════════════════════════════════════
+  # Redis — Caché y cola de trabajos para Chatwoot
+  # ═══════════════════════════════════════════════════════════
+  chatwoot-redis:
+    image: redis:alpine
+    container_name: chatwoot-redis
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\""]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - chatwoot_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
           memory: 256M
+
+  # ═══════════════════════════════════════════════════════════
+  # Chatwoot — Servidor Web (Rails)
+  # ═══════════════════════════════════════════════════════════
+  chatwoot-rails:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot-rails
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.chatwoot
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+      - POSTGRES_HOST=postgres-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DATABASE=chatwoot_production
+      - REDIS_URL=redis://chatwoot-redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    entrypoint: docker/entrypoints/rails.sh
+    command: ['bundle', 'exec', 'rails', 's', '-p', '3000', '-b', '0.0.0.0']
+    volumes:
+      - chatwoot_storage:/app/storage
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      chatwoot-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+
+  # ═══════════════════════════════════════════════════════════
+  # Chatwoot — Sidekiq (Jobs en segundo plano)
+  # ═══════════════════════════════════════════════════════════
+  chatwoot-sidekiq:
+    image: chatwoot/chatwoot:latest
+    container_name: chatwoot-sidekiq
+    restart: unless-stopped
+    env_file:
+      - .env.chatwoot
+    environment:
+      - NODE_ENV=production
+      - RAILS_ENV=production
+      - INSTALLATION_ENV=docker
+      - POSTGRES_HOST=postgres-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USERNAME=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DATABASE=chatwoot_production
+      - REDIS_URL=redis://chatwoot-redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    command: ['bundle', 'exec', 'sidekiq', '-C', 'config/sidekiq.yml']
+    volumes:
+      - chatwoot_storage:/app/storage
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      chatwoot-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+volumes:
+  postgres_data:
+  chatwoot_redis_data:
+  chatwoot_storage:
