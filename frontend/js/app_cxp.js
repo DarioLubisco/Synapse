@@ -5422,6 +5422,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (it) {
                             it.HistorialAbonos = it.HistorialAbonos || [];
                             it.HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
+                            
+                            // Propagate to currentData so recalculations get the real value
+                            it.RetencionIvaAbonada = (parseFloat(it.RetencionIvaAbonada) || 0) + parseFloat(f.MontoRetenido);
+                            
+                            // Also update pmCxpStatuses which drives the UI rows
+                            const rKey = Object.keys(pmCxpStatuses).find(k => pmCxpStatuses[k].NroUnico === it.NroUnico);
+                            if (rKey) {
+                                pmCxpStatuses[rKey].HistorialAbonos = pmCxpStatuses[rKey].HistorialAbonos || [];
+                                pmCxpStatuses[rKey].HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
+                                pmCxpStatuses[rKey].RetencionIvaAbonada = it.RetencionIvaAbonada;
+                                
+                                // Re-trigger calculation to update row visually
+                                const row = document.querySelector(`.pm-table-row[data-rowkey="${rKey}"]`);
+                                if (row) pmCalcRow(row);
+                            }
                         }
                     });
                     const btnPmRetIva = document.getElementById('pmGoBtnRetIva');
@@ -5622,6 +5637,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (it) {
                             it.HistorialAbonos = it.HistorialAbonos || [];
                             it.HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
+                            
+                            // Propagate to currentData so recalculations get the real value
+                            it.RetencionIslrAbonada = (parseFloat(it.RetencionIslrAbonada) || 0) + parseFloat(f.MontoRetenido);
+                            
+                            // Also update pmCxpStatuses which drives the UI rows
+                            const rKey = Object.keys(pmCxpStatuses).find(k => pmCxpStatuses[k].NroUnico === it.NroUnico);
+                            if (rKey) {
+                                pmCxpStatuses[rKey].HistorialAbonos = pmCxpStatuses[rKey].HistorialAbonos || [];
+                                pmCxpStatuses[rKey].HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
+                                pmCxpStatuses[rKey].RetencionIslrAbonada = it.RetencionIslrAbonada;
+                                
+                                // Re-trigger calculation to update row visually
+                                const row = document.querySelector(`.pm-table-row[data-rowkey="${rKey}"]`);
+                                if (row) pmCalcRow(row);
+                            }
                         }
                     });
                     const btnPmRetIslr = document.getElementById('pmGoBtnRetIslr');

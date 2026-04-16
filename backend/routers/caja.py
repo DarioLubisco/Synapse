@@ -127,13 +127,14 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         tot_cheque   = float(row_totales[1] if row_totales else 0.0)
 
         # 2. Desglose por instrumento desde SAIPAVTA (más preciso que CancelT)
-        # 001=TDD, 002=TDC, 004=PAGO MOVIL, 009=BIOPAGO
+        # 001=TDD, 002=TDC, 004=PAGO MOVIL, 009=BIOPAGO, 006=EFECTIVO
         cursor.execute("""
             SELECT 
                 ISNULL(SUM(CASE WHEN i.CodTarj = '001' THEN i.Monto ELSE 0 END), 0) AS TotTDD,
                 ISNULL(SUM(CASE WHEN i.CodTarj = '002' THEN i.Monto ELSE 0 END), 0) AS TotTDC,
                 ISNULL(SUM(CASE WHEN i.CodTarj = '004' THEN i.Monto ELSE 0 END), 0) AS TotPagoMovil,
                 ISNULL(SUM(CASE WHEN i.CodTarj = '009' THEN i.Monto ELSE 0 END), 0) AS TotBiopago,
+                ISNULL(SUM(CASE WHEN i.CodTarj = '006' THEN i.Monto ELSE 0 END), 0) AS TotEfectivoT,
                 ISNULL(SUM(CASE WHEN i.CodTarj NOT IN ('001','002','004','006','009') THEN i.Monto ELSE 0 END), 0) AS TotOtros
             FROM dbo.SAIPAVTA i
             JOIN dbo.SAFACT   f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
@@ -146,7 +147,10 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         tot_tdc       = float(row_elec[1] if row_elec else 0.0)
         tot_pagomovil = float(row_elec[2] if row_elec else 0.0)
         tot_biopago   = float(row_elec[3] if row_elec else 0.0)
-        tot_otros     = float(row_elec[4] if row_elec else 0.0)
+        tot_efectivot = float(row_elec[4] if row_elec else 0.0)
+        tot_otros     = float(row_elec[5] if row_elec else 0.0)
+        
+        tot_efectivo += tot_efectivot
         tot_tarjeta   = tot_tdd + tot_tdc + tot_pagomovil + tot_biopago + tot_otros
 
         totales_sistema = {
@@ -456,18 +460,38 @@ async def get_resumen_diario(fecha: str):
     try:
         # 1. Totales del sistema por vendedor para la fecha indicada
         cursor.execute('''
+            WITH TotalesFactura AS (
+                SELECT 
+                    f.CodVend,
+                    COUNT(f.NumeroD) AS nro_facturas,
+                    SUM(ISNULL(f.CancelE, 0)) AS base_efectivo,
+                    SUM(ISNULL(f.CancelT, 0)) AS base_tarjeta
+                FROM dbo.SAFACT f
+                WHERE CAST(f.FechaE AS DATE) = ?
+                  AND f.TipoFac IN ('A', 'C')
+                GROUP BY f.CodVend
+            ),
+            EfecEnTarj AS (
+                SELECT 
+                    f.CodVend,
+                    SUM(ISNULL(i.Monto, 0)) AS efec_tarj
+                FROM dbo.SAIPAVTA i
+                JOIN dbo.SAFACT f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
+                WHERE CAST(f.FechaE AS DATE) = ?
+                  AND f.TipoFac IN ('A', 'C')
+                  AND i.CodTarj = '006'
+                GROUP BY f.CodVend
+            )
             SELECT 
-                f.CodVend,
+                t.CodVend,
                 v.Descrip AS nombre,
-                ISNULL(SUM(f.CancelE), 0) AS tot_efectivo_sis,
-                ISNULL(SUM(f.CancelT), 0) AS tot_tarjeta_sis,
-                COUNT(f.NumeroD) AS nro_facturas
-            FROM dbo.SAFACT f
-            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
-            WHERE CAST(f.FechaE AS DATE) = ?
-              AND f.TipoFac IN ('A', 'C')
-            GROUP BY f.CodVend, v.Descrip
-        ''', (fecha,))
+                t.base_efectivo + ISNULL(e.efec_tarj, 0) AS tot_efectivo_sis,
+                t.base_tarjeta - ISNULL(e.efec_tarj, 0) AS tot_tarjeta_sis,
+                t.nro_facturas
+            FROM TotalesFactura t
+            JOIN dbo.SAVEND v ON t.CodVend = v.CodVend
+            LEFT JOIN EfecEnTarj e ON t.CodVend = e.CodVend
+        ''', (fecha, fecha))
         
         vendedores_sis = {}
         for r in cursor.fetchall():
@@ -757,17 +781,33 @@ async def generar_pdf_cierre(cierre_id: int):
 
         # 3. Totales del sistema para ese vendedor ese día
         cursor.execute("""
-            SELECT
-                ISNULL(SUM(f.CancelE), 0),
-                ISNULL(SUM(f.CancelT), 0),
-                COUNT(f.NumeroD)
-            FROM dbo.SAFACT f
-            WHERE f.CodVend = ? AND CAST(f.FechaE AS DATE) = ? AND f.TipoFac IN ('A','C')
-        """, (cierre["cod_vend"], cierre["fecha"]))
+            WITH TotalesFactura AS (
+                SELECT 
+                    SUM(ISNULL(CancelE, 0)) AS base_efectivo,
+                    SUM(ISNULL(CancelT, 0)) AS base_tarjeta,
+                    COUNT(NumeroD) AS nro_facturas
+                FROM dbo.SAFACT 
+                WHERE CodVend = ? AND CAST(FechaE AS DATE) = ? AND TipoFac IN ('A','C')
+            ),
+            EfecEnTarj AS (
+                SELECT 
+                    SUM(ISNULL(i.Monto, 0)) AS efec_tarj
+                FROM dbo.SAIPAVTA i
+                JOIN dbo.SAFACT f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
+                WHERE f.CodVend = ? AND CAST(f.FechaE AS DATE) = ? AND f.TipoFac IN ('A','C')
+                  AND i.CodTarj = '006'
+            )
+            SELECT 
+                ISNULL(t.base_efectivo, 0) + ISNULL(e.efec_tarj, 0),
+                ISNULL(t.base_tarjeta, 0) - ISNULL(e.efec_tarj, 0),
+                ISNULL(t.nro_facturas, 0)
+            FROM TotalesFactura t
+            LEFT JOIN EfecEnTarj e ON 1=1
+        """, (cierre["cod_vend"], cierre["fecha"], cierre["cod_vend"], cierre["fecha"]))
         sys_row = cursor.fetchone()
-        sis_efectivo = float(sys_row[0] or 0)
-        sis_tarjeta  = float(sys_row[1] or 0)
-        nro_facturas = int(sys_row[2] or 0)
+        sis_efectivo = float(sys_row[0] if sys_row else 0)
+        sis_tarjeta  = float(sys_row[1] if sys_row else 0)
+        nro_facturas = int(sys_row[2] if sys_row else 0)
 
         # 4. Tickets de tarjeta anotados
         cursor.execute("""
