@@ -4111,19 +4111,33 @@ document.addEventListener('DOMContentLoaded', () => {
         window.closePagoMultipleModal = () => pmModal?.classList.remove('active');
 
         document.getElementById('pmGoBtnRetIva')?.addEventListener('click', () => {
-            closePagoMultipleModal();
-            if (typeof pmItems !== 'undefined' && pmItems.length > 0) {
-                if (window.launchRetencionModal) window.launchRetencionModal(pmItems);
+            const btn = document.getElementById('pmGoBtnRetIva');
+            if (btn && btn.dataset.yaCreada === "true") {
+                const ivaItem = pmItems.find(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
+                if (ivaItem) {
+                    window.open(`/api/retenciones/by-invoice/${encodeURIComponent(ivaItem.NumeroD)}/pdf?cod_prov=${encodeURIComponent(ivaItem.CodProv)}`, '_blank');
+                }
             } else {
-                document.getElementById('btnGenerarRetencion')?.click();
+                if (typeof pmItems !== 'undefined' && pmItems.length > 0) {
+                    if (window.launchRetencionModal) window.launchRetencionModal(pmItems);
+                } else {
+                    document.getElementById('btnGenerarRetencion')?.click();
+                }
             }
         });
         document.getElementById('pmGoBtnRetIslr')?.addEventListener('click', () => {
-            closePagoMultipleModal();
-            if (typeof pmItems !== 'undefined' && pmItems.length > 0) {
-                if (window.launchRetencionIslrModal) window.launchRetencionIslrModal(pmItems);
+            const btn = document.getElementById('pmGoBtnRetIslr');
+            if (btn && btn.dataset.yaCreada === "true") {
+                const islrItem = pmItems.find(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_ISLR'));
+                if (islrItem) {
+                    window.open(`/api/retenciones-islr/by-invoice/${encodeURIComponent(islrItem.NumeroD)}/pdf?cod_prov=${encodeURIComponent(islrItem.CodProv)}`, '_blank');
+                }
             } else {
-                document.getElementById('btnGenerarRetencionIslr')?.click();
+                if (typeof pmItems !== 'undefined' && pmItems.length > 0) {
+                    if (window.launchRetencionIslrModal) window.launchRetencionIslrModal(pmItems);
+                } else {
+                    document.getElementById('btnGenerarRetencionIslr')?.click();
+                }
             }
         });
         document.getElementById('pmGoBtnND')?.addEventListener('click', () => {
@@ -4498,6 +4512,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const provName = items[0].ProveedorNombre || items[0].CodProv;
             document.getElementById('pmProvNameLabel').textContent = provName;
             document.getElementById('pmSelectedCountLabel').textContent = items.length;
+
+            // Check retentions state for action bar
+            const hasIvaRet = items.some(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
+            const hasIslrRet = items.some(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_ISLR'));
+            
+            const btnPmRetIva = document.getElementById('pmGoBtnRetIva');
+            if (btnPmRetIva) {
+                if (hasIvaRet) {
+                    btnPmRetIva.innerHTML = '<i data-lucide="file-check-2" size="16"></i> Ver Ret. IVA';
+                    btnPmRetIva.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                    btnPmRetIva.style.color = '#10b981';
+                    btnPmRetIva.style.background = 'rgba(16, 185, 129, 0.05)';
+                    btnPmRetIva.dataset.yaCreada = 'true';
+                } else {
+                    btnPmRetIva.innerHTML = '<i data-lucide="receipt" size="16"></i> Ret. IVA';
+                    btnPmRetIva.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+                    btnPmRetIva.style.color = '#06b6d4';
+                    btnPmRetIva.style.background = 'rgba(6, 182, 212, 0.05)';
+                    btnPmRetIva.dataset.yaCreada = 'false';
+                }
+            }
+
+            const btnPmRetIslr = document.getElementById('pmGoBtnRetIslr');
+            if (btnPmRetIslr) {
+                if (hasIslrRet) {
+                    btnPmRetIslr.innerHTML = '<i data-lucide="file-check-2" size="16"></i> Ver Ret. ISLR';
+                    btnPmRetIslr.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                    btnPmRetIslr.style.color = '#10b981';
+                    btnPmRetIslr.style.background = 'rgba(16, 185, 129, 0.05)';
+                    btnPmRetIslr.dataset.yaCreada = 'true';
+                } else {
+                    btnPmRetIslr.innerHTML = '<i data-lucide="file-text" size="16"></i> Ret. ISLR';
+                    btnPmRetIslr.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    btnPmRetIslr.style.color = '#ef4444';
+                    btnPmRetIslr.style.background = 'rgba(239, 68, 68, 0.05)';
+                    btnPmRetIslr.dataset.yaCreada = 'false';
+                }
+            }
 
             const today = new Date().toISOString().split('T')[0];
             const tbody = document.getElementById('pmInvoicesTable');
@@ -5227,9 +5279,13 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('genRetCodProv').value = itemsToRetain[0].CodProv;
             document.getElementById('genRetFechaEmision').value = new Date().toISOString().split('T')[0];
             
-            let provPct = parseFloat(itemsToRetain[0].PorctRet) || 75;
-            if (provPct === 0) provPct = 75;
-            document.getElementById('genRetPctGaceta').value = (provPct === 100) ? '100' : '75';
+            let provPctRaw = itemsToRetain[0].PorctRet;
+            let provPct = parseFloat(provPctRaw);
+            if (isNaN(provPct) || provPct === 0) {
+                provPct = 75;
+            }
+            console.log(`[CXP] Auto-loading IVA retention \% for provider ${itemsToRetain[0].CodProv}. Raw API value:`, provPctRaw, 'Parsed:', provPct);
+            document.getElementById('genRetPctGaceta').value = (provPct >= 100) ? '100' : '75';
 
             // Build invoice rows
             const tbody = document.getElementById('genRetInvoicesTable');
@@ -5340,7 +5396,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(`✅ Retención generada. Comprobante Nro: ${result.NumeroComprobante} (${facturas.length} factura${facturas.length > 1 ? 's' : ''})`, 'success');
                 
                 closeGenerarRetencionModal();
-                if (typeof fetchData === 'function') fetchData();
+                const pmModal = document.getElementById('pagoMultipleModal');
+                if (pmModal && pmModal.classList.contains('active')) {
+                    facturas.forEach(f => {
+                        const pmIt = pmItems.find(i => i.NumeroD === f.NumeroD);
+                        if (pmIt) {
+                            pmIt.HistorialAbonos = pmIt.HistorialAbonos || [];
+                            pmIt.HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
+                        }
+                    });
+                    const btnPmRetIva = document.getElementById('pmGoBtnRetIva');
+                    if (btnPmRetIva) {
+                        btnPmRetIva.innerHTML = '<i data-lucide="file-check-2" size="16"></i> Ver Ret. IVA';
+                        btnPmRetIva.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                        btnPmRetIva.style.color = '#10b981';
+                        btnPmRetIva.style.background = 'rgba(16, 185, 129, 0.05)';
+                        btnPmRetIva.dataset.yaCreada = 'true';
+                        lucide.createIcons();
+                    }
+                } else {
+                    if (typeof fetchData === 'function') fetchData();
+                }
             } catch (e) {
                 console.error(e);
                 showToast(e.message, 'error');
@@ -5520,7 +5596,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(`✅ Retención ISLR generada. Comprobante Nro: ${result.NumeroComprobante}`, 'success');
                 
                 closeGenerarRetencionIslrModal();
-                if (typeof fetchData === 'function') fetchData();
+                const pmModal = document.getElementById('pagoMultipleModal');
+                if (pmModal && pmModal.classList.contains('active')) {
+                    facturas.forEach(f => {
+                        const pmIt = pmItems.find(i => i.NumeroD === f.NumeroD);
+                        if (pmIt) {
+                            pmIt.HistorialAbonos = pmIt.HistorialAbonos || [];
+                            pmIt.HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
+                        }
+                    });
+                    const btnPmRetIslr = document.getElementById('pmGoBtnRetIslr');
+                    if (btnPmRetIslr) {
+                        btnPmRetIslr.innerHTML = '<i data-lucide="file-check-2" size="16"></i> Ver Ret. ISLR';
+                        btnPmRetIslr.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                        btnPmRetIslr.style.color = '#10b981';
+                        btnPmRetIslr.style.background = 'rgba(16, 185, 129, 0.05)';
+                        btnPmRetIslr.dataset.yaCreada = 'true';
+                        lucide.createIcons();
+                    }
+                } else {
+                    if (typeof fetchData === 'function') fetchData();
+                }
             } catch (e) {
                 console.error(e);
                 showToast(e.message, 'error');
