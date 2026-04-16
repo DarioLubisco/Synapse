@@ -173,7 +173,10 @@
 
             <!-- Tickets POS -->
             <div class="section-card">
-              <h3><i class="fas fa-receipt"></i> Tickets por Punto de Venta</h3>
+              <h3 style="display:flex; justify-content:space-between; align-items:center; cursor:pointer; user-select:none;" onclick="toggleTicketsCollapse()" title="Haz clic para contraer/expandir la tabla">
+                <span><i class="fas fa-receipt"></i> Tickets por Punto de Venta</span>
+                <i id="tickets-collapse-icon" class="fas fa-chevron-up" style="font-size: 0.9em; opacity: 0.8;"></i>
+              </h3>
 
               <div class="add-ticket-form">
                 <div class="input-group">
@@ -891,6 +894,16 @@
 
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
+let isTicketsCollapsed = false;
+function toggleTicketsCollapse() {
+  isTicketsCollapsed = !isTicketsCollapsed;
+  const icon = document.getElementById('tickets-collapse-icon');
+  if (icon) {
+    icon.className = isTicketsCollapsed ? 'fas fa-chevron-down' : 'fas fa-chevron-up';
+  }
+  renderTickets();
+}
+
 const state = {
   vendedor: '', vendedorNombre: '', fecha: '',
   // Totales sistema (desde SAIPAVTA + SAFACT)
@@ -1297,7 +1310,25 @@ function renderTickets() {
     emptyRow.style.display = '';
   } else {
     emptyRow.style.display = 'none';
-    state.tickets.forEach((t, i) => {
+
+    let renderList = state.tickets.map((t, i) => ({ t, i }));
+    let hiddenCount = 0;
+    
+    if (isTicketsCollapsed && renderList.length > 1) {
+      hiddenCount = renderList.length - 1;
+      // Keep only the last element
+      renderList = [renderList[renderList.length - 1]];
+      
+      // Render a "hidden indicator" row
+      const trHide = document.createElement('tr');
+      trHide.className = 'ticket-row ticket-hidden-row';
+      trHide.innerHTML = `<td colspan="5" style="text-align:center; color:var(--text-muted); font-size:0.85rem; padding: 0.65rem; background: var(--bg-card); cursor: pointer; border-bottom: 1px dashed var(--border-subtle); opacity: 0.8;" onclick="toggleTicketsCollapse()" title="Haz clic para expandir">
+        <i class="fas fa-ellipsis-h" style="margin-right: 8px;"></i> ${hiddenCount} ticket(s) oculto(s) ...
+      </td>`;
+      tbody.appendChild(trHide);
+    }
+
+    renderList.forEach(({t, i}) => {
       const tr = document.createElement('tr');
       tr.className = 'ticket-row';
       const badgeClass = t.tipo === 'TDD' ? 'status-paid' : t.tipo === 'TDC' ? 'status-planned' : t.tipo === 'BIOPAGO' ? 'btn-warning' : 'status-pending';
