@@ -339,7 +339,11 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
               ISNULL(abonos.TotalBs, 0) AS TotalBsAbonado,
               ISNULL(CASE WHEN SAACXP.Saldo <= 0 OR SAACXP.CancelC >= SAACXP.Monto THEN SACOMP.MontoMEx ELSE abonos.CalculatedTotalUSD END, 0) AS TotalUsdAbonado,
               ISNULL(abonos.TotalIVA, 0) AS RetencionIvaAbonada,
-              ISNULL(abonos.TotalISLR, 0) AS RetencionIslrAbonada
+              ISNULL(abonos.TotalISLR, 0) AS RetencionIslrAbonada,
+              ISNULL(SAPROV.PorctRet, 0) AS PorctRet,
+              ISNULL(SAPROV.EsReten, 0) AS EsReten,
+              SAPROV.ID3 AS RIF,
+              SAPROV.Descrip AS ProveedorNombre
             FROM dbo.SAACXP
             OUTER APPLY (
                 SELECT SUM(MontoBsAbonado) AS TotalBs,
@@ -390,7 +394,11 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
         columns = [column[0] for column in cursor.description]
         results = []
         for row in cursor.fetchall():
-            results.append(dict(zip(columns, row)))
+            d = dict(zip(columns, row))
+            for k, v in d.items():
+                if hasattr(v, 'quantize') or hasattr(v, 'as_tuple'):
+                    d[k] = float(v) if v is not None else 0.0
+            results.append(d)
             
         return {"data": results}
         
