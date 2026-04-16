@@ -3522,7 +3522,8 @@ def generar_pdf_retencion(config: dict, retenciones: list) -> bytes:
     pdf.set_font('Helvetica', '', 8)
     pdf.cell(0, 5, f"Documento generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'C')
     
-    return pdf.output()
+    out = pdf.output(dest='S')
+    return out.encode('latin-1') if isinstance(out, str) else bytes(out)
 
 @router.get("/api/retenciones/by-invoice/{numero_d}/pdf")
 def get_retencion_pdf_by_invoice(numero_d: str, cod_prov: str = Query(...)):
@@ -4480,7 +4481,8 @@ def generar_pdf_islr(config: dict, retenciones: list) -> bytes:
     pdf.set_font('Helvetica', '', 8)
     pdf.cell(0, 5, f"Documento generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}", 0, 1, 'C')
     
-    return pdf.output()
+    out = pdf.output(dest='S')
+    return out.encode('latin-1') if isinstance(out, str) else bytes(out)
 
 if __name__ == "__main__":
     import uvicorn # type: ignore
