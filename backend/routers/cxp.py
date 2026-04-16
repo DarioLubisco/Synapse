@@ -1060,6 +1060,7 @@ async def registrar_abonos_batch(
         
         filepaths = []
         if archivos:
+            os.makedirs("static/uploads", exist_ok=True)
             for archivo in archivos:
                 if archivo.filename:
                     ext = os.path.splitext(archivo.filename)[1]
@@ -1266,6 +1267,7 @@ async def registrar_abono(
         import json as _json
         filepaths = []
         if archivos:
+            os.makedirs("static/uploads", exist_ok=True)
             for archivo in archivos:
                 if archivo.filename:
                     ext = os.path.splitext(archivo.filename)[1]
@@ -1554,6 +1556,7 @@ async def send_email_only(
         import json as _json
         filepaths = []
         if archivos:
+            os.makedirs("static/uploads", exist_ok=True)
             for archivo in archivos:
                 if archivo.filename:
                     ext = os.path.splitext(archivo.filename)[1]
