@@ -3398,16 +3398,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let descBase = 0;
-        if (d.DescuentoBase_Condicion === 'VENCIMIENTO') {
-            const pagoDate = new Date(getDateValue(abFechaPago));
-            const vDate = new Date(d.FechaVSaint || d.FechaV_Calculada);
-            pagoDate.setHours(0,0,0,0);
-            vDate.setHours(0,0,0,0);
-            if (pagoDate <= vDate) {
+        const abDescBaseAplica = document.getElementById('abDescBaseAplica');
+        if (abDescBaseAplica && !abDescBaseAplica.checked) {
+            descBase = 0;
+        } else {
+            if (d.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                const pagoDate = new Date(getDateValue(abFechaPago));
+                const vDate = new Date(d.FechaVSaint || d.FechaV_Calculada);
+                pagoDate.setHours(0,0,0,0);
+                vDate.setHours(0,0,0,0);
+                if (pagoDate <= vDate) {
+                    descBase = parseFloat(d.DescuentoBase_Pct) || 0;
+                }
+            } else {
                 descBase = parseFloat(d.DescuentoBase_Pct) || 0;
             }
-        } else {
-            descBase = parseFloat(d.DescuentoBase_Pct) || 0;
         }
 
         const selIslr = document.getElementById('abConceptoISLR');
@@ -3543,6 +3548,11 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateUsdAmount();
         }
     });
+
+    document.getElementById('abDescBaseAplica')?.addEventListener('change', () => {
+        fillDefaultPaymentAmount(true);
+        calculateUsdAmount();
+    });
     
     abAplicaIndex?.addEventListener('change', (e) => {
         const abIndexIva = document.getElementById('abIndexaIVA');
@@ -3622,16 +3632,21 @@ document.addEventListener('DOMContentLoaded', () => {
             ? (parseFloat(document.getElementById('abTipoDescuento').value) || 0)
             : 0;
         let descBase = 0;
-        if (currentCxpStatus.DescuentoBase_Condicion === 'VENCIMIENTO') {
-            const pagoDate = new Date(getDateValue(abFechaPago));
-            const vDate = new Date(currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada);
-            pagoDate.setHours(0,0,0,0);
-            vDate.setHours(0,0,0,0);
-            if (pagoDate <= vDate) {
+        const abDescBaseAplicaForm = document.getElementById('abDescBaseAplica');
+        if (abDescBaseAplicaForm && !abDescBaseAplicaForm.checked) {
+            descBase = 0;
+        } else {
+            if (currentCxpStatus.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                const pagoDate = new Date(getDateValue(abFechaPago));
+                const vDate = new Date(currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada);
+                pagoDate.setHours(0,0,0,0);
+                vDate.setHours(0,0,0,0);
+                if (pagoDate <= vDate) {
+                    descBase = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
+                }
+            } else {
                 descBase = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
             }
-        } else {
-            descBase = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
         }
 
         if (pctDescuentoFinal > 0 || descBase > 0) {
@@ -4159,6 +4174,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // ── Helpers per-row ─────────────────────────────────────────────
         const pmGetDescBase = (cxp, row) => {
             if (!cxp || !Number(cxp.DescuentoBase_Pct)) return 0;
+            if (row) {
+                const cb = row.querySelector('.pm-desc-base-check');
+                if (cb && !cb.checked) return 0;
+            }
             if (cxp.DescuentoBase_Condicion === 'INDEPENDIENTE') {
                 return Number(cxp.DescuentoBase_Pct);
             } else if (cxp.DescuentoBase_Condicion === 'VENCIMIENTO') {
