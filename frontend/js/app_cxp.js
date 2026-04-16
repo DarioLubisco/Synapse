@@ -5418,10 +5418,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pmModal = document.getElementById('pagoMultipleModal');
                 if (pmModal && pmModal.classList.contains('active')) {
                     facturas.forEach(f => {
-                        const pmIt = pmItems.find(i => i.NumeroD === f.NumeroD);
-                        if (pmIt) {
-                            pmIt.HistorialAbonos = pmIt.HistorialAbonos || [];
-                            pmIt.HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
+                        const it = currentRetencionItems.find(i => i.NumeroD === f.NumeroD);
+                        if (it) {
+                            it.HistorialAbonos = it.HistorialAbonos || [];
+                            it.HistorialAbonos.push({ TipoAbono: 'RETENCION_IVA' });
                         }
                     });
                     const btnPmRetIva = document.getElementById('pmGoBtnRetIva');
@@ -5618,10 +5618,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pmModal = document.getElementById('pagoMultipleModal');
                 if (pmModal && pmModal.classList.contains('active')) {
                     facturas.forEach(f => {
-                        const pmIt = pmItems.find(i => i.NumeroD === f.NumeroD);
-                        if (pmIt) {
-                            pmIt.HistorialAbonos = pmIt.HistorialAbonos || [];
-                            pmIt.HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
+                        const it = currentIslrItems.find(i => i.NumeroD === f.NumeroD);
+                        if (it) {
+                            it.HistorialAbonos = it.HistorialAbonos || [];
+                            it.HistorialAbonos.push({ TipoAbono: 'RETENCION_ISLR' });
                         }
                     });
                     const btnPmRetIslr = document.getElementById('pmGoBtnRetIslr');
