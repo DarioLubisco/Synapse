@@ -2882,7 +2882,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (abDescBaseAplica && abDescBaseInfo) {
             const descBasePct = parseFloat(d.DescuentoBase_Pct) || 0;
             if (descBasePct > 0) {
-                abDescBaseAplica.checked = true;
+                let appliesInitially = true;
+                if (d.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                    const pagoD = new Date(getDateValue(document.getElementById('abFechaPago')) || new Date());
+                    const vD = new Date(d.FechaVSaint || d.FechaV_Calculada);
+                    pagoD.setHours(0,0,0,0); vD.setHours(0,0,0,0);
+                    if (pagoD > vD) appliesInitially = false;
+                }
+                abDescBaseAplica.checked = appliesInitially;
                 abDescBaseInfo.value = `${descBasePct.toFixed(2)}% (${d.DescuentoBase_Condicion === 'VENCIMIENTO' ? 'A Tiempo' : 'Siempre'})`;
                 if (abDescBaseDeduceIVA) {
                     abDescBaseDeduceIVA.disabled = false;
@@ -3376,6 +3383,17 @@ document.addEventListener('DOMContentLoaded', () => {
             abIndexaIva.checked = currentCxpStatus.IndexaIVA !== false;
         }
         
+        // Auto-check descBase if applicable
+        const abDescBaseAplica = document.getElementById('abDescBaseAplica');
+        if (abDescBaseAplica && currentCxpStatus.DescuentoBase_Condicion === 'VENCIMIENTO') {
+            const descBasePct = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
+            if (descBasePct > 0) {
+                const vDate = new Date(currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada);
+                vDate.setHours(0,0,0,0);
+                abDescBaseAplica.checked = (pagoDate <= vDate);
+            }
+        }
+
         // Dynamic Tier Selection (Pronto Pago)
         suggestDiscountTier();
 
@@ -3399,20 +3417,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let descBase = 0;
         const abDescBaseAplica = document.getElementById('abDescBaseAplica');
-        if (abDescBaseAplica && !abDescBaseAplica.checked) {
-            descBase = 0;
-        } else {
-            if (d.DescuentoBase_Condicion === 'VENCIMIENTO') {
-                const pagoDate = new Date(getDateValue(abFechaPago));
-                const vDate = new Date(d.FechaVSaint || d.FechaV_Calculada);
-                pagoDate.setHours(0,0,0,0);
-                vDate.setHours(0,0,0,0);
-                if (pagoDate <= vDate) {
-                    descBase = parseFloat(d.DescuentoBase_Pct) || 0;
-                }
-            } else {
-                descBase = parseFloat(d.DescuentoBase_Pct) || 0;
-            }
+        if (abDescBaseAplica && abDescBaseAplica.checked) {
+            descBase = parseFloat(d.DescuentoBase_Pct) || 0;
         }
 
         const selIslr = document.getElementById('abConceptoISLR');
@@ -3633,20 +3639,8 @@ document.addEventListener('DOMContentLoaded', () => {
             : 0;
         let descBase = 0;
         const abDescBaseAplicaForm = document.getElementById('abDescBaseAplica');
-        if (abDescBaseAplicaForm && !abDescBaseAplicaForm.checked) {
-            descBase = 0;
-        } else {
-            if (currentCxpStatus.DescuentoBase_Condicion === 'VENCIMIENTO') {
-                const pagoDate = new Date(getDateValue(abFechaPago));
-                const vDate = new Date(currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada);
-                pagoDate.setHours(0,0,0,0);
-                vDate.setHours(0,0,0,0);
-                if (pagoDate <= vDate) {
-                    descBase = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
-                }
-            } else {
-                descBase = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
-            }
+        if (abDescBaseAplicaForm && abDescBaseAplicaForm.checked) {
+            descBase = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
         }
 
         if (pctDescuentoFinal > 0 || descBase > 0) {
@@ -4208,7 +4202,71 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!cxp) return;
 
             const historicalTasa = parseFloat(cxp.TasaEmision) || 1;
+
+            const idxBaseCb = row.querySelector('.pm-indexado');
+            if (idxBaseCb) {
+                if (parseFloat(cxp.TasaEmision) <= 1) {
+                    idxBaseCb.checked = false;
+                    idxBaseCb.disabled = true;
+                    if(row.querySelector('.pm-indexado-iva')) {
+                        row.querySelector('.pm-indexado-iva').checked = false;
+                        row.querySelector('.pm-indexado-iva').disabled = true;
+                    }
+                } else {
+                    idxBaseCb.disabled = false;
+                    if(row.querySelector('.pm-indexado-iva')) row.querySelector('.pm-indexado-iva').disabled = false;
+                }
+            }
+
+            const tasa = parseFloat(row.querySelector('.pm-tasa-abono')?.value) || 0;
+            const indexado = row.querySelector('.pm-indexado')?.checked || false;
+
+            const fin = calculateInvoiceFinancials(cxp, {
+                tasaDia: tasa || cxp.TasaEmision || 1,
+                aplicaIndex: indexado,
+                aplicaIndexIva: row.querySelector('.pm-indexado-iva') !== null ? row.querySelector('.pm-indexado-iva').checked : (cxp.IndexaIVA ?? true),
+                pctDesc: row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0,
+                descBasePct: pmGetDescBase(cxp, row),
+                islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
+                deduceIvaBase: pmGetDeduceIvaBase(cxp),
+                deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0)
             });
+
+            const finExigido = calculateInvoiceFinancials(cxp, {
+                tasaDia: indexado ? (tasa || cxp.TasaEmision || 1) : historicalTasa,
+                aplicaIndex: indexado,
+                aplicaIndexIva: row.querySelector('.pm-indexado-iva') !== null ? row.querySelector('.pm-indexado-iva').checked : (cxp.IndexaIVA ?? true),
+                pctDesc: row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0,
+                descBasePct: pmGetDescBase(cxp, row),
+                islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
+                deduceIvaBase: pmGetDeduceIvaBase(cxp),
+                deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0)
+            });
+
+            const deudaExigidaHoy = finExigido.finalBs;
+
+            // Universal Auto-split overpayment shield (protect ERP balances)
+            const pmMontoTotalReal = row.querySelector('.pm-monto-bs');
+            let isManualEdit = pmMontoTotalReal && pmMontoTotalReal.dataset.manualEdit === "true";
+            
+            let finalMontoBs = parseFloat(pmMontoTotalReal.value) || 0;
+            if (!isManualEdit || finalMontoBs < 0.01) {
+                finalMontoBs = deudaExigidaHoy;
+                if (pmMontoTotalReal) {
+                    pmMontoTotalReal.value = finalMontoBs.toFixed(2);
+                    pmMontoTotalReal.dataset.manualEdit = "false";
+                }
+            } else if (finalMontoBs > (deudaExigidaHoy + 0.05)) {
+                // Shield activated
+                finalMontoBs = deudaExigidaHoy;
+                if (pmMontoTotalReal) {
+                    pmMontoTotalReal.value = finalMontoBs.toFixed(2);
+                    pmMontoTotalReal.dataset.manualEdit = "false";
+                }
+                showToast(`🛡️ Sobrepago prevenido en Factura ${cxp.NroControl || cxp.NumeroD}. Monto ajustado a la deuda real (Bs ${finalMontoBs.toFixed(2)}).`, 'info');
+            }
+
+            pmRecalcRowUsdAmount(row);
 
             // Update row hidden labels for Global Summary
             if(row.querySelector('.pm-base-bs'))       row.querySelector('.pm-base-bs').textContent       = fin.baseBs.toFixed(2);
