@@ -5226,7 +5226,10 @@ document.addEventListener('DOMContentLoaded', () => {
             currentRetencionItems = itemsToRetain;
             document.getElementById('genRetCodProv').value = itemsToRetain[0].CodProv;
             document.getElementById('genRetFechaEmision').value = new Date().toISOString().split('T')[0];
-            document.getElementById('genRetPctGaceta').value = '75';
+            
+            let provPct = parseFloat(itemsToRetain[0].PorctRet) || 75;
+            if (provPct === 0) provPct = 75;
+            document.getElementById('genRetPctGaceta').value = (provPct === 100) ? '100' : '75';
 
             // Build invoice rows
             const tbody = document.getElementById('genRetInvoicesTable');
