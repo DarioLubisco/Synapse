@@ -3411,7 +3411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Expose for external triggers (e.g., after saving provider conditions)
     window._abRecalcAfterProviderSave = async (codProv) => {
         if (!abonosModal.classList.contains('active')) return;
-        if (!currentCxpStatus || currentCxpStatus.CodProv !== codProv) return;
+        if (!currentCxpStatus || String(currentCxpStatus.CodProv).trim() !== String(codProv).trim()) return;
         // Re-fetch provider conditions embedded in cxp-status
         const cod = abCodProv.value;
         const num = abNumeroD.value;
@@ -4150,7 +4150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (const row of rows) {
                 const rKey = row.dataset.rowkey;
                 const cxp  = pmCxpStatuses[rKey];
-                if (!cxp || cxp.CodProv !== codProv) continue;
+                if (!cxp || String(cxp.CodProv).trim() !== String(codProv).trim()) continue;
                 // Re-fetch the latest cxp-status for this invoice
                 try {
                     let url = `/api/procurement/cxp-status?cod_prov=${encodeURIComponent(cxp.CodProv)}&numero_d=${encodeURIComponent(cxp.NumeroD)}`;
