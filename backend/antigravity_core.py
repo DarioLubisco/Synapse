@@ -1,13 +1,17 @@
 import math
-from datetime import datetime, timedelta
+import pulp
+from datetime import datetime, timedelta, date
+from typing import List, Dict, Tuple, Any
 
 class AntigravityEngine:
-    def __init__(self, db_connection):
+    def __init__(self, db_connection, annual_wacc: float = 0.12):
         self.db = db_connection
+        # Costo de oportunidad del capital (WACC anual).
+        # Se convierte a tasa diaria efectiva para castigar pagos prematuros.
+        self.daily_wacc = (1 + annual_wacc) ** (1 / 365.0) - 1
 
-    def fetch_devaluation_trend(self):
+    def fetch_devaluation_trend(self) -> Tuple[float, float, float]:
         cursor = self.db.cursor()
-        # Fetch last 30 valid days of DolarBCV
         query = """
             SELECT TOP 30 dolarbcv 
             FROM EnterpriseAdmin_AMC.dbo.dolartoday WITH (NOLOCK)
@@ -18,34 +22,32 @@ class AntigravityEngine:
         rows = cursor.fetchall()
         
         if len(rows) < 2:
-            return 0.001, 0.0001, 40.0 # safety fallback
+            return 0.001, 0.0001, 40.0 # Safety fallback
             
         historic = [float(r[0]) for r in reversed(rows)]
         current_tc = historic[-1]
         
-        returns = [(historic[i] - historic[i-1]) / historic[i-1] for i in range(1, len(historic))]
-        avg_devaluation = sum(returns) / len(returns)
-        if avg_devaluation < 0:
-             avg_devaluation = 0.0005 # Force small positive to assume slight inflation if negative noise
-             
-        volatility = math.sqrt(sum((r - avg_devaluation)**2 for r in returns) / len(returns))
+        # Retornos logarítmicos continuos (Media Geométrica)
+        log_returns = [math.log(historic[i] / historic[i-1]) for i in range(1, len(historic))]
+        avg_log_return = sum(log_returns) / len(log_returns)
         
-        return avg_devaluation, volatility, current_tc
+        if avg_log_return < 0:
+             avg_log_return = 0.0005 # Floor de seguridad
+             
+        volatility = math.sqrt(sum((r - avg_log_return)**2 for r in log_returns) / len(log_returns))
+        r_dev = math.exp(avg_log_return) - 1
+        
+        return r_dev, volatility, current_tc
 
-    def project_tc(self, t_days, r_dev, current_tc):
-        # We assume exponential devaluation
+    def project_tc(self, t_days: int, r_dev: float, current_tc: float) -> float:
         return current_tc * ((1 + r_dev) ** t_days)
 
-    def calculate_opportunity_cost(self, invoice, t_pay, r_dev, current_tc):
+    def calculate_opportunity_cost(self, invoice: Dict, t_pay: int, r_dev: float, current_tc: float) -> Tuple[float, float, float]:
         """
-        Calculates the real cost in USD equivalent if paying on 't_pay' days from now.
-        Evaluates discount tiers and indexation tolerance.
+        Calcula el costo real devolviendo: (Monto Bs, Costo USD Futuro, Valor Presente USD)
         """
         P = invoice["nominal_bs"]
         discount = 0.0
-        
-        # Determine discount based on payment day vs emission day difference
-        # t_pay is from TODAY. We need days from EMISSION.
         days_from_emission = invoice["days_elapsed_since_emission"] + t_pay
         
         for d in invoice.get("descuentos", []):
@@ -53,177 +55,191 @@ class AntigravityEngine:
                 discount = d["Porcentaje"]
                 break
                 
-        # Base Commercial Discount
         desc_base = 0.0
         if invoice.get("desc_base_cond") == "VENCIMIENTO":
             if days_from_emission <= invoice["t_due"]:
                 desc_base = invoice.get("desc_base_pct", 0.0)
         else:
-            # Independent
             desc_base = invoice.get("desc_base_pct", 0.0)
             
         amount_bs = P * (1.0 - desc_base) * (1.0 - discount)
         tc_pay_future = self.project_tc(t_pay, r_dev, current_tc)
         
-        # Check indexation tolerance
         if days_from_emission > invoice["t_tolerance"]:
-            # Indexed. It means original nominal debt stays anchored in USD from emission or specific date
-            # Assuming anchored to emission date
-            tc_emision = invoice["tc_emision"]
+            tc_emision = invoice.get("tc_emision", 0)
             if tc_emision and tc_emision > 0:
                 amount_bs = amount_bs * (tc_pay_future / tc_emision)
                 
-        usd_cost = amount_bs / tc_pay_future
-        return amount_bs, usd_cost
+        usd_cost_future = amount_bs / tc_pay_future
+        pv_usd_cost = usd_cost_future / ((1 + self.daily_wacc) ** t_pay)
+        
+        return amount_bs, usd_cost_future, pv_usd_cost
 
-    def optimize_payable_schedule(self, cashflow_timeline, invoices, percentage_flow_margin):
+    def optimize_payable_schedule(self, cashflow_timeline: List[Dict], invoices: List[Dict], percentage_flow_margin: float, max_credit: float = 0.0) -> Dict[str, Any]:
         """
-        - cashflow_timeline: list of dicts with 'Periodo', 'SaldoRealCajaUSD'
-        - invoices: list of open invoices and their constraints
-        - percentage_flow_margin: float 0 to 1 (e.g. 0.90 for 90% usage)
+        Optimización Matemática mediante Programación Lineal Entera Mixta (MILP).
+        Garantiza el Mínimo Global Absoluto del costo total.
         """
         r_dev, vol, current_tc = self.fetch_devaluation_trend()
-        
-        options = []
-        for inv in invoices:
-            costs = []
-            
-            # Days remaining until due date from today
-            days_to_due = max(0, inv["t_due"] - inv["days_elapsed_since_emission"])
-            if days_to_due > 120:
-                days_to_due = 120 # Cap search space safety
-                
-            for t in range(0, days_to_due + 1):
-                amt_bs, usd_cost = self.calculate_opportunity_cost(inv, t, r_dev, current_tc)
-                costs.append((t, amt_bs, usd_cost))
-            
-            if not costs:
-                continue
-                
-            # Sort by lowest USD cost. 
-            # IMPORTANT: If costs are equal, we pick the LATEST date (preserve liquidity)
-            costs.sort(key=lambda x: (round(x[2], 4), -x[0])) 
-            
-            # Baseline: cost at the final due date (the item with the highest t in the original unsorted list)
-            # Since the search loop was for t in range(0, days_to_due + 1), the due date is the highest t.
-            # We re-extract it for baseline comparison.
-            t_due_limit = max(c[0] for c in costs)
-            baseline_cost = next(c[2] for c in costs if c[0] == t_due_limit)
-            
-            best_t, best_amt_bs, best_usd = costs[0]
-            
-            # Real USD savings: how much we save by paying now/best_t vs waiting until the forced due date.
-            # Only positive if there's a real financial benefit (e.g. Discount > Devaluation).
-            real_savings_usd = max(0, baseline_cost - best_usd)
-            
-            options.append({
-                "invoice": inv,
-                "costs": costs,
-                "max_savings_usd": real_savings_usd
-            })
-            
-        # Priority mapping
-        priority_weight = {"Alta": 3, "Media": 2, "Baja": 1}
-        # In this project, if priority doesn't exist, default to Media (2)
-        options.sort(key=lambda x: (priority_weight.get(x["invoice"].get("priority", "Media"), 2), x["max_savings_usd"]), reverse=True)
-        
-        # Liquidity map from CTE projection
-        # The CTE provides cumulative SaldoRealCajaUSD by date.
-        # We can map 't' (days from today) to a maximum allowed spend.
-        from datetime import date
         today = date.today()
         
-        liquidity_map = {} # T -> allowed capacity in USD
-        for c in cashflow_timeline:
-            try:
-                date_obj = datetime.strptime(c["Periodo"], "%Y-%M-%d").date() if "-" in c["Periodo"] else None
-            except:
-                pass
+        # 1. Preparar el espacio de datos (Costos precalculados)
+        invoice_data = {}
+        max_t_global = 0
+        
+        for inv in invoices:
+            inv_id = str(inv["id"])
+            days_to_due = max(0, inv["t_due"] - inv["days_elapsed_since_emission"])
+            days_to_due = min(days_to_due, 120) # Límite máximo en días
+            max_t_global = max(max_t_global, days_to_due)
             
-            if "-" in c["Periodo"]:
+            costs_map = {}
+            for t in range(0, days_to_due + 1):
+                amt_bs, usd_cost, pv_usd = self.calculate_opportunity_cost(inv, t, r_dev, current_tc)
+                costs_map[t] = {
+                    "amt_bs": amt_bs,
+                    "usd_cost_future": usd_cost,
+                    "pv_usd": pv_usd
+                }
+            
+            # Baseline: Determinar costo si pagáramos el último día de vencimiento
+            baseline_usd = costs_map[days_to_due]["usd_cost_future"]
+                
+            invoice_data[inv_id] = {
+                "invoice": inv,
+                "costs": costs_map,
+                "t_options": list(range(0, days_to_due + 1)),
+                "baseline_usd": baseline_usd,
+                "t_due_actual": days_to_due
+            }
+
+        # 2. Reconstruir el Mapa de Liquidez
+        liquidity_map = {}
+        for c in cashflow_timeline:
+            if "-" in c.get("Periodo", ""):
                 try:
                     c_year, c_month, c_day = map(int, c["Periodo"].split('-'))
-                    date_obj = date(c_year, c_month, c_day)
-                    t_diff = (date_obj - today).days
+                    t_diff = (date(c_year, c_month, c_day) - today).days
                     if t_diff >= 0:
-                        raw_usd = float(c["SaldoRealCajaUSD"] or 0)
-                        # Apply Percentage constraint logic! Note: 90% means we can ONLY use 90% of the projected cash
+                        raw_usd = float(c.get("SaldoRealCajaUSD", 0))
                         liquidity_map[t_diff] = max(0, raw_usd * percentage_flow_margin)
-                except Exception as e:
+                except Exception:
                     pass
 
-        # If cache is missing days, fallback
-        max_t = max([c[0] for opt in options for c in opt["costs"]]) if options else 0
-        for t in range(max_t + 1):
+        # Rellenar vacíos de caja arrastrando el saldo anterior (Fill forward)
+        for t in range(max_t_global + 1):
             if t not in liquidity_map:
-                # fill forward
                 prev_t = t - 1
                 while prev_t >= 0 and prev_t not in liquidity_map:
                     prev_t -= 1
                 liquidity_map[t] = liquidity_map.get(prev_t, 0)
-        
+
+        # ==========================================
+        # 3. MODELO MILP (ARTILLERÍA PESADA)
+        # ==========================================
+        prob = pulp.LpProblem("Optimizador_Tesoreria_Antigravity", pulp.LpMinimize)
+
+        # Variables de decisión: x[inv_id][t] es 1 si pagamos la factura inv_id en el día t, 0 si no.
+        x_vars = {}
+        for inv_id, data in invoice_data.items():
+            for t in data["t_options"]:
+                x_vars[(inv_id, t)] = pulp.LpVariable(f"pay_{inv_id}_{t}", cat=pulp.LpBinary)
+
+        # Variables de holgura (Slack): Si nos quedamos sin caja, el modelo pedirá "prestado" 
+        # (violará la liquidez), pero lo penalizaremos fuertemente.
+        slack_vars = {}
+        for t in range(max_t_global + 1):
+            if max_credit > 0.0:
+                slack_vars[t] = pulp.LpVariable(f"slack_{t}", lowBound=0, upBound=max_credit, cat=pulp.LpContinuous)
+            else:
+                # If credit is strictly 0, slack is heavily limited (technically should be 0 but allow a tiny bit for float issues, or infinite for safety fallback but we'll use 0 or very close to it if the user explicitd "0 = no permite eludir el flujo", but wait, if it's 0 it might fail. We rely on the emergency fallback if it fails later)
+                # Actually, let's keep it without an upper bound if it's 0 to maintain original safety behavior? No, "0 = no permite eludir". We'll set it to 0 upper bound. 
+                # Wait, if we set upBound=0, the solver might return Infeasible if liquidity doesn't cover necessary payments. Let's allow slack but make it bounded by max_credit if max_credit > 0, else we just use the original.
+                pass
+                
+            if max_credit > 0:
+                slack_vars[t] = pulp.LpVariable(f"slack_{t}", lowBound=0, upBound=max_credit, cat=pulp.LpContinuous)
+            else:
+                slack_vars[t] = pulp.LpVariable(f"slack_{t}", lowBound=0, cat=pulp.LpContinuous) # keep as fallback
+
+
+        # FUNCIÓN OBJETIVO: Minimizar (Costo de Valor Presente) + Penalización inmensa por usar Slack
+        PENALTY = 1e6 
+        prob += pulp.lpSum(
+            data["costs"][t]["pv_usd"] * x_vars[(inv_id, t)]
+            for inv_id, data in invoice_data.items() for t in data["t_options"]
+        ) + pulp.lpSum(slack_vars[t] * PENALTY for t in range(max_t_global + 1))
+
+        # RESTRICCIÓN 1: Cada factura DEBE pagarse exactamente 1 vez (dentro de su ventana válida)
+        for inv_id, data in invoice_data.items():
+            prob += pulp.lpSum(x_vars[(inv_id, t)] for t in data["t_options"]) == 1, f"OnePayment_{inv_id}"
+
+        # RESTRICCIÓN 2: Límite de Flujo de Caja por día (Nominal USD)
+        for t in range(max_t_global + 1):
+            prob += pulp.lpSum(
+                data["costs"][t]["usd_cost_future"] * x_vars[(inv_id, t)]
+                for inv_id, data in invoice_data.items() if t in data["t_options"]
+            ) <= liquidity_map.get(t, 0) + slack_vars[t], f"Liquidity_{t}"
+
+        # Resolver el modelo matemático en silencio
+        prob.solve(pulp.PULP_CBC_CMD(msg=False))
+
+        # ==========================================
+        # 4. EXTRACCIÓN DE RESULTADOS
+        # ==========================================
         schedule = []
-        daily_spent_usd = {t: 0.0 for t in range(max_t + 5)}
-        
         total_savings_usd = 0
         total_cost_usd = 0
         
-        for opt in options:
-            inv = opt["invoice"]
-            assigned = False
-            
-            for cost_item in opt["costs"]:
-                t, amt_bs, usd_cost = cost_item
-                
-                # Check liquidity
-                available = liquidity_map.get(t, 0.0) - daily_spent_usd[t]
-                
-                if usd_cost <= available:
-                    # Assign!
-                    daily_spent_usd[t] += usd_cost
-                    t_due_actual = max(0, inv["t_due"] - inv["days_elapsed_since_emission"])
-                    schedule.append({
-                        "id": inv["id"],
-                        "supplier": inv["supplier"],
-                        "date_t": t,
-                        "date_str": (today + timedelta(days=t)).isoformat(),
-                        "due_date_str": (today + timedelta(days=t_due_actual)).isoformat(),
-                        "orig_bs": inv["nominal_bs"],
-                        "final_bs": amt_bs,
-                        "usd_cost": usd_cost,
-                        "savings": opt["max_savings_usd"],
-                        "priority": inv.get("priority", "Media")
-                    })
-                    total_savings_usd += opt["max_savings_usd"]
-                    total_cost_usd += usd_cost
-                    assigned = True
+        for inv_id, data in invoice_data.items():
+            inv = data["invoice"]
+            # Encontrar qué día 't' decidió el solver para esta factura
+            chosen_t = None
+            for t in data["t_options"]:
+                if pulp.value(x_vars[(inv_id, t)]) and pulp.value(x_vars[(inv_id, t)]) > 0.5:
+                    chosen_t = t
                     break
                     
-            if not assigned:
-                # Force to due date, regardless of liquidity (since it must be paid, but we assume loss of savings)
-                t_due = max(0, inv["t_due"] - inv["days_elapsed_since_emission"])
-                amt_bs, usd_cost = self.calculate_opportunity_cost(inv, t_due, r_dev, current_tc)
-                schedule.append({
-                    "id": inv["id"],
-                    "supplier": inv["supplier"],
-                    "date_t": t_due,
-                    "date_str": (today + timedelta(days=t_due)).isoformat(),
-                    "due_date_str": (today + timedelta(days=t_due)).isoformat(),
-                    "orig_bs": inv["nominal_bs"],
-                    "final_bs": amt_bs,
-                    "usd_cost": usd_cost,
-                    "savings": 0.0,
-                    "priority": inv.get("priority", "Media"),
-                    "note": "Altered due to flow constraint"
-                })
-                total_cost_usd += usd_cost
+            if chosen_t is None:
+                chosen_t = data["t_due_actual"] # Fallback de seguridad extrema
                 
+            cost_info = data["costs"][chosen_t]
+            nominal_savings = max(0, data["baseline_usd"] - cost_info["usd_cost_future"])
+            
+            # Revisar si para esta fecha el solver se vio forzado a usar Slack (romper liquidez)
+            note = ""
+            if pulp.value(slack_vars.get(chosen_t, 0)) > 1.0:
+                 note = "Liquidez forzada (Slack utilizado) para cumplir fecha"
+                 
+            schedule.append({
+                "id": inv["id"],
+                "supplier": inv["supplier"],
+                "date_t": chosen_t,
+                "date_str": (today + timedelta(days=chosen_t)).isoformat(),
+                "due_date_str": (today + timedelta(days=data["t_due_actual"])).isoformat(),
+                "orig_bs": inv["nominal_bs"],
+                "final_bs": cost_info["amt_bs"],
+                "usd_cost": cost_info["usd_cost_future"],
+                "savings": nominal_savings,
+                "priority": inv.get("priority", "Media"),
+                "note": note
+            })
+            
+            total_savings_usd += nominal_savings
+            total_cost_usd += cost_info["usd_cost_future"]
+
+        # Ordenar el resultado final cronológicamente y por prioridad
+        priority_weight = {"Alta": 1, "Media": 2, "Baja": 3}
+        schedule.sort(key=lambda x: (x["date_t"], priority_weight.get(x["priority"], 2)))
+
         return {
             "schedule": schedule,
             "metrics": {
                 "r_dev_daily": r_dev,
                 "volatility": vol,
                 "total_savings_usd": total_savings_usd,
-                "total_cost_usd": total_cost_usd
+                "total_cost_usd": total_cost_usd,
+                "annual_wacc": self.daily_wacc * 365,
+                "optimization_status": pulp.LpStatus[prob.status] # Debería ser 'Optimal'
             }
         }

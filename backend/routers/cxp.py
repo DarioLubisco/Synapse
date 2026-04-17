@@ -2736,13 +2736,15 @@ class AntigravityRequest(BaseModel):
     caja_bs: float = 0.0
     fecha_arranque: str = None
     delay_days: int = 1 
+    wacc: float = 0.12
+    max_credit: float = 0.0
 
 @router.post("/api/antigravity/run")
 async def run_antigravity_optimizer(payload: AntigravityRequest):
     try:
         from antigravity_core import AntigravityEngine
         conn = database.get_db_connection()
-        engine = AntigravityEngine(conn)
+        engine = AntigravityEngine(conn, annual_wacc=payload.wacc / 100.0 if payload.wacc > 1 else payload.wacc)
         cursor = conn.cursor()
         
         # 1. Fetch Invoices
@@ -2831,7 +2833,7 @@ async def run_antigravity_optimizer(payload: AntigravityRequest):
         )
         cashflow_timeline = await_flow["data"]
         
-        result = engine.optimize_payable_schedule(cashflow_timeline, invoices_payload, payload.porcentaje_flujo)
+        result = engine.optimize_payable_schedule(cashflow_timeline, invoices_payload, payload.porcentaje_flujo, max_credit=payload.max_credit)
         
         return result
     except Exception as e:
