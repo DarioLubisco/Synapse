@@ -502,6 +502,7 @@
                         <select id="cnFilterEstatus" class="glass-select">
                             <option value="">TODOS</option>
                             <option value="PENDIENTE" selected>PENDIENTE</option>
+                            <option value="SOLICITADA">SOLICITADA</option>
                             <option value="APLICADA">APLICADA</option>
                             <option value="ANULADA">ANULADA</option>
                         </select>
@@ -1705,7 +1706,7 @@
     </div>
 
     <!-- Abonos / Pagos Modal -->
-    <div id="newCreditNoteModal" class="modal">
+    <div id="newCreditNoteModal" class="modal" style="z-index: 10040;">
         <div class="modal-content glassmorphism" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>Solicitud de Nota de Crédito</h2>
@@ -1726,7 +1727,7 @@
                         <option value="">— Seleccione Motivo —</option>
                     </select>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
                     <div class="input-group">
                         <label>Monto (Bs):</label>
                         <input type="number" id="cncMontoBs" class="form-control" step="0.01" required>
@@ -1735,14 +1736,19 @@
                         <label>Tasa Cambio:</label>
                         <input type="number" id="cncTasa" class="form-control" step="0.0001" required>
                     </div>
+                    <div class="input-group">
+                        <label>Monto (USD):</label>
+                        <input type="text" id="cncMontoUsd" class="form-control" readonly style="background: rgba(0,0,0,0.1); color: var(--success); font-weight: 600;">
+                    </div>
                 </div>
                 <div class="input-group">
                     <label>Observación:</label>
                     <textarea id="cncObservacion" class="form-control" rows="2"></textarea>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeNewCreditNoteModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary">Registrar Solicitud</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeNewCreditNoteModal()" style="margin-right: auto; opacity: 0.8;">Cancelar</button>
+                    <button type="submit" data-action="register" class="btn btn-secondary" style="border: 1px solid var(--border-color);">Solo Registrar</button>
+                    <button type="submit" data-action="send" class="btn btn-primary">Registrar y Enviar</button>
                 </div>
             </form>
         </div>
@@ -2327,7 +2333,7 @@
 
     <!-- Configuracion Global Modal -->
     <div id="retConfigModal" class="modal" style="z-index: 10020;">
-        <div class="modal-content glassmorphism" style="max-width: 650px;">
+        <div class="modal-content glassmorphism" style="max-width: 1280px; width: 95%;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h2 style="margin:0;"><i data-lucide="settings" style="width:20px;height:20px;vertical-align:middle;"></i> Configuración del Sistema</h2>
                 <button class="btn-icon" onclick="closeRetConfigModal()"><i data-lucide="x"></i></button>
@@ -2424,12 +2430,19 @@
 
             <div id="pane-motivos" class="settings-pane">
                 <p style="color:var(--text-secondary);font-size:0.85rem;margin-bottom:1rem;">Gestione los motivos disponibles en los desplegables de Ajuste Contable y Módulo de Notas de Crédito.</p>
-                <form id="addMotivoForm" style="display:grid;grid-template-columns:1fr 2fr auto auto auto auto;gap:0.5rem;align-items:end;margin-bottom:1rem;background:var(--bg-tertiary);padding:0.75rem;border-radius:6px;border:1px solid var(--border-color);">
-                    <div class="input-group" style="margin:0;"><label style="font-size:0.75rem;">Código</label><input type="text" id="newMcCodigo" class="form-control" style="padding:0.3rem;" required></div>
-                    <div class="input-group" style="margin:0;"><label style="font-size:0.75rem;">Descripción</label><input type="text" id="newMcDesc" class="form-control" style="padding:0.3rem;" required></div>
-                    <label style="font-size:0.75rem;display:flex;flex-direction:column;align-items:center;cursor:pointer;">Ajuste<input type="checkbox" id="newMcAjuste" style="margin-top:4px;" checked></label>
-                    <label style="font-size:0.75rem;display:flex;flex-direction:column;align-items:center;cursor:pointer;">N.Crédito<input type="checkbox" id="newMcNC" style="margin-top:4px;"></label>
-                    <button type="submit" class="btn btn-primary" style="padding:0.4rem 0.75rem;align-self:end;height:31px;" title="Agregar"><i data-lucide="plus"></i></button>
+                <form id="addMotivoForm" style="display:flex; flex-direction:column; gap:0.75rem; margin-bottom:1rem; background:var(--bg-tertiary); padding:1rem; border-radius:6px; border:1px solid var(--border-color);">
+                    <div style="display:grid; grid-template-columns:1fr 2fr auto auto auto auto; gap:0.75rem; align-items:end;">
+                        <div class="input-group" style="margin:0;"><label style="font-size:0.75rem;">Código</label><input type="text" id="newMcCodigo" class="form-control" style="padding:0.3rem;" required placeholder="Ej: PAGO_EXCESO"></div>
+                        <div class="input-group" style="margin:0;"><label style="font-size:0.75rem;">Descripción</label><input type="text" id="newMcDesc" class="form-control" style="padding:0.3rem;" required placeholder="Descripción del motivo"></div>
+                        <label style="font-size:0.75rem;display:flex;flex-direction:column;align-items:center;cursor:pointer;">Ajuste<input type="checkbox" id="newMcAjuste" style="margin-top:4px;" checked></label>
+                        <label style="font-size:0.75rem;display:flex;flex-direction:column;align-items:center;cursor:pointer;">N.Crédito<input type="checkbox" id="newMcNC" style="margin-top:4px;"></label>
+                        <button type="submit" id="btnSaveMotivo" class="btn btn-primary" style="padding:0.4rem 0.75rem;align-self:end;height:31px;" title="Guardar/Agregar"><i data-lucide="plus"></i></button>
+                        <button type="button" id="btnCancelEditMotivo" class="btn btn-secondary" style="padding:0.4rem 0.75rem;align-self:end;height:31px; display:none;" title="Cancelar Edición" onclick="resetMotivoForm()"><i data-lucide="x"></i></button>
+                    </div>
+                    <div class="input-group" style="margin:0;">
+                        <label style="font-size:0.75rem;">Cuerpo del Correo (Solicitud Nota de Crédito)</label>
+                        <textarea id="newMcEmailTemplate" class="form-control" rows="2" placeholder="Ej: Estimado proveedor, por favor generar NC por exceso de pagos..."></textarea>
+                    </div>
                 </form>
 
                 <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
@@ -2438,13 +2451,14 @@
                             <tr>
                                 <th>Cód.</th>
                                 <th>Descripción del Motivo</th>
-                                <th style="text-align:center;">¿Para Ajuste?</th>
+                                <th style="text-align:center;">Plantilla Email</th>
+                                <th style="text-align:center;">¿Ajuste?</th>
                                 <th style="text-align:center;">¿Para NC?</th>
                                 <th style="text-align:center;">Acción</th>
                             </tr>
                         </thead>
                         <tbody id="motivosConfigTableBody">
-                            <tr><td colspan="5" style="text-align:center;">Cargando...</td></tr>
+                            <tr><td colspan="6" style="text-align:center;">Cargando...</td></tr>
                         </tbody>
                     </table>
                 </div>

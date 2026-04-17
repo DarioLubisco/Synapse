@@ -973,7 +973,7 @@ async def get_motivos_ajuste(solo_activos: bool = True):
     try:
         conn = database.get_db_connection()
         cursor = conn.cursor()
-        query = "SELECT MotivoID, Codigo, Descripcion, AnulaNotaDebito, AnulaNotaCredito, ParaAjuste, ParaNotaCredito, Activo FROM EnterpriseAdmin_AMC.Procurement.MotivosAjuste"
+        query = "SELECT MotivoID, Codigo, Descripcion, AnulaNotaDebito, AnulaNotaCredito, ParaAjuste, ParaNotaCredito, Activo, EmailTemplate FROM EnterpriseAdmin_AMC.Procurement.MotivosAjuste"
         if solo_activos:
             query += " WHERE Activo = 1"
         query += " ORDER BY Codigo"
@@ -1000,6 +1000,7 @@ async def upsert_motivo_ajuste(payload: dict = Body(...)):
         conn = database.get_db_connection()
         cursor = conn.cursor()
         motivo_id = payload.get("MotivoID")
+        email_template = payload.get("EmailTemplate", "")
         codigo      = payload.get("Codigo", "")
         descripcion = payload.get("Descripcion", "")
         anula_nd    = 1 if payload.get("AnulaNotaDebito",  False) else 0
@@ -1011,17 +1012,17 @@ async def upsert_motivo_ajuste(payload: dict = Body(...)):
         if motivo_id:
             cursor.execute("""
                 UPDATE EnterpriseAdmin_AMC.Procurement.MotivosAjuste
-                SET Codigo = ?, Descripcion = ?, AnulaNotaDebito = ?, AnulaNotaCredito = ?, ParaAjuste = ?, ParaNotaCredito = ?, Activo = ?
+                SET Codigo = ?, Descripcion = ?, AnulaNotaDebito = ?, AnulaNotaCredito = ?, ParaAjuste = ?, ParaNotaCredito = ?, Activo = ?, EmailTemplate = ?
                 WHERE MotivoID = ?
-            """, (codigo, descripcion, anula_nd, anula_nc, para_ajuste, para_nc, activo, motivo_id))
+            """, (codigo, descripcion, anula_nd, anula_nc, para_ajuste, para_nc, activo, email_template, motivo_id))
             msg = "Motivo actualizado."
         else:
             cursor.execute("""
                 INSERT INTO EnterpriseAdmin_AMC.Procurement.MotivosAjuste
-                    (Codigo, Descripcion, AnulaNotaDebito, AnulaNotaCredito, ParaAjuste, ParaNotaCredito, Activo)
+                    (Codigo, Descripcion, AnulaNotaDebito, AnulaNotaCredito, ParaAjuste, ParaNotaCredito, Activo, EmailTemplate)
                 OUTPUT INSERTED.MotivoID
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (codigo, descripcion, anula_nd, anula_nc, para_ajuste, para_nc, activo))
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (codigo, descripcion, anula_nd, anula_nc, para_ajuste, para_nc, activo, email_template))
             motivo_id = cursor.fetchone()[0]
             msg = "Motivo creado."
 
@@ -4064,6 +4065,114 @@ async def get_pending_credit_notes(cod_prov: str):
     finally:
         if 'conn' in locals(): conn.close()
 
+def generar_pdf_nc_request(nc_data: dict, prov_data: dict, email_template_body: str) -> bytes:
+    from fpdf import FPDF
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    
+    header_bg = (0, 51, 102)
+    header_fg = (255, 255, 255)
+    
+    pdf.set_font('Helvetica', 'B', 14)
+    pdf.set_fill_color(*header_bg)
+    pdf.set_text_color(*header_fg)
+    pdf.cell(0, 10, 'SOLICITUD DE NOTA DE CREDITO', 0, 1, 'C', fill=True)
+    pdf.ln(5)
+    
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.cell(0, 8, "Datos del Proveedor:", 0, 1)
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(40, 6, "Razon Social:", 0, 0)
+    descrip = str(prov_data.get('Descrip', '')).encode('latin-1', 'replace').decode('latin-1')
+    pdf.cell(0, 6, descrip, 0, 1)
+    pdf.cell(40, 6, "RIF:", 0, 0)
+    pdf.cell(0, 6, str(prov_data.get('ID3', '')), 0, 1)
+    
+    pdf.ln(5)
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.cell(0, 8, "Detalle de la Solicitud:", 0, 1)
+    pdf.set_font('Helvetica', '', 10)
+    pdf.cell(40, 6, "ID Solicitud:", 0, 0)
+    pdf.cell(0, 6, str(nc_data.get('Id', '')), 0, 1)
+    pdf.cell(40, 6, "Factura Afectada:", 0, 0)
+    pdf.cell(0, 6, str(nc_data.get('NumeroD', '')), 0, 1)
+    pdf.cell(40, 6, "Motivo:", 0, 0)
+    motivo = str(nc_data.get('Motivo', '')).encode('latin-1', 'replace').decode('latin-1')
+    pdf.cell(0, 6, motivo, 0, 1)
+    pdf.cell(40, 6, "Monto (Bs):", 0, 0)
+    pdf.cell(0, 6, f"Bs. {float(nc_data.get('MontoBs', 0)):,.2f}", 0, 1)
+    pdf.cell(40, 6, "Monto (USD):", 0, 0)
+    pdf.cell(0, 6, f"$ {float(nc_data.get('MontoUsd', 0)):,.2f}", 0, 1)
+    
+    if nc_data.get('Observacion'):
+        pdf.ln(3)
+        pdf.cell(40, 6, "Observacion:", 0, 0)
+        obs = str(nc_data.get('Observacion', '')).encode('latin-1', 'replace').decode('latin-1')
+        pdf.multi_cell(0, 6, obs)
+        
+    pdf.ln(10)
+    pdf.set_font('Helvetica', 'I', 9)
+    body_txt = "Por favor procesar la siguiente nota de credito con los datos indicados."
+    if email_template_body:
+        body_txt += f"\n\nNotas Adicionales:\n- {email_template_body}"
+    body = str(body_txt).encode('latin-1', 'replace').decode('latin-1')
+    pdf.multi_cell(0, 5, body)
+    
+    return pdf.output(dest='S').encode('latin1')
+
+def enviar_correo_solicitud_nc(destinatario: str, proveedor: dict, nc_data: dict, body_template: str) -> bool:
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.mime.base import MIMEBase
+    from email import encoders
+    import base64
+    from googleapiclient.errors import HttpError
+
+    try:
+        service = get_gmail_service()
+        if not service:
+            return False
+            
+        emails = [e.strip() for e in destinatario.split(";") if e.strip()]
+        if not emails:
+            return False
+            
+        remitente = os.getenv("SMTP_EMAIL", "")
+        msg = MIMEMultipart()
+        msg['From'] = remitente
+        msg['To'] = ", ".join(emails)
+        msg['Subject'] = f"Solicitud de Nota de Crédito - Factura {nc_data.get('NumeroD')} - {proveedor.get('Descrip')}"
+        
+        footer = f"\n\nNotas Adicionales:\n{body_template}" if body_template else ""
+        cuerpo = f"""Estimados {proveedor.get('Descrip')} (RIF: {proveedor.get('ID3')}),
+
+Adjunto a este correo encontrará una solicitud formal de Nota de Crédito correspondiente a la factura {nc_data.get('NumeroD')}.
+
+Monto Solicitado: Bs. {float(nc_data.get('MontoBs', 0)):,.2f}
+
+Quedamos a su entera disposición ante cualquier duda o comentario.
+
+Atentamente,
+El equipo de Administración.{footer}"""
+
+        msg.attach(MIMEText(cuerpo, 'plain', 'utf-8'))
+        
+        pdf_bytes = generar_pdf_nc_request(nc_data, proveedor, body_template)
+        part_pdf = MIMEBase("application", "pdf")
+        part_pdf.set_payload(pdf_bytes)
+        encoders.encode_base64(part_pdf)
+        part_pdf.add_header("Content-Disposition", f"attachment; filename=Solicitud_NC_{nc_data.get('NumeroD')}.pdf")
+        msg.attach(part_pdf)
+        
+        raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+        service.users().messages().send(userId='me', body={'raw': raw}).execute()
+        return True
+    except Exception as e:
+        logging.error(f"Error al enviar correo solicitud NC: {e}", exc_info=True)
+        return False
+
 @router.post("/api/procurement/credit-notes")
 async def create_credit_note(payload: dict = Body(...)):
     try:
@@ -4074,11 +4183,18 @@ async def create_credit_note(payload: dict = Body(...)):
         tasa_orig = float(sacomp_row[0]) if sacomp_row and sacomp_row[0] else None
         mto_orig = float(sacomp_row[1]) if sacomp_row and sacomp_row[1] else None
 
+        cursor.execute("SELECT Id FROM EnterpriseAdmin_AMC.Procurement.CreditNotesTracking WHERE CodProv = ? AND NumeroD = ? AND Motivo = ? AND Estatus IN ('PENDIENTE', 'SOLICITADA')", (payload["CodProv"], payload["NumeroD"], payload.get("Motivo", "PAGO_EXCESO")))
+        if cursor.fetchone():
+            raise HTTPException(status_code=400, detail="Ya existe una Nota de Crédito pendiente o solicitada para este motivo en esta factura.")
+
+        cursor.execute("SELECT Codigo FROM EnterpriseAdmin_AMC.Procurement.MotivosAjuste WHERE Codigo = ?", (payload.get("Motivo", "PAGO_EXCESO"),))
+        mot_row = cursor.fetchone()
+
         cursor.execute("""
             INSERT INTO EnterpriseAdmin_AMC.Procurement.CreditNotesTracking 
-            (CodProv, NumeroD, Motivo, MontoBs, TasaCambio, MontoUsd, Observacion, TasaCambioOrig, MontoMExOrig)
+            (CodProv, NumeroD, Motivo, MontoBs, TasaCambio, MontoUsd, Observacion, TasaCambioOrig, MontoMExOrig, Estatus)
             OUTPUT INSERTED.Id
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             payload["CodProv"], payload["NumeroD"], 
             payload.get("Motivo", "PAGO_EXCESO"),
@@ -4086,15 +4202,87 @@ async def create_credit_note(payload: dict = Body(...)):
             float(payload.get("TasaCambio", 0)),
             float(payload.get("MontoUsd", 0)),
             payload.get("Observacion", ""),
-            tasa_orig, mto_orig
+            tasa_orig, mto_orig, 'SOLICITADA' if payload.get("EnviarInmediato") else 'PENDIENTE'
         ))
         new_id = cursor.fetchone()[0]
+        
+        email_sent = False
+        if payload.get("EnviarInmediato"):
+            # Fetch Provider Email and Template
+            cursor.execute("""
+                SELECT p.CodProv, p.Descrip, p.ID3, c.Email 
+                FROM EnterpriseAdmin_AMC.dbo.SAPROV p 
+                LEFT JOIN EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones c ON p.CodProv = c.CodProv 
+                WHERE p.CodProv = ?
+            """, (payload["CodProv"],))
+            prov_row = cursor.fetchone()
+            
+            cursor.execute("SELECT EmailTemplate FROM EnterpriseAdmin_AMC.Procurement.MotivosAjuste WHERE Codigo = ?", (payload.get("Motivo", "PAGO_EXCESO"),))
+            tpl_row = cursor.fetchone()
+            tpl = tpl_row[0] if tpl_row and tpl_row[0] else ""
+            
+            if prov_row and prov_row.Email:
+                prov_dict = {"CodProv": prov_row.CodProv, "Descrip": prov_row.Descrip, "ID3": prov_row.ID3, "Email": prov_row.Email}
+                nc_data = {
+                    "Id": new_id, "NumeroD": payload["NumeroD"], "Motivo": payload.get("Motivo", "PAGO_EXCESO"),
+                    "MontoBs": float(payload["MontoBs"]), "MontoUsd": float(payload.get("MontoUsd", 0)),
+                    "Observacion": payload.get("Observacion", "")
+                }
+                email_sent = enviar_correo_solicitud_nc(prov_row.Email, prov_dict, nc_data, tpl)
+                
         conn.commit()
         logging.info(f"Nota de Crédito #{new_id} creada para {payload['CodProv']} factura {payload['NumeroD']}")
-        return {"message": "Nota de Crédito creada", "Id": new_id}
+        return {"message": "Nota de Crédito creada", "Id": new_id, "email_sent": email_sent, "status": 'SOLICITADA' if payload.get("EnviarInmediato") else 'PENDIENTE'}
+    except HTTPException:
+        raise
     except Exception as e:
         if 'conn' in locals(): conn.rollback()
         logging.error(f"Error creating credit note: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'conn' in locals(): conn.close()
+
+@router.post("/api/procurement/credit-notes/{id_nc}/send")
+async def send_credit_note_email(id_nc: int):
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT cn.Id, cn.NumeroD, cn.Motivo, cn.MontoBs, cn.MontoUsd, cn.Observacion, p.CodProv, p.Descrip, p.ID3, c.Email, m.EmailTemplate
+            FROM EnterpriseAdmin_AMC.Procurement.CreditNotesTracking cn
+            LEFT JOIN EnterpriseAdmin_AMC.dbo.SAPROV p ON cn.CodProv = p.CodProv
+            LEFT JOIN EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones c ON cn.CodProv = c.CodProv
+            LEFT JOIN EnterpriseAdmin_AMC.Procurement.MotivosAjuste m ON cn.Motivo = m.Codigo
+            WHERE cn.Id = ? AND cn.Estatus IN ('PENDIENTE', 'SOLICITADA')
+        """, (id_nc,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Nota de Crédito no encontrada o no está en un estado válido para enviar.")
+            
+        nc_data = {
+            "Id": row.Id, "NumeroD": row.NumeroD, "Motivo": row.Motivo,
+            "MontoBs": row.MontoBs, "MontoUsd": row.MontoUsd, "Observacion": row.Observacion
+        }
+        prov_dict = {
+            "CodProv": row.CodProv, "Descrip": row.Descrip, "ID3": row.ID3
+        }
+        email_str = row.Email
+        plantilla = row.EmailTemplate or ""
+        
+        if not email_str:
+            raise HTTPException(status_code=400, detail="El proveedor no tiene un correo configurado.")
+            
+        success = enviar_correo_solicitud_nc(email_str, prov_dict, nc_data, plantilla)
+        if success:
+            cursor.execute("UPDATE EnterpriseAdmin_AMC.Procurement.CreditNotesTracking SET Estatus = 'SOLICITADA' WHERE Id = ?", (id_nc,))
+            conn.commit()
+            return {"message": "Correo enviado con éxito y estado actualizado a SOLICITADA."}
+        else:
+            raise HTTPException(status_code=500, detail="Fallo al enviar correo a través de Gmail.")
+            
+    except HTTPException: raise
+    except Exception as e:
+        if 'conn' in locals(): conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if 'conn' in locals(): conn.close()

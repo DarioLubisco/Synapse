@@ -109,100 +109,7 @@ function sortDebitNotes(field) {
     renderDebitNotes();
 }
 
-// ======================= CREDIT NOTES =======================
-async function fetchCreditNotesView() {
-    const tbody = document.getElementById('creditNotesTableBody');
-    if(!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="10" class="loading-cell"><div class="loader"></div><p>Cargando notas de crédito...</p></td></tr>`;
-
-    try {
-        const estatus = document.getElementById('cnFilterEstatus')?.value || "";
-        const search = document.getElementById('cnFilterProv')?.value || "";
-        
-        let url = `/api/procurement/credit-notes?estatus=${estatus}`;
-        if (search) url += `&search=${encodeURIComponent(search)}`;
-
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("API error");
-        const json = await res.json();
-        
-        window.appState.creditNotes = Array.isArray(json.data) ? json.data : json;
-        renderCreditNotes();
-    } catch(err) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:red;">Error cargando datos.</td></tr>`;
-        console.error(err);
-    }
-}
-
-function renderCreditNotes() {
-    const tbody = document.getElementById('creditNotesTableBody');
-    if (!tbody) return;
-
-    const dIni = document.getElementById('cnFechaDesde')?.value;
-    const dFin = document.getElementById('cnFechaHasta')?.value;
-    const uSearch = (document.getElementById('cnFilterProv')?.value || '').toLowerCase().replace(/^0+/, '');
-    const statusF = document.getElementById('cnFilterEstatus')?.value || '';
-    
-    let data = window.appState.creditNotes.filter(item => {
-        if (statusF && item.Estatus !== statusF) return false;
-        
-        if (uSearch) {
-            const sProv = (item.CodProv || '').toLowerCase();
-            const sNota = (item.Notas1 || '').toLowerCase();
-            const sNumD = (item.NumeroD || item.PagoRef || '').toLowerCase().replace(/^0+/, '');
-            if(!sProv.includes(uSearch) && !sNota.includes(uSearch) && !sNumD.includes(uSearch)) return false;
-        }
-        if (dIni && new Date(item.FechaSolicitud) < new Date(dIni)) return false;
-        if (dFin && new Date(item.FechaSolicitud) > new Date(dFin)) return false;
-        return true;
-    });
-
-    if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary);">No hay notas de crédito que coincidan.</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = data.map(i => {
-        return `<tr>
-            <td><strong>${i.ProveedorNombre || i.Descrip || i.CodProv}</strong></td>
-            <td>${i.NumeroD || i.PagoRef || '-'}</td>
-            <td><span class="badge ${i.Motivo === 'INDEXACION' ? 'badge-info' : 'badge-default'}">${i.Motivo || 'N/A'}</span></td>
-            <td class="amount" style="font-weight:bold; color:var(--success);">${cf.format(i.MontoBs || 0)}</td>
-            <td class="amount">${i.TasaCambio ? i.TasaCambio.toFixed(4) : '-'}</td>
-            <td class="amount" style="color:var(--success);">${cfd.format(i.MontoUsd || 0)}</td>
-            <td>${i.FechaSolicitud ? new Date(i.FechaSolicitud).toLocaleDateString() : '-'}</td>
-            <td style="text-align: center;"><span class="badge ${i.Estatus==='PENDIENTE'?'badge-warning':i.Estatus==='APLICADA'?'badge-success':'badge-default'}">${i.Estatus||'PENDIENTE'}</span></td>
-            <td>${i.NotaCreditoID || '-'}</td>
-            <td style="text-align: center;">
-                <button class="btn-icon" title="Ver Detalles"><i data-lucide="eye"></i></button>
-                ${(i.Estatus !== 'ANULADA') ? `<button class="btn-icon" title="Anular" onclick="anularNotaCredito(${i.Id})"><i data-lucide="trash-2" style="color:var(--danger)"></i></button>` : ''}
-            </td>
-        </tr>`;
-    }).join("");
-    lucide.createIcons();
-}
-
-let sortAscCN = true;
-function sortCreditNotes(field) {
-    if (!window.appState.creditNotes) return;
-    sortAscCN = !sortAscCN;
-    window.appState.creditNotes.sort((a,b) => {
-        let valA, valB;
-        if (field === 'proveedor') { valA = a.CodProv; valB = b.CodProv; }
-        else if (field === 'factura') { valA = a.NumeroD; valB = b.NumeroD; }
-        else if (field === 'motivo') { valA = a.Motivo; valB = b.Motivo; }
-        else if (field === 'monto_bs') { valA = parseFloat(a.MontoBs || 0); valB = parseFloat(b.MontoBs || 0); }
-        else if (field === 'tasa') { valA = parseFloat(a.TasaCambio || 0); valB = parseFloat(b.TasaCambio || 0); }
-        else if (field === 'monto_usd') { valA = parseFloat(a.MontoUsd || 0); valB = parseFloat(b.MontoUsd || 0); }
-        else if (field === 'fecha') { valA = a.FechaSolicitud; valB = b.FechaSolicitud; }
-        else if (field === 'estatus') { valA = a.Estatus; valB = b.Estatus; }
-        
-        if (valA < valB) return sortAscCN ? -1 : 1;
-        if (valA > valB) return sortAscCN ? 1 : -1;
-        return 0;
-    });
-    renderCreditNotes();
-}
+// ======================= CREDIT NOTES (Removed in favor of app_cxp.js logic) =======================
 
 // ======================= RETENCIONES IVA =======================
 async function fetchRetencionesView() {
@@ -404,13 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window._dnTmr = setTimeout(renderDebitNotes, 300);
     });
 
-    // Credit Notes
-    listen('refreshCreditNotesBtn', 'click', fetchCreditNotesView);
-    listen('cnFilterEstatus', 'change', fetchCreditNotesView);
-    listen('cnFilterProv', 'keyup', () => {
-        clearTimeout(window._cnTmr);
-        window._cnTmr = setTimeout(renderCreditNotes, 300);
-    });
+    // Credit Notes (Delegated completely to app_cxp.js)
 
     // Retenciones IVA
     listen('refreshRetencionesBtn', 'click', fetchRetencionesView);
@@ -421,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // We override original globals so that sidebar clicks trigger our new functions
-    window.fetchCreditNotes = fetchCreditNotesView;
+    window._fetchRetenciones = fetchRetencionesView;
     window._fetchRetenciones = fetchRetencionesView;
     
     // Wire up sidebar for ISLR explicitly since it didn't exist before in script.js logic block
@@ -502,21 +403,7 @@ window.anularRetencionISLR = async function(id) {
     }
 };
 
-window.anularNotaCredito = async function(id) {
-    if (!confirm("¿Está seguro de anular esta Nota de Crédito?")) return;
-    try {
-        const res = await fetch(`/api/procurement/credit-notes/${id}`, { 
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ Estatus: 'ANULADA' })
-        });
-        if (!res.ok) throw new Error(await res.text());
-        alert("Nota de Crédito anulada correctamente.");
-        fetchCreditNotesView();
-    } catch(err) {
-        alert("Error al anular: " + err.message);
-    }
-};
+// window.anularNotaCredito is managed in app_cxp.js
 
 window.anularNotaDebito = async function(id) {
     if (!confirm("¿Está seguro de anular esta Nota de Débito?")) return;

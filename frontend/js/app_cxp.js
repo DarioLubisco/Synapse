@@ -1224,6 +1224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Credit Notes Logic ---
     const fetchCreditNotes = async () => {
+        window.fetchCreditNotes = fetchCreditNotes; // Expose globally just in case
         const tbody = document.getElementById('creditNotesTableBody');
         if (!tbody) return;
 
@@ -1246,26 +1247,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
             tbody.innerHTML = data.data.map(d => {
                 const isPendiente = d.Estatus === 'PENDIENTE';
+                const isSolicitada = d.Estatus === 'SOLICITADA';
+                const effectiveRate = parseFloat(d.TasaCambio) || window.currentTasaBCV || 1;
+                const computedUsd = parseFloat(d.MontoUsd) || (parseFloat(d.MontoBs) / effectiveRate);
+                
+                let bsCss = '';
+                if (d.Estatus === 'SOLICITADA') bsCss = 'status-info'; // assuming it's added in CSS, else inline or secondary
+                else if (d.Estatus === 'PENDIENTE') bsCss = 'status-pending';
+                else if (d.Estatus === 'APLICADA') bsCss = 'status-paid';
+                else bsCss = 'status-overdue';
+
                 return `
                 <tr>
                     <td>${d.CodProv}</td>
                     <td title="${d.Observacion || ''}">${d.NumeroD || '-'}</td>
                     <td><span class="badge badge-info" style="background: rgba(99,102,241,0.15); color: var(--primary-accent); padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;">${d.Motivo}</span></td>
                     <td class="amount">${formatBs(d.MontoBs)}</td>
-                    <td class="amount">${(parseFloat(d.TasaCambio) || 0).toFixed(4)}</td>
-                    <td class="amount us-amount" style="font-weight: 600;">${usdFormatter(d.MontoUsd || 0)}</td>
+                    <td class="amount">${effectiveRate.toFixed(4)}</td>
+                    <td class="amount us-amount" style="font-weight: 600;">${usdFormatter(computedUsd)}</td>
                     <td>${formatDate(d.FechaSolicitud)}</td>
                     <td style="text-align: center;">
-                        <span class="status-badge ${d.Estatus === 'PENDIENTE' ? 'status-pending' : (d.Estatus === 'APLICADA' ? 'status-paid' : 'status-overdue')}">
+                        <span class="status-badge ${bsCss}" ${d.Estatus === 'SOLICITADA' ? 'style="background:rgba(59,130,246,0.1);color:#3b82f6;"' : ''}>
                             ${d.Estatus}
                         </span>
                     </td>
                     <td>${d.NotaCreditoID || '-'}</td>
                     <td style="text-align: center;">
                         <div style="display: flex; gap: 0.5rem; justify-content: center;">
-                            ${isPendiente ? `
+                            ${(isPendiente || isSolicitada) ? `
                                 <button class="btn btn-sm btn-primary" onclick="applyCreditNote(${d.Id})" title="Aplicar como Abono" style="padding: 0.2rem 0.5rem;">
                                     <i data-lucide="check" style="width:14px;height:14px;"></i>
+                                </button>
+                                <button class="btn btn-sm btn-info" onclick="sendCreditNoteEmail(${d.Id})" title="Reenviar Solicitud al Proveedor" style="padding: 0.2rem 0.5rem; background: var(--primary); color: white;">
+                                    <i data-lucide="send" style="width:14px;height:14px;"></i>
                                 </button>
                                 <button class="btn btn-sm btn-secondary" onclick="anularCreditNote(${d.Id})" title="Anular" style="padding: 0.2rem 0.5rem; color: var(--danger);">
                                     <i data-lucide="slash" style="width:14px;height:14px;"></i>
@@ -1292,9 +1306,21 @@ document.addEventListener('DOMContentLoaded', () => {
         ncnForm.reset();
         const tasaInp = document.getElementById('cncTasa');
         if (tasaInp) tasaInp.value = window.currentTasaBCV || 0;
+        if (typeof window.loadMotivosAjuste === 'function') window.loadMotivosAjuste();
         ncnModal.classList.add('active');
     };
     window.closeNewCreditNoteModal = () => ncnModal.classList.remove('active');
+
+    window.recalcNCUsd = () => {
+        const bs = parseFloat(document.getElementById('cncMontoBs')?.value) || 0;
+        const tasa = parseFloat(document.getElementById('cncTasa')?.value) || 1;
+        const usdInp = document.getElementById('cncMontoUsd');
+        if(usdInp) {
+            usdInp.value = `$${(bs / tasa).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+    };
+    document.getElementById('cncMontoBs')?.addEventListener('input', window.recalcNCUsd);
+    document.getElementById('cncTasa')?.addEventListener('input', window.recalcNCUsd);
 
     document.getElementById('btnNewCreditNote')?.addEventListener('click', openNewCreditNoteModal);
     document.getElementById('refreshCreditNotesBtn')?.addEventListener('click', fetchCreditNotes);
@@ -1306,6 +1332,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     ncnForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
+        const actionType = e.submitter ? e.submitter.dataset.action : 'register';
         const btn = ncnForm.querySelector('button[type="submit"]');
         const orig = btn.innerHTML;
         btn.innerHTML = '<i class="loader" style="width:14px;height:14px;border-color:#fff;border-bottom-color:transparent;"></i>';
@@ -1317,8 +1344,10 @@ document.addEventListener('DOMContentLoaded', () => {
             NumeroD: document.getElementById('cncNumeroD').value || null,
             Motivo: document.getElementById('cncMotivo').value,
             MontoBs: parseFloat(document.getElementById('cncMontoBs').value),
-            Tasa: parseFloat(document.getElementById('cncTasa').value),
-            Observacion: document.getElementById('cncObservacion').value
+            TasaCambio: parseFloat(document.getElementById('cncTasa').value),
+            MontoUsd: parseFloat(document.getElementById('cncMontoUsd')?.value?.replace(/[\$\,]/g, '')) || 0,
+            Observacion: document.getElementById('cncObservacion').value,
+            EnviarInmediato: actionType === 'send'
         };
 
         try {
@@ -1327,17 +1356,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (!res.ok) throw new Error("Error al crear NC");
+            if (!res.ok) {
+                const err = await res.json().catch(()=>({}));
+                throw new Error(err.detail || "Error al crear NC");
+            }
             showToast('✅ Solicitud de Nota de Crédito registrada.', 'success');
             closeNewCreditNoteModal();
             fetchCreditNotes();
         } catch (e) {
-            showToast('❌ Error al registrar solicitud.', 'error');
+            showToast(`❌ Error al registrar solicitud: ${e.message}`, 'error');
         } finally {
             btn.innerHTML = orig;
             btn.disabled = false;
         }
     });
+
+    window.sendCreditNoteEmail = async (id) => {
+        if (!confirm('¿Está seguro de enviar esta solicitud de nota de crédito por correo y cambiar su estatus a SOLICITADA?')) return;
+        try {
+            const res = await fetch(`/api/procurement/credit-notes/${id}/send`, { method: 'POST' });
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || "Error al enviar la solicitud.");
+            }
+            showToast('✅ Correo de Solicitud de Nota de Crédito enviado.', 'success');
+            fetchCreditNotes();
+        } catch (e) {
+            showToast('❌ ' + e.message, 'error');
+        }
+    };
 
     window.anularCreditNote = async (id) => {
         if (!confirm('¿Desea anular esta solicitud de Nota de Crédito?')) return;
@@ -2804,7 +2851,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── Motivos de Ajuste y Notas de Crédito: cargar ─────────────────────────
     window.motivosNC = [];
-    const loadMotivosAjuste = async () => {
+    window.loadMotivosAjuste = async () => {
         try {
             const res = await fetch('/api/procurement/motivos-ajuste?solo_activos=true');
             if (!res.ok) return;
@@ -2822,8 +2869,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // If the note of credit modal is active, we can populate its dropdown too
             const drpnc = document.getElementById('cncMotivo'); // we'll need to check the actual ID of the NC dropdown
             if (drpnc) {
-                const optsNC = window.motivosNC.map(m => `<option value="${m.Descripcion}">${m.Descripcion}</option>`).join('');
-                drpnc.innerHTML = optsNC;
+                const optsNC = window.motivosNC.map(m => `<option value="${m.Descripcion}">[${m.Codigo || ''}] ${m.Descripcion}</option>`).join('');
+                drpnc.innerHTML = '<option value="">— Seleccione Motivo —</option>' + optsNC;
             }
         } catch(e) { console.warn('No se pudieron cargar motivos', e); }
     };
@@ -2840,7 +2887,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    loadMotivosAjuste(); // load once on init
+    window.loadMotivosAjuste(); // load once on init
 
     const fetchCxpStatus = async (codProv, numeroD, nroUnico = null) => {
         try {
@@ -3186,8 +3233,18 @@ document.addEventListener('DOMContentLoaded', () => {
             visualizeAbono('NOTA_CREDITO');
             return;
         }
-        closeAbonosModal();
-        openNCFromMain(codProv, numeroD);
+        // Do not close so user stays on the modal context
+        // closeAbonosModal();
+        let excess = 0;
+        const entered = parseFloat(document.getElementById('abMontoBs').value);
+        const required = window.lastCalculatedPaymentBs || 0;
+        if (!isNaN(entered) && required > 0) {
+            excess = Math.abs(entered - required);
+        } else {
+            excess = required > 0 ? required : 0;
+        }
+        const selectedTasa = parseFloat(document.getElementById('abTasa')?.value) || window.currentTasaBCV;
+        openNCFromMain(codProv, numeroD, excess, selectedTasa);
     });
 
     document.getElementById('abBtnND')?.addEventListener('click', () => {
@@ -3495,6 +3552,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         let targetBs = fin.finalBs.toFixed(2);
+        window.lastCalculatedPaymentBs = parseFloat(targetBs);
 
         const currentMonto = abMontoBs.value;
         if (!forceUserToggle) {
@@ -4465,7 +4523,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const tasa = parseFloat(row.querySelector('.pm-tasa-abono')?.value) || 0;
+            const tasa = parseFloat(row.querySelector('.pm-tasa')?.value) || 0;
             const indexado = row.querySelector('.pm-indexado')?.checked || false;
 
             const fin = calculateInvoiceFinancials(cxp, {
@@ -5428,41 +5486,104 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await fetch('/api/procurement/motivos-ajuste?solo_activos=false');
                 const { data } = await res.json();
-                tbody.innerHTML = data.map(m => `
+                window.allMotivosConfig = data; // Store globally for editing
+                tbody.innerHTML = data.map((m, idx) => `
                     <tr style="opacity: ${m.Activo ? '1' : '0.5'};">
                         <td>${m.Codigo}</td>
                         <td>${m.Descripcion} ${m.Activo ? '' : '(Inactivo)'}</td>
+                        <td style="text-align:center;">
+                            <button class="btn-icon" title="${m.EmailTemplate || 'Sin plantilla configurada'}" style="color: ${m.EmailTemplate ? 'var(--primary-accent)' : 'var(--text-secondary)'};">
+                                <i data-lucide="${m.EmailTemplate ? 'message-circle' : 'message-circle-off'}" style="width:16px;height:16px;"></i>
+                            </button>
+                        </td>
                         <td style="text-align:center;">${m.ParaAjuste ? '✅' : '—'}</td>
                         <td style="text-align:center;">${m.ParaNotaCredito ? '✅' : '—'}</td>
                         <td style="text-align:center;">
-                            ${m.Activo ? `<button class="btn-icon" onclick="deleteMotivoConfig(${m.MotivoID})" style="color:var(--danger);" title="Desactivar"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>` : ''}
+                            <div style="display:flex; gap:0.5rem; justify-content:center;">
+                                <button class="btn-icon" onclick="editMotivoConfig(${idx})" style="color:var(--primary-accent);" title="Editar"><i data-lucide="pencil" style="width:16px;height:16px;"></i></button>
+                                ${m.Activo ? `<button class="btn-icon" onclick="deleteMotivoConfig(${m.MotivoID})" style="color:var(--danger);" title="Desactivar"><i data-lucide="trash-2" style="width:16px;height:16px;"></i></button>` : ''}
+                            </div>
                         </td>
                     </tr>
                 `).join('');
-                if (data.length === 0) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No hay motivos configurados.</td></tr>';
+                if (data.length === 0) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay motivos configurados.</td></tr>';
                 if (window.lucide) lucide.createIcons();
             } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:red;">Error al cargar.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:red;">Error al cargar.</td></tr>';
             }
+        };
+
+        window.editMotivoConfig = (index) => {
+            const m = window.allMotivosConfig[index];
+            if (!m) return;
+            document.getElementById('newMcCodigo').value = m.Codigo;
+            document.getElementById('newMcCodigo').readOnly = true;
+            document.getElementById('newMcDesc').value = m.Descripcion;
+            document.getElementById('newMcAjuste').checked = m.ParaAjuste;
+            document.getElementById('newMcNC').checked = m.ParaNotaCredito;
+            document.getElementById('newMcEmailTemplate').value = m.EmailTemplate || '';
+            document.getElementById('addMotivoForm').dataset.motivoId = m.MotivoID; // Store ID for update
+            
+            const btnSave = document.getElementById('btnSaveMotivo');
+            if(btnSave) {
+                btnSave.innerHTML = '<i data-lucide="check"></i> Actualizar';
+                btnSave.classList.replace('btn-primary', 'btn-success'); 
+            }
+            document.getElementById('btnCancelEditMotivo').style.display = 'inline-flex';
+            if (window.lucide) lucide.createIcons();
+            document.getElementById('newMcDesc').focus();
+        };
+
+        window.resetMotivoForm = () => {
+            const form = document.getElementById('addMotivoForm');
+            if (form) {
+                form.reset();
+                delete form.dataset.motivoId;
+            }
+            document.getElementById('newMcCodigo').readOnly = false;
+            document.getElementById('newMcAjuste').checked = true;
+            const btnSave = document.getElementById('btnSaveMotivo');
+            if(btnSave) {
+                btnSave.innerHTML = '<i data-lucide="plus"></i>';
+                btnSave.classList.remove('btn-success');
+                btnSave.classList.add('btn-primary');
+            }
+            document.getElementById('btnCancelEditMotivo').style.display = 'none';
+            if (window.lucide) lucide.createIcons();
         };
 
         document.getElementById('addMotivoForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const btn = document.getElementById('btnSaveMotivo');
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="loader" style="width:14px;height:14px;"></i>';
+            btn.disabled = true;
+
+            const form = document.getElementById('addMotivoForm');
             const payload = {
+                MotivoID: form.dataset.motivoId || null,
                 Codigo: document.getElementById('newMcCodigo').value,
                 Descripcion: document.getElementById('newMcDesc').value,
                 ParaAjuste: document.getElementById('newMcAjuste').checked,
                 ParaNotaCredito: document.getElementById('newMcNC').checked,
+                EmailTemplate: document.getElementById('newMcEmailTemplate')?.value || '',
                 Activo: true
             };
             try {
-                await fetch('/api/procurement/motivos-ajuste', {
+                const res = await fetch('/api/procurement/motivos-ajuste', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                 });
-                document.getElementById('addMotivoForm').reset();
-                document.getElementById('newMcAjuste').checked = true;
+                if(!res.ok) throw new Error("Error al guardar motivo");
+                showToast('✅ Motivo configurado correctamente.', 'success');
+                resetMotivoForm();
                 loadMotivosConfig();
-            } catch (err) { showToast('Error al añadir motivo', 'error'); }
+            } catch (err) { 
+                showToast(err.message, 'error'); 
+            } finally {
+                btn.innerHTML = orig;
+                btn.disabled = false;
+                if(window.lucide) lucide.createIcons();
+            }
         });
 
         window.deleteMotivoConfig = async (id) => {
@@ -6067,7 +6188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btnGenerarRetencionIslr')?.click();
     };
 
-    window.openNCFromMain = (codProv, numeroD) => {
+    window.openNCFromMain = (codProv, numeroD, exceso = 0, passedTasa = null) => {
         openNewCreditNoteModal();
         setTimeout(() => {
             const codProvInput = document.getElementById('cncCodProv');
@@ -6078,10 +6199,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (codProvInput) codProvInput.value = provider ? `${provider.CodProv} - ${provider.Descrip}` : codProv;
             if (numDInput) numDInput.value = numeroD;
             const item = window.currentData?.find(d => d.CodProv === codProv && d.NumeroD === numeroD);
-            if (item) {
-                if (montoBsInput) montoBsInput.value = (parseFloat(item.Saldo) || 0).toFixed(2);
-                if (tasaInput) tasaInput.value = (parseFloat(item.TasaActual) || 0).toFixed(4);
+            if (item || exceso > 0) {
+                if (montoBsInput) montoBsInput.value = exceso > 0 ? exceso.toFixed(2) : (parseFloat(item?.Saldo || 0)).toFixed(2);
+                if (tasaInput) tasaInput.value = passedTasa ? passedTasa.toFixed(4) : (parseFloat(item?.TasaActual || window.currentTasaBCV || 0)).toFixed(4);
             }
+            if(window.recalcNCUsd) window.recalcNCUsd();
         }, 100);
     };
 
