@@ -1753,9 +1753,13 @@
         <div class="modal-content glassmorphism" style="max-width: 1300px; width: 95%; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
                 <div>
-                    <h2 id="abonoModalTitle" style="margin-bottom: 0.2rem;">Gestión de Pagos</h2>
-                    <p id="abonoModalSubtitle" style="color: var(--text-secondary); font-size: 0.95rem;">Factura: - |
-                        Proveedor: -</p>
+                    <h2 id="abonoModalTitle" style="margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                        Gestión de Pagos
+                        <button class="btn-icon" title="Editar Proveedor" onclick="if(document.getElementById('abCodProv').value) window.openEditProvider(document.getElementById('abCodProv').value);" style="padding: 0.2rem; margin-left: 0.5rem;">
+                            <i data-lucide="edit-3" size="18" style="color: var(--primary-accent);"></i>
+                        </button>
+                    </h2>
+                    <p id="abonoModalSubtitle" style="color: var(--text-secondary); font-size: 0.95rem;">Factura: - | Proveedor: -</p>
                 </div>
                 <button class="btn-icon" onclick="closeAbonosModal()"><i data-lucide="x"></i></button>
             </div>
@@ -2038,7 +2042,13 @@
     <div id="pagoMultipleModal" class="modal" style="z-index: 10030;">
         <div class="modal-content glassmorphism" style="max-width: 1850px; width: 92%;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
-                <h2 style="margin:0;"><i data-lucide="banknote" style="width:20px;height:20px;vertical-align:middle;"></i> Pago Múltiple de Facturas</h2>
+                <h2 style="margin:0; display: flex; align-items: center; gap: 0.5rem;">
+                    <i data-lucide="banknote" style="width:20px;height:20px;"></i> 
+                    Pago Múltiple de Facturas
+                    <button class="btn-icon" title="Editar Proveedor" onclick="if(typeof pmItems !== 'undefined' && pmItems.length > 0) window.openEditProvider(pmItems[0].CodProv);" style="padding: 0.2rem; margin-left: 0.5rem;">
+                        <i data-lucide="edit-3" size="18" style="color: var(--primary-accent);"></i>
+                    </button>
+                </h2>
                 <button class="btn-icon" onclick="closePagoMultipleModal()"><i data-lucide="x"></i></button>
             </div>
 
