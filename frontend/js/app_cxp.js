@@ -4093,39 +4093,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // If the edit was triggered from the PM modal: re-fetch + recalc that row
             const fromPm = invoiceEditForm.dataset.fromPm === 'true';
-            const pmNroUnico = invoiceEditForm.dataset.pmNroUnico;
+            const pmRowKey = invoiceEditForm.dataset.pmRowKey || '';
             invoiceEditForm.dataset.fromPm = 'false';
-            invoiceEditForm.dataset.pmNroUnico = '';
+            invoiceEditForm.dataset.pmRowKey = '';
 
-            if (fromPm && pmNroUnico) {
-                // Re-fetch the main table so currentData is fresh
+            if (fromPm && pmRowKey) {
                 await fetchData();
-                // Re-fetch cxp-status for the PM row and recalculate
                 const pmModal = document.getElementById('pagoMultipleModal');
                 if (pmModal && pmModal.classList.contains('active')) {
                     const tbody = document.getElementById('pmInvoicesTable');
-                    const pmRow = tbody ? tbody.querySelector(`tr[data-nrounico="${pmNroUnico}"]`) : null;
+                    const pmRow = tbody ? tbody.querySelector(`tr[data-rowkey="${pmRowKey}"]`) : null;
                     if (pmRow) {
-                        const rKey = pmRow.dataset.rowkey;
                         try {
-                            const refreshedItem = (window._pmCurrentItems || []).find(i => String(i.NroUnico) === String(pmNroUnico))
-                                || (window.currentData || []).find(i => String(i.NroUnico) === String(pmNroUnico));
+                            const refreshedItem = (window._pmCurrentItems || []).find(i => window.getItemKey(i) === pmRowKey)
+                                || (window.currentData || []).find(i => window.getItemKey(i) === pmRowKey);
                             if (refreshedItem) {
-                                // Update local pmCurrentItems reference
                                 if (window._pmCurrentItems) {
-                                    const idx = window._pmCurrentItems.findIndex(i => String(i.NroUnico) === String(pmNroUnico));
-                                    const freshItem = (window.currentData || []).find(i => String(i.NroUnico) === String(pmNroUnico));
+                                    const idx = window._pmCurrentItems.findIndex(i => window.getItemKey(i) === pmRowKey);
+                                    const freshItem = (window.currentData || []).find(i => window.getItemKey(i) === pmRowKey);
                                     if (idx !== -1 && freshItem) window._pmCurrentItems[idx] = freshItem;
                                 }
-                                const statusUrl = `/api/procurement/cxp-status?cod_prov=${encodeURIComponent(refreshedItem.CodProv)}&numero_d=${encodeURIComponent(refreshedItem.NumeroD)}&nro_unico=${pmNroUnico}`;
-                                const statusRes = await fetch(statusUrl);
-                                if (statusRes.ok) {
-                                    const statusJson = await statusRes.json();
-                                    // pmCxpStatuses is in the PM module scope — access via _pmRecalcAfterProviderSave
-                                    // We re-use the same path: directly call pmCalcRow via the exposed helper
-                                    if (typeof window._pmRecalcAfterProviderSave === 'function') {
-                                        await window._pmRecalcAfterProviderSave(refreshedItem.CodProv);
-                                    }
+                                if (typeof window._pmRecalcAfterProviderSave === 'function') {
+                                    await window._pmRecalcAfterProviderSave(refreshedItem.CodProv);
                                 }
                             }
                         } catch(pmErr) { console.warn('PM row refresh after invoice edit failed:', pmErr); }
@@ -4227,9 +4216,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         // ── PM helper: open invoice-edit modal for a row (reuses existing invoiceEditModal)
-        window.pmOpenEditInvoice = (nroUnico) => {
+        window.pmOpenEditInvoice = (rKey) => {
             const items = window._pmCurrentItems || [];
-            const item = items.find(i => String(i.NroUnico) === String(nroUnico));
+            const item = items.find(i => window.getItemKey(i) === rKey);
             if (!item) { showToast('⚠️ Factura no encontrada.', 'warning'); return; }
 
             // Populate the existing invoiceEditModal fields (same logic as editInvoiceBtn)
@@ -4257,7 +4246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (invoiceEditForm) invoiceEditForm.dataset.codProv = item.CodProv || '';
             // Tag the form so the submit handler knows it came from PM modal
             if (invoiceEditForm) invoiceEditForm.dataset.fromPm = 'true';
-            if (invoiceEditForm) invoiceEditForm.dataset.pmNroUnico = String(item.NroUnico);
+            if (invoiceEditForm) invoiceEditForm.dataset.pmRowKey = rKey;
 
             const invoiceEditModal = document.getElementById('invoiceEditModal');
             if (typeof window.forceShowModal === 'function') window.forceShowModal(invoiceEditModal);
@@ -4841,7 +4830,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         style="width:110px;padding:0.3rem;font-size:0.8rem;"></td>
                     <td class="amount pm-monto-usd" style="font-weight:bold;color:var(--success);">0.00</td>
                     <td style="text-align:center;">
-                        <button type="button" class="btn-icon pm-btn-edit-invoice" title="Editar Factura" data-nrounico="${item.NroUnico}" style="padding:0.15rem;">
+                        <button type="button" class="btn-icon pm-btn-edit-invoice" title="Editar Factura" data-rowkey="${rKey}" style="padding:0.15rem;">
                             <i data-lucide="file-pen" style="width:15px;height:15px;color:var(--primary-accent);"></i>
                         </button>
                     </td>
@@ -4901,8 +4890,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.querySelector('.pm-desc-base-check')?.addEventListener('change', () => window.pmCalcRow(row));
                 row.querySelector('.pm-btn-calc')?.addEventListener('click', () => pmOpenRowDynamic(row));
                 row.querySelector('.pm-btn-edit-invoice')?.addEventListener('click', (e) => {
-                    const nroUnico = e.currentTarget.dataset.nrounico;
-                    window.pmOpenEditInvoice(nroUnico);
+                    const rKey = e.currentTarget.dataset.rowkey;
+                    window.pmOpenEditInvoice(rKey);
                 });
             });
 
@@ -5339,6 +5328,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (document.getElementById('cfgAntigravityFlow')) {
                     document.getElementById('cfgAntigravityFlow').value = window.globalRetConfig?.AntigravityFlow || 90;
                 }
+                if (document.getElementById('cfgAntigravityWacc')) {
+                    document.getElementById('cfgAntigravityWacc').value = window.globalRetConfig?.AntigravityWacc || 12;
+                }
+                if (document.getElementById('cfgAntigravityMaxCredit')) {
+                    document.getElementById('cfgAntigravityMaxCredit').value = window.globalRetConfig?.AntigravityMaxCredit || 0;
+                }
                 loadMotivosConfig();
             } catch (e) {
                 console.error('Error fetching config', e);
@@ -5427,12 +5422,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const islrSrc = document.getElementById('cfgISLRPersonaSource')?.value;
             const toleranceVal = document.getElementById('cfgToleranceSaldo')?.value;
             const antigravityFlow = document.getElementById('cfgAntigravityFlow')?.value;
+            const antigravityWacc = document.getElementById('cfgAntigravityWacc')?.value;
+            const antigravityMaxCredit = document.getElementById('cfgAntigravityMaxCredit')?.value;
             
-            if (islrSrc || toleranceVal || antigravityFlow) {
+            if (islrSrc || toleranceVal || antigravityFlow || antigravityWacc || antigravityMaxCredit) {
                 const settingsPayload = {};
                 if (islrSrc) settingsPayload.ISLRPersonaSource = islrSrc;
                 if (toleranceVal) settingsPayload.ToleranceSaldo = toleranceVal;
                 if (antigravityFlow) settingsPayload.AntigravityFlow = antigravityFlow;
+                if (antigravityWacc) settingsPayload.AntigravityWacc = antigravityWacc;
+                if (antigravityMaxCredit) settingsPayload.AntigravityMaxCredit = antigravityMaxCredit;
 
                 fetch('/api/procurement/settings', {
                     method: 'POST',
@@ -5442,6 +5441,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (islrSrc) window.globalRetConfig.ISLRPersonaSource = islrSrc;
                     if (toleranceVal) window.globalRetConfig.ToleranceSaldo = toleranceVal;
                     if (antigravityFlow) window.globalRetConfig.AntigravityFlow = antigravityFlow;
+                    if (antigravityWacc) window.globalRetConfig.AntigravityWacc = antigravityWacc;
+                    if (antigravityMaxCredit) window.globalRetConfig.AntigravityMaxCredit = antigravityMaxCredit;
                 });
             }
 
@@ -6058,8 +6059,12 @@ window.runAntigravity = async function() {
 
         // Get saved config
         let pctFlow = 0.90;
-        if (window.globalRetConfig && window.globalRetConfig.AntigravityFlow) {
-            pctFlow = parseFloat(window.globalRetConfig.AntigravityFlow) / 100.0;
+        let wacc = 0.12;
+        let maxCredit = 0.0;
+        if (window.globalRetConfig) {
+            if (window.globalRetConfig.AntigravityFlow) pctFlow = parseFloat(window.globalRetConfig.AntigravityFlow) / 100.0;
+            if (window.globalRetConfig.AntigravityWacc) wacc = parseFloat(window.globalRetConfig.AntigravityWacc);
+            if (window.globalRetConfig.AntigravityMaxCredit) maxCredit = parseFloat(window.globalRetConfig.AntigravityMaxCredit);
         }
 
         // Get saved cashflow baseline configuration
@@ -6082,7 +6087,9 @@ window.runAntigravity = async function() {
                 caja_usd: cajaUsd,
                 caja_bs: cajaBs,
                 fecha_arranque: fechaCero,
-                delay_days: delayDays
+                delay_days: delayDays,
+                wacc: wacc,
+                max_credit: maxCredit
             })
         });
 

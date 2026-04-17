@@ -2064,22 +2064,22 @@
 
                 <div class="action-bar custom-scroll" style="display: flex; gap: 0.8rem; overflow-x: auto; align-items: center; max-width: 100%;">
                     <span style="font-size: 0.85rem; color: var(--text-secondary); margin-right: 0.5rem; white-space: nowrap;"><i data-lucide="zap" size="14" style="vertical-align: middle;"></i> Acciones Rápidas:</span>
-                <button type="button" id="pmGoBtnND" class="btn btn-secondary" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); white-space: nowrap;">
-                    <i data-lucide="file-plus" size="16"></i> N/D
-                </button>
-                <button type="button" id="pmGoBtnNC" class="btn btn-secondary" style="color: #8b5cf6; border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.05); white-space: nowrap;">
-                    <i data-lucide="file-minus" size="16"></i> N/C
-                </button>
-                <button type="button" id="pmGoBtnRetIva" class="btn btn-secondary" style="color: #06b6d4; border-color: rgba(6, 182, 212, 0.4); background: rgba(6, 182, 212, 0.05); white-space: nowrap;">
-                    <i data-lucide="receipt" size="16"></i> Ret. IVA
-                </button>
-                <button type="button" id="pmGoBtnRetIslr" class="btn btn-secondary" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.05); white-space: nowrap;">
-                    <i data-lucide="file-text" size="16"></i> Ret. ISLR
-                </button>
-                <button type="button" id="pmGoBtnEditProv" class="btn btn-secondary" onclick="window.pmOpenEditProviderSafe();" style="color: var(--primary-accent); border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.05); white-space: nowrap;">
-                    <i data-lucide="settings-2" size="16"></i> Cond. Proveedor
-                </button>
-            </div>
+                    <button type="button" id="pmGoBtnND" class="btn btn-secondary" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); white-space: nowrap;">
+                        <i data-lucide="file-plus" size="16"></i> N/D
+                    </button>
+                    <button type="button" id="pmGoBtnNC" class="btn btn-secondary" style="color: #8b5cf6; border-color: rgba(139, 92, 246, 0.4); background: rgba(139, 92, 246, 0.05); white-space: nowrap;">
+                        <i data-lucide="file-minus" size="16"></i> N/C
+                    </button>
+                    <button type="button" id="pmGoBtnRetIva" class="btn btn-secondary" style="color: #06b6d4; border-color: rgba(6, 182, 212, 0.4); background: rgba(6, 182, 212, 0.05); white-space: nowrap;">
+                        <i data-lucide="receipt" size="16"></i> Ret. IVA
+                    </button>
+                    <button type="button" id="pmGoBtnRetIslr" class="btn btn-secondary" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.05); white-space: nowrap;">
+                        <i data-lucide="file-text" size="16"></i> Ret. ISLR
+                    </button>
+                    <button type="button" id="pmGoBtnEditProv" class="btn btn-secondary" onclick="window.pmOpenEditProviderSafe();" style="color: var(--primary-accent); border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.05); white-space: nowrap;">
+                        <i data-lucide="settings-2" size="16"></i> Cond. Proveedor
+                    </button>
+                </div>
 
             <form id="pagoMultipleForm" style="display:flex;flex-direction:column;gap:1rem;">
                 <!-- Invoice table with per-row controls -->
@@ -2392,12 +2392,22 @@
                     </div>
                     <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;">
                     <h4 style="margin: 0; color: #8b5cf6;">Motor Antigravity</h4>
-                    <div class="input-group">
-                        <label>Porcentaje Flujo (%)</label>
-                        <input type="number" id="cfgAntigravityFlow" class="form-control" min="1" max="100" value="90">
-                        <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;display:block;">
-                            Porcentaje del saldo consolidado proyectado que se permitirá usar cada día. (Ej. 90% reserva el 10% de colchón).
-                        </small>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                        <div class="input-group">
+                            <label>Porcentaje Flujo (%)</label>
+                            <input type="number" id="cfgAntigravityFlow" class="form-control" min="1" max="100" value="90">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Porcentaje del saldo consolidado usar.</small>
+                        </div>
+                        <div class="input-group">
+                            <label>WACC (Costo Cap. Anual %)</label>
+                            <input type="number" id="cfgAntigravityWacc" class="form-control" min="0" step="0.1" value="12">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Interés penalidad por adelantar.</small>
+                        </div>
+                        <div class="input-group" style="grid-column: span 2;">
+                            <label>Línea de Crédito (Sobregiro USD Diario)</label>
+                            <input type="number" id="cfgAntigravityMaxCredit" class="form-control" min="0" step="10" value="0">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Permite al optimizador "tomar prestado" si encuentra un descuento mayor al costo de penalidad. (0 = no permite eludir el flujo).</small>
+                        </div>
                     </div>
                     <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1rem;">
                         <button type="button" class="btn btn-secondary" onclick="closeRetConfigModal()">Cerrar</button>
