@@ -1601,7 +1601,7 @@
     </div>
 
     <!-- Edit Single Provider Modal -->
-    <div id="editProviderCondModal" class="modal" style="z-index: 10010;">
+    <div id="editProviderCondModal" class="modal" style="z-index: 10060;">
         <div class="modal-content glassmorphism" style="max-width: 1060px;">
             <h2 id="editProvTitle">Editar Proveedor</h2>
             <form id="editProvForm" style="margin-top: 1rem;">
@@ -1836,8 +1836,13 @@
 
                 <!-- Right Column: Payment Form -->
                 <div style="display: flex; flex-direction: column; gap: 1rem;">
-                    <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;"><i data-lucide="plus-circle"
-                            size="18"></i> Registrar Abono</h3>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <h3 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;"><i data-lucide="plus-circle"
+                                size="18"></i> Registrar Abono</h3>
+                        <button type="button" class="btn btn-icon btn-action" onclick="abOpenEditInvoice()" title="Editar Factura" style="margin-left: auto;">
+                            <i data-lucide="edit" size="14"></i>
+                        </button>
+                    </div>
 
                     <form id="abonoForm"
                         style="display: flex; flex-direction: column; gap: 1rem; background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: var(--radius-md);">
@@ -2083,7 +2088,7 @@
 
             <form id="pagoMultipleForm" style="display:flex;flex-direction:column;gap:1rem;">
                 <!-- Invoice table with per-row controls -->
-                <div style="max-height:455px;overflow-y:auto;border:1px solid var(--border-color);border-radius:8px;">
+                <div style="max-height:455px;overflow:auto;border:1px solid var(--border-color);border-radius:8px;">
                     <table class="data-table" style="margin:0;font-size:0.85rem;">
                         <thead>
                             <tr>
@@ -2116,9 +2121,10 @@
                             <tr style="background:var(--bg-tertiary);font-weight:bold;">
                                 <td>TOTALES:</td>
                                 <td id="pmTotalSaldoUsd" class="amount" style="color:var(--success);">0.00</td>
-                                <td colspan="9"></td>
+                                <td colspan="8"></td>
                                 <td id="pmTotalMontoBs" class="amount">0.00</td>
                                 <td id="pmTotalMontoUsd" class="amount" style="color:var(--success);">0.00</td>
+                                <td></td>
                             </tr>
                             <tr style="background:var(--bg-card);font-size:0.82rem;color:var(--text-secondary);">
                                 <td colspan="2" style="text-align:right;">Totales Impositivos:</td>
