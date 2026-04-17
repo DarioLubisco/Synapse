@@ -1755,8 +1755,8 @@
                 <div>
                     <h2 id="abonoModalTitle" style="margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.5rem;">
                         Gestión de Pagos
-                        <button class="btn-icon" title="Editar Proveedor" onclick="if(document.getElementById('abCodProv').value) window.openEditProvider(document.getElementById('abCodProv').value);" style="padding: 0.2rem; margin-left: 0.5rem;">
-                            <i data-lucide="edit-3" size="18" style="color: var(--primary-accent);"></i>
+                        <button class="btn-icon" title="Editar Condiciones del Proveedor" onclick="window.abOpenEditProviderSafe();" style="padding: 0.2rem; margin-left: 0.5rem;">
+                            <i data-lucide="settings-2" size="18" style="color: var(--primary-accent);"></i>
                         </button>
                     </h2>
                     <p id="abonoModalSubtitle" style="color: var(--text-secondary); font-size: 0.95rem;">Factura: - | Proveedor: -</p>
@@ -2045,8 +2045,8 @@
                 <h2 style="margin:0; display: flex; align-items: center; gap: 0.5rem;">
                     <i data-lucide="banknote" style="width:20px;height:20px;"></i> 
                     Pago Múltiple de Facturas
-                    <button class="btn-icon" title="Editar Proveedor" onclick="if(typeof pmItems !== 'undefined' && pmItems.length > 0) window.openEditProvider(pmItems[0].CodProv);" style="padding: 0.2rem; margin-left: 0.5rem;">
-                        <i data-lucide="edit-3" size="18" style="color: var(--primary-accent);"></i>
+                    <button class="btn-icon" title="Editar Condiciones del Proveedor" onclick="window.pmOpenEditProviderSafe();" style="padding: 0.2rem; margin-left: 0.5rem;">
+                        <i data-lucide="settings-2" size="18" style="color: var(--primary-accent);"></i>
                     </button>
                 </h2>
                 <button class="btn-icon" onclick="closePagoMultipleModal()"><i data-lucide="x"></i></button>
@@ -2075,6 +2075,9 @@
                 </button>
                 <button type="button" id="pmGoBtnRetIslr" class="btn btn-secondary" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.4); background: rgba(239, 68, 68, 0.05); white-space: nowrap;">
                     <i data-lucide="file-text" size="16"></i> Ret. ISLR
+                </button>
+                <button type="button" id="pmGoBtnEditProv" class="btn btn-secondary" onclick="window.pmOpenEditProviderSafe();" style="color: var(--primary-accent); border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.05); white-space: nowrap;">
+                    <i data-lucide="settings-2" size="16"></i> Cond. Proveedor
                 </button>
             </div>
 
@@ -2105,6 +2108,7 @@
                                 <th>Concepto ISLR (%)</th>
                                 <th>Monto Bs</th>
                                 <th>Equiv. USD</th>
+                                <th style="text-align:center;">Acc.</th>
                             </tr>
                         </thead>
                         <tbody id="pmInvoicesTable"></tbody>
@@ -2112,13 +2116,13 @@
                             <tr style="background:var(--bg-tertiary);font-weight:bold;">
                                 <td>TOTALES:</td>
                                 <td id="pmTotalSaldoUsd" class="amount" style="color:var(--success);">0.00</td>
-                                <td colspan="8"></td>
+                                <td colspan="9"></td>
                                 <td id="pmTotalMontoBs" class="amount">0.00</td>
                                 <td id="pmTotalMontoUsd" class="amount" style="color:var(--success);">0.00</td>
                             </tr>
                             <tr style="background:var(--bg-card);font-size:0.82rem;color:var(--text-secondary);">
                                 <td colspan="2" style="text-align:right;">Totales Impositivos:</td>
-                                <td colspan="8"></td>
+                                <td colspan="9"></td>
                                 <td colspan="2" style="font-size:0.8rem;">
                                     <div style="display:flex;flex-direction:column;gap:2px;">
                                         <span>IVA a Pagar: <strong id="pmTotalIvaAPagar" style="color:var(--primary-accent);">0.00</strong></span>

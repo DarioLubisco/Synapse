@@ -2529,8 +2529,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.openEditProvider = (codProv) => {
-        const p = providersData.find(x => x.CodProv === codProv);
-        if (!p) return;
+        if(!providersData || providersData.length === 0) {
+            showToast('Cargando datos del proveedor, reintente en 1 segundo...', 'info');
+            return;
+        }
+        const p = providersData.find(x => String(x.CodProv).trim() === String(codProv).trim());
+        if (!p) {
+            showToast('⚠️ No se encontraron condiciones para este proveedor.', 'warning');
+            return;
+        }
 
         document.getElementById('editProvTitle').textContent = `Editar: ${p.Descrip}`;
         document.getElementById('editProvCod').value = p.CodProv;
@@ -2717,6 +2724,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentCxpStatus = null;
     let lastAutoFilledBs = '';
+
+    window.abOpenEditProviderSafe = async () => {
+        const codProv = document.getElementById('abCodProv').value;
+        if (!codProv) { showToast('⚠️ No hay proveedor activo.', 'warning'); return; }
+        
+        if (!providersData || providersData.length === 0) {
+            try {
+                if (typeof fetchProviders === 'function') await fetchProviders();
+            } catch(e) {}
+        }
+        
+        if (typeof window.openEditProvider === 'function') {
+            window.openEditProvider(codProv);
+        }
+    };
 
     window.openAbonosPanel = async (codProv, numeroD, nroUnico = null) => {
         abonosModal.classList.add('active');
@@ -4068,7 +4090,50 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error('Error al guardar cambios');
             showToast('✅ Factura actualizada correctamente.', 'success');
             window.closeInvoiceEditModal();
-            await fetchData();
+
+            // If the edit was triggered from the PM modal: re-fetch + recalc that row
+            const fromPm = invoiceEditForm.dataset.fromPm === 'true';
+            const pmNroUnico = invoiceEditForm.dataset.pmNroUnico;
+            invoiceEditForm.dataset.fromPm = 'false';
+            invoiceEditForm.dataset.pmNroUnico = '';
+
+            if (fromPm && pmNroUnico) {
+                // Re-fetch the main table so currentData is fresh
+                await fetchData();
+                // Re-fetch cxp-status for the PM row and recalculate
+                const pmModal = document.getElementById('pagoMultipleModal');
+                if (pmModal && pmModal.classList.contains('active')) {
+                    const tbody = document.getElementById('pmInvoicesTable');
+                    const pmRow = tbody ? tbody.querySelector(`tr[data-nrounico="${pmNroUnico}"]`) : null;
+                    if (pmRow) {
+                        const rKey = pmRow.dataset.rowkey;
+                        try {
+                            const refreshedItem = (window._pmCurrentItems || []).find(i => String(i.NroUnico) === String(pmNroUnico))
+                                || (window.currentData || []).find(i => String(i.NroUnico) === String(pmNroUnico));
+                            if (refreshedItem) {
+                                // Update local pmCurrentItems reference
+                                if (window._pmCurrentItems) {
+                                    const idx = window._pmCurrentItems.findIndex(i => String(i.NroUnico) === String(pmNroUnico));
+                                    const freshItem = (window.currentData || []).find(i => String(i.NroUnico) === String(pmNroUnico));
+                                    if (idx !== -1 && freshItem) window._pmCurrentItems[idx] = freshItem;
+                                }
+                                const statusUrl = `/api/procurement/cxp-status?cod_prov=${encodeURIComponent(refreshedItem.CodProv)}&numero_d=${encodeURIComponent(refreshedItem.NumeroD)}&nro_unico=${pmNroUnico}`;
+                                const statusRes = await fetch(statusUrl);
+                                if (statusRes.ok) {
+                                    const statusJson = await statusRes.json();
+                                    // pmCxpStatuses is in the PM module scope — access via _pmRecalcAfterProviderSave
+                                    // We re-use the same path: directly call pmCalcRow via the exposed helper
+                                    if (typeof window._pmRecalcAfterProviderSave === 'function') {
+                                        await window._pmRecalcAfterProviderSave(refreshedItem.CodProv);
+                                    }
+                                }
+                            }
+                        } catch(pmErr) { console.warn('PM row refresh after invoice edit failed:', pmErr); }
+                    }
+                }
+            } else {
+                await fetchData();
+            }
         } catch (err) {
             console.error(err);
             showToast('❌ Error al guardar cambios en la factura.', 'error');
@@ -4140,6 +4205,77 @@ document.addEventListener('DOMContentLoaded', () => {
         const roundFixed = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
         window.closePagoMultipleModal = () => pmModal?.classList.remove('active');
+
+        // ── PM helper: open edit-provider modal safely (fetches data if cache is empty)
+        window.pmOpenEditProviderSafe = async () => {
+            const items = window._pmCurrentItems;
+            if (!items || items.length === 0) { showToast('⚠️ No hay proveedor activo en el modal.', 'warning'); return; }
+            const codProv = items[0].CodProv;
+            // Ensure providers cache is loaded before opening edit modal
+            try {
+                const res = await fetch('/api/procurement/providers');
+                if (res.ok) {
+                    const json = await res.json();
+                    // Push data into the shared providersData array used by openEditProvider
+                    // We do this by calling fetchProviders() through the public API
+                    if (typeof fetchProviders === 'function') await fetchProviders();
+                }
+            } catch(e) {}
+            if (typeof window.openEditProvider === 'function') {
+                window.openEditProvider(codProv);
+            }
+        };
+
+        // ── PM helper: open invoice-edit modal for a row (reuses existing invoiceEditModal)
+        window.pmOpenEditInvoice = (nroUnico) => {
+            const items = window._pmCurrentItems || [];
+            const item = items.find(i => String(i.NroUnico) === String(nroUnico));
+            if (!item) { showToast('⚠️ Factura no encontrada.', 'warning'); return; }
+
+            // Populate the existing invoiceEditModal fields (same logic as editInvoiceBtn)
+            document.getElementById('ieNumeroD').value = item.NumeroD || '';
+            document.getElementById('ieCodProv').value = item.CodProv || '';
+            document.getElementById('ieFechaE').value = (item.FechaE || '').split('T')[0];
+            document.getElementById('ieFechaI').value = (item.FechaI || '').split('T')[0];
+            document.getElementById('ieFechaV').value = (item.FechaV || '').split('T')[0];
+            const n10 = item.Notas10;
+            document.getElementById('ieNotas10').value = (n10 !== null && n10 !== undefined && String(n10).trim() === '1') ? '1' : '';
+            document.getElementById('ieMontoFacturaBS').value = item.Monto || 0;
+            document.getElementById('ieTGravable').value = item.TGravable || 0;
+            document.getElementById('ieIVA').value = item.MtoTax || 0;
+            document.getElementById('ieFactor').value = item.Factor || 0;
+            document.getElementById('ieMontoMEx').value = item.MontoMEx || 0;
+            document.getElementById('ieTotalPrd').value = item.TotalPrd || 0;
+            document.getElementById('ieFletes').value = item.Fletes || 0;
+            document.getElementById('ieDescto1').value = item.Descto1 || 0;
+            document.getElementById('ieDescto2').value = item.Descto2 || 0;
+            document.getElementById('ieContado').value = item.Contado || 0;
+            document.getElementById('ieCredito').value = item.Credito || 0;
+            document.getElementById('invoiceEditSubtitle').textContent = `Factura: ${item.NumeroD} | ${item.Descrip || ''}`;
+
+            const invoiceEditForm = document.getElementById('invoiceEditForm');
+            if (invoiceEditForm) invoiceEditForm.dataset.codProv = item.CodProv || '';
+            // Tag the form so the submit handler knows it came from PM modal
+            if (invoiceEditForm) invoiceEditForm.dataset.fromPm = 'true';
+            if (invoiceEditForm) invoiceEditForm.dataset.pmNroUnico = String(item.NroUnico);
+
+            const invoiceEditModal = document.getElementById('invoiceEditModal');
+            if (typeof window.forceShowModal === 'function') window.forceShowModal(invoiceEditModal);
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            // Auto-fetch rate for emission date
+            const emissionDate = (item.FechaE || '').split('T')[0];
+            if (emissionDate) {
+                fetch(`/api/exchange-rate?fecha=${encodeURIComponent(emissionDate)}`)
+                    .then(r => r.ok ? r.json() : null)
+                    .then(j => {
+                        if (j && j.rate) {
+                            const ieFactor = document.getElementById('ieFactor');
+                            if (ieFactor) { ieFactor.value = j.rate.toFixed(4); }
+                        }
+                    }).catch(() => {});
+            }
+        };
 
         // Expose PM recalc for external triggers (e.g., after saving provider conditions)
         window._pmRecalcAfterProviderSave = async (codProv) => {
@@ -4246,7 +4382,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return tier && tier.DeduceIVA !== undefined ? tier.DeduceIVA !== false && tier.DeduceIVA !== 0 && tier.DeduceIVA !== '0' : true;
         };
 
-        const pmCalcRow = (row) => {
+        const pmCalcRow = window.pmCalcRow = (row) => {
             const rKey = row.dataset.rowkey;
             const cxp = pmCxpStatuses[rKey];
             if (!cxp) return;
@@ -4617,6 +4753,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             pmItems = items;
+            window._pmCurrentItems = pmItems; // expose for HTML onclick handlers
             pmCxpStatuses = {};
             lastProcessedPagos = [];
             document.getElementById('btnPmResendEmail') && (document.getElementById('btnPmResendEmail').disabled = true);
@@ -4703,6 +4840,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td><input type="number" class="form-control pm-monto-bs" step="0.01" min="0" required
                         style="width:110px;padding:0.3rem;font-size:0.8rem;"></td>
                     <td class="amount pm-monto-usd" style="font-weight:bold;color:var(--success);">0.00</td>
+                    <td style="text-align:center;">
+                        <button type="button" class="btn-icon pm-btn-edit-invoice" title="Editar Factura" data-nrounico="${item.NroUnico}" style="padding:0.15rem;">
+                            <i data-lucide="file-pen" style="width:15px;height:15px;color:var(--primary-accent);"></i>
+                        </button>
+                    </td>
                     <td style="display:none;" class="pm-base-bs">0</td>
                     <td style="display:none;" class="pm-iva-bs">0</td>
                     <td style="display:none;" class="pm-iva-apagar-bs">0</td>
@@ -4758,6 +4900,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.querySelector('.pm-desc')?.addEventListener('change', () => window.pmCalcRow(row));
                 row.querySelector('.pm-desc-base-check')?.addEventListener('change', () => window.pmCalcRow(row));
                 row.querySelector('.pm-btn-calc')?.addEventListener('click', () => pmOpenRowDynamic(row));
+                row.querySelector('.pm-btn-edit-invoice')?.addEventListener('click', (e) => {
+                    const nroUnico = e.currentTarget.dataset.nrounico;
+                    window.pmOpenEditInvoice(nroUnico);
+                });
             });
 
             pmModal.classList.add('active');
