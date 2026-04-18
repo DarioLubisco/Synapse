@@ -56,12 +56,18 @@ def git_push():
     if not run_git(["push", "origin", "main"]):
         print(f"{ERR} Error en git push"); return False
 
-    # Volver a dev si veniamos de ahi, y push dev tambien
+    # Volver a dev si veniamos de ahi, y push dev tambien. Si estabamos en main, sincronizar dev con main.
     if current_branch == "dev":
         run_git(["checkout", "dev"])
         run_git(["push", "origin", "dev"])  # mantener dev actualizado en GitHub
+    elif current_branch == "main":
+        print(f"   Sincronizando la rama dev con los cambios hechos en main...")
+        run_git(["checkout", "dev"])
+        run_git(["merge", "main", "-m", "deploy: sync main into dev"])
+        run_git(["push", "origin", "dev"])
+        run_git(["checkout", "main"])
 
-    print(f"{OK} Codigo subido a GitHub")
+    print(f"{OK} Codigo subido a GitHub (Ambas ramas alineadas)")
     return True
 
 def deploy_server():
