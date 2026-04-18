@@ -9,9 +9,38 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .toast {
+      padding: 12px 20px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: slideIn 0.3s ease-out;
+      min-width: 250px;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .toast-success { background: #10b981; }
+    .toast-error, .toast-danger { background: #ef4444; }
+    .toast-warning { background: #f59e0b; color: #000; }
+    .toast-info { background: #4f46e5; }
+  </style>
 
 </head>
 <body>
+<div id="toast-container"></div>
 <div class="app-container">
 
   <!-- ── SIDEBAR INYECTADO POR JS ── -->
@@ -52,6 +81,9 @@
               <button class="btn btn-primary" onclick="cargarPerfilUsuario()" style="padding:0.35rem 0.7rem; font-size:0.85rem;"><i class="fas fa-sign-in-alt"></i> Validar</button>
             </div>
           </div>
+      </div>
+      <div id="logout-bar" style="display:none; align-items:flex-end; gap:0.5rem;">
+          <button class="btn btn-danger" onclick="cerrarSesion()" style="padding:0.35rem 0.7rem; font-size:0.85rem; margin-bottom: 3px;"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
       </div>
     </div>
     
@@ -887,6 +919,22 @@
 </div>
 
 <script>
+// Definir showToast si aún no está global (por no incluir app_cxp.js)
+if (!window.showToast) {
+  window.showToast = (msg, type='info') => {
+    const container = document.getElementById('toast-container');
+    if (container) {
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    } else {
+      alert(msg);
+    }
+  };
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 let isTicketsCollapsed = false;
 function toggleTicketsCollapse() {
@@ -916,6 +964,7 @@ const state = {
 window._lastCalcPayload = '';
 window._lastCalcTime = 0;
 window._isCalculadoraSaving = false;
+window._isCalcRepExpanded = false; // By default hidden
 
 const BS_DENOMS  = [1, 5, 10, 20, 50, 100, 200, 500];
 const USD_DENOMS = [1, 5, 10, 20, 50, 100];
@@ -933,6 +982,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   if(userLabel) userLabel.textContent = 'Admin / Verificando...';
   
   await loadInitialData();
+  
+  const savedUser = localStorage.getItem('synapse_caja_user');
+  if (savedUser) {
+      document.getElementById('inp-cod-usua').value = savedUser;
+      cargarPerfilUsuario(true);
+  } else {
+      const lastUser = localStorage.getItem('synapse_last_user');
+      if (lastUser) {
+          document.getElementById('inp-cod-usua').value = lastUser;
+      }
+  }
 });
 
 
@@ -1687,15 +1747,24 @@ async function guardarTransaccionCalc() {
       window._lastCalcTime = now;
       showToast('Calculado y guardado correctamente.', 'success');
       
-      // Refrescar el reporte ANTES de limpiar para asegurar que el registro aparezca
-      await cargarReporteDolares();
-      limpiarCalculadora();
+      try {
+        await cargarReporteDolares();
+      } catch(exRep) {
+        console.error("Fallo al recargar reporte", exRep);
+      }
+      
+      try {
+        limpiarCalculadora();
+      } catch(exLimpiar) {
+        console.error("Fallo al limpiar", exLimpiar);
+        showToast('Guardó, pero falló al limpiar la pantalla.', 'warning');
+      }
     } else {
       const err = await res.json();
       showToast(`Error: ${err.detail || 'No se pudo guardar'}`, 'error');
     }
   } catch (e) {
-    showToast('Error de conexión con el servidor.', 'error');
+    showToast('Error de conexión con el servidor: ' + e.message, 'error');
   } finally {
     window._isCalculadoraSaving = false;
     btn.innerHTML = '<i class="fas fa-save"></i> Guardar Transacción';
@@ -1704,28 +1773,17 @@ async function guardarTransaccionCalc() {
 }
 
 async function cargarReporteDolares() {
-  const fInput = document.getElementById('calc-rep-fecha');
-  let fecha = fInput.value;
-  if(!fecha) {
-    const d = new Date();
-    fecha = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    fInput.value = fecha;
-  }
-
-  const vendSel = document.getElementById('calc-rep-vendedor').value;
-
   try {
-    let url = `/caja/calculadora/reporte?fecha=${fecha}`;
-    if (vendSel) url += `&vendedor_codigo=${vendSel}`;
+    const fecha = document.getElementById('calc-rep-fecha').value || new Date().toISOString().slice(0,10);
+    const vendSel = document.getElementById('calc-rep-vendedor').value; // puede ser vacío para 'TODOS'
+    let url = `/caja/calculadora/reporte?fecha=${fecha}&_t=${Date.now()}`;
+    if(vendSel) url += `&vendedor=${vendSel}`;
     
     const res = await fetch(url);
-    if(!res.ok) throw new Error(await res.text());
-    const data = await res.json();
-
-    if(data.status === 'success') {
+    if(res.ok) {
+      const data = await res.json();
       const sum = data.summary;
       
-      // Update KPIs
       document.getElementById('crep-ef-usd').textContent = `$ ${sum.total_efectivo_usd.toFixed(2)}`;
       document.getElementById('crep-zelle-usd').textContent = `$ ${sum.total_zelle_usd.toFixed(2)}`;
       document.getElementById('crep-vuelto-usd').textContent = `$ ${sum.total_vuelto_usd.toFixed(2)}`;
@@ -1736,9 +1794,29 @@ async function cargarReporteDolares() {
       const tbody = document.getElementById('calc-rep-tbody');
       tbody.innerHTML = '';
       
+      const wrap = document.getElementById('calc-rep-tabla-wrap');
+      const btnVerMas = document.getElementById('calc-rep-ver-mas');
+      
       if(data.transacciones.length > 0) {
-        document.getElementById('calc-rep-ver-mas').style.display = 'block';
-        data.transacciones.forEach((t, index) => {
+        wrap.style.display = 'block';
+        
+        let toShow = data.transacciones;
+        if(data.transacciones.length > 1) {
+            btnVerMas.style.display = 'block';
+            if(!window._isCalcRepExpanded) {
+                toShow = [data.transacciones[0]]; // Solamente la última
+                btnVerMas.innerHTML = `<i class="fas fa-list"></i> Ver transacciones anteriores (${data.transacciones.length - 1})`;
+            } else {
+                btnVerMas.innerHTML = `<i class="fas fa-chevron-up"></i> Ocultar transacciones`;
+            }
+        } else {
+            btnVerMas.style.display = 'none';
+        }
+
+        const wrapHeaderBtn = document.querySelector('#calc-rep-tabla-wrap button');
+        if(wrapHeaderBtn) wrapHeaderBtn.style.display = 'none';
+
+        toShow.forEach((t, index) => {
           const isVuelto = t.resultado === 'VUELTO';
           const isFalta = t.resultado === 'FALTA';
           const color = t.anulado ? 'var(--text-muted)' : (isVuelto ? 'var(--success)' : isFalta ? 'var(--danger)' : 'var(--text-muted)');
@@ -1771,8 +1849,8 @@ async function cargarReporteDolares() {
           `;
         });
       } else {
-        document.getElementById('calc-rep-ver-mas').style.display = 'none';
-        document.getElementById('calc-rep-tabla-wrap').style.display = 'none';
+        btnVerMas.style.display = 'none';
+        wrap.style.display = 'none';
       }
     }
   } catch(e) {
@@ -1781,8 +1859,32 @@ async function cargarReporteDolares() {
 }
 
 function toggleTablaReporte() {
-  const wrap = document.getElementById('calc-rep-tabla-wrap');
-  wrap.style.display = wrap.style.display === 'none' ? 'block' : 'none';
+  window._isCalcRepExpanded = !window._isCalcRepExpanded;
+  cargarReporteDolares();
+}
+
+function cerrarSesion() {
+    localStorage.removeItem('synapse_caja_user');
+    state.perfil = null;
+    
+    const lg = document.getElementById('login-bar');
+    const lgo = document.getElementById('logout-bar');
+    if(lg) lg.style.display = 'flex';
+    if(lgo) lgo.style.display = 'none';
+    
+    document.getElementById('nav-admin').style.display = 'none';
+    const userLabel = document.getElementById('current-user-label');
+    if(userLabel) userLabel.textContent = 'Admin / Verificando...';
+    
+    const calcRepVend = document.getElementById('calc-rep-vendedor');
+    if(calcRepVend) {
+        calcRepVend.value = '';
+        calcRepVend.disabled = false;
+    }
+    
+    showToast('Sesión cerrada correctamente.', 'info');
+    document.getElementById('inp-cod-usua').focus();
+    cargarReporteDolares(); 
 }
 
 async function eliminarTransaccionCalc(id) {
@@ -1806,6 +1908,7 @@ async function eliminarTransaccionCalc(id) {
 }
 
 function limpiarCalculadora() {
+  console.log("Ejecutando limpiarCalculadora...");
   ['calc-factura-bs-input','calc-rec-ef-usd','calc-rec-on-usd',
    'calc-rec-ef-bs','calc-rec-on-bs','calc-rec-bio-bs',
    'vuelto-usd','vuelto-bs','vuelto-pm'].forEach(id => {
@@ -1813,8 +1916,17 @@ function limpiarCalculadora() {
     if (el) el.value = '';
   });
   _calcVueltoTotalUsd = 0;
-  calcularVuelto();
-  document.getElementById('calc-factura-bs-input').focus();
+  
+  try {
+    calcularVuelto();
+  } catch(e) { console.error("Error al recalcular vuelto limpio:", e); }
+  
+  setTimeout(() => {
+    const mainInput = document.getElementById('calc-factura-bs-input');
+    if (mainInput) {
+        mainInput.focus();
+    }
+  }, 150);
 }
 
 // ── Módulo Reportes Históricos ───────────────────────────────────────────────
@@ -1947,35 +2059,50 @@ function descargarPDFCierre() {
 
 // ── Admin: Perfil de Usuario + Panel Global ───────────────────────────────────
 
-async function cargarPerfilUsuario() {
+async function cargarPerfilUsuario(isAutoLogin = false) {
     const cod = document.getElementById('inp-cod-usua').value.trim().toUpperCase();
-    if (!cod) { showToast('Ingresa tu código de usuario Saint', 'danger'); return; }
+    if (!cod) { 
+        if(!isAutoLogin) showToast('Ingresa tu código de usuario Saint', 'danger'); 
+        return; 
+    }
 
     try {
         const res = await fetch(`/caja/usuario/perfil?cod_usua=${cod}`);
-        if (!res.ok) { showToast('Usuario no encontrado o inactivo.', 'danger'); return; }
+        if (!res.ok) { 
+            if(!isAutoLogin) showToast('Usuario no encontrado o inactivo.', 'danger'); 
+            return; 
+        }
         const json = await res.json();
         const perfil = json.data;
 
-        // Guardar en state
+        // Guardar en state y localStorage
         state.perfil = perfil;
+        localStorage.setItem('synapse_caja_user', cod);
+        localStorage.setItem('synapse_last_user', cod);
 
         // Actualizar etiqueta visible
         const rol = perfil.es_admin ? '👑 Admin' : '🏪 Vendedor';
-        document.getElementById('current-user-label').textContent = `${perfil.nombre} (${rol})`;
+        const userLabelObj = document.getElementById('current-user-label');
+        if(userLabelObj) userLabelObj.textContent = `${perfil.nombre} (${rol})`;
         
         // Ocultar el login bar
         document.getElementById('login-bar').style.display = 'none';
+        
+        const logoutBar = document.getElementById('logout-bar');
+        if(logoutBar) logoutBar.style.display = 'flex';
+
+        const calcRepVend = document.getElementById('calc-rep-vendedor');
 
         // Si es admin: mostrar el botón del panel
         if (perfil.es_admin) {
             document.getElementById('nav-admin').style.display = 'flex';
+            if(calcRepVend) calcRepVend.disabled = false;
             showToast(`Bienvenido, ${perfil.nombre}. Acceso de Administrador habilitado. ✅`, 'success');
         } else {
             // Si es vendedor: pre-seleccionar su código en el cuadre y en el reporte
             document.getElementById('nav-admin').style.display = 'none';
             const vendSel = document.getElementById('inp-vendedor');
-            const calcRepVend = document.getElementById('calc-rep-vendedor');
+            
             if (perfil.cod_vend) {
                 if (vendSel) {
                     for (let opt of vendSel.options) {
@@ -1988,18 +2115,19 @@ async function cargarPerfilUsuario() {
                 }
                 if (calcRepVend) {
                     for (let opt of calcRepVend.options) {
-                        if (opt.value === perfil.cod_usua) {
-                            calcRepVend.value = perfil.cod_usua;
+                        if (opt.value === perfil.cod_vend) { // options use cod_vend mapping
+                            calcRepVend.value = perfil.cod_vend;
                             break;
                         }
                     }
-                    cargarReporteDolares(); // Refrescar el cuadro de Dólares luego de setear el vendedor.
+                    calcRepVend.disabled = true; // Lock the dropdown for regular vendors
+                    cargarReporteDolares(); 
                 }
             }
-            showToast(`Bienvenido, ${perfil.nombre}. Cuadre pre-cargado a tu usuario. ✅`, 'success');
+            if(!isAutoLogin) showToast(`Bienvenido, ${perfil.nombre}. Cuadre pre-cargado a tu usuario. ✅`, 'success');
         }
     } catch (e) {
-        showToast('Error autenticando usuario: ' + e.message, 'danger');
+        if(!isAutoLogin) showToast('Error autenticando usuario: ' + e.message, 'danger');
     }
 }
 

@@ -263,6 +263,7 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
         else:
             # Insert new header
             cursor.execute('''
+                SET NOCOUNT ON;
                 INSERT INTO Custom.CajaCierre
                     (vendedor_codigo, vendedor_nombre, fecha_ini, fecha_fin,
                      manual_efectivo_bs, manual_divisas, manual_euros,
@@ -273,7 +274,10 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                   payload.fecha_ini, payload.fecha_fin,
                   payload.manual_efectivo_bs, payload.manual_divisas, payload.manual_euros,
                   payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, payload.manual_transferencia, estado))
-            cierre_id = int(cursor.fetchone()[0])
+            row = cursor.fetchone()
+            if not row:
+                raise Exception("No data returned from INSERT statement into CajaCierre")
+            cierre_id = int(row[0])
         
         # ── Insert denomination breakdown (Bs) ────────────────────────────
         for item in payload.efectivo_desglose:
@@ -310,8 +314,10 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
         msg = "Precierre guardado correctamente" if estado == 'BORRADOR' else "Cierre finalizado y sellado"
         return {"status": "success", "message": msg, "cierre_id": cierre_id}
 
-    except pyodbc.Error as e:
+    except Exception as e:
         conn.rollback()
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
@@ -593,6 +599,7 @@ async def guardar_transaccion(payload: GuardarTransaccionRequest):
     cursor = conn.cursor()
     try:
         cursor.execute('''
+            SET NOCOUNT ON;
             INSERT INTO Custom.CajaTransaccionesDolares
                 (vendedor_codigo, observacion, tasa_bcv,
                  factura_bs, factura_usd,
@@ -601,8 +608,9 @@ async def guardar_transaccion(payload: GuardarTransaccionRequest):
                  total_rec_usd, total_rec_bs,
                  vuelto_usd, vuelto_bs, vuelto_pm_bs, total_vuelto_usd,
                  resultado, diff_usd, diff_bs)
-            OUTPUT INSERTED.id, INSERTED.fecha
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
+            
+            SELECT SCOPE_IDENTITY(), GETDATE();
         ''', (
             payload.vendedor_codigo, payload.observacion, payload.tasa_bcv,
             payload.factura_bs, payload.factura_usd,
@@ -613,6 +621,9 @@ async def guardar_transaccion(payload: GuardarTransaccionRequest):
             payload.resultado, payload.diff_usd, payload.diff_bs
         ))
         row = cursor.fetchone()
+        if not row:
+            raise Exception("No data returned from INSERT statement (fetchone returned None)")
+        
         conn.commit()
         return {
             "status": "success",
@@ -620,8 +631,10 @@ async def guardar_transaccion(payload: GuardarTransaccionRequest):
             "id": row[0],
             "fecha": str(row[1])
         }
-    except pyodbc.Error as e:
+    except Exception as e:
         conn.rollback()
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     finally:
         cursor.close()
@@ -716,7 +729,7 @@ async def reporte_dolares(fecha: str | None = None, vendedor_codigo: str | None 
                 resultado, diff_usd, diff_bs, anulado
             FROM Custom.CajaTransaccionesDolares
             WHERE CAST(fecha AS DATE) = ? {filtro_vend_sql}
-            ORDER BY fecha DESC
+            ORDER BY id DESC
         ''', tuple(params_summary))
 
         cols = [c[0] for c in cursor.description]
