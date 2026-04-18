@@ -449,8 +449,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const equivUsd = currentTasa > 0 ? (finalBs / currentTasa) : 0;
             
         let descUsdMonto = 0;
+        let descBaseUsdMonto = 0;
+        let descPPUsdMonto = 0;
         if(fDescuento < 1.0) {
            descUsdMonto = roundUSD(mtoTotalUsd * (1.0 - fDescuento));
+           descBaseUsdMonto = roundUSD(mtoTotalUsd * (pctBase / 100.0));
+           descPPUsdMonto = roundUSD((mtoTotalUsd - descBaseUsdMonto) * (pctPP / 100.0));
         }
 
         const origTotalUsd = (cxp.MontoMEx > 0) ? parseFloat(cxp.MontoMEx) : ((parseFloat(cxp.Monto) || 0) / historicalTasa);
@@ -468,6 +472,8 @@ document.addEventListener('DOMContentLoaded', () => {
             finalBs,
             equivUsd,
             descUsdMonto,
+            descBaseUsdMonto,
+            descPPUsdMonto,
             mtoTotalUsd,
             origTotalUsd,
             subtotalUsd: (parseFloat(cxp.TotalPrd) || 0) / historicalTasa,
@@ -997,9 +1003,10 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (viewId === 'expense-batch') fetchSavedBatch();
         else if (viewId === 'sedematri') { /* Static view, no fetch needed for now */ }
         else if (viewId === 'retenciones') {
-            // fetchRetenciones is defined inside the retencionesView block below
-            const tbody = document.getElementById('retencionesTableBody');
-            if (tbody && typeof window._fetchRetenciones === 'function') window._fetchRetenciones();
+            if (typeof window._fetchRetenciones === 'function') window._fetchRetenciones();
+        }
+        else if (viewId === 'retenciones-islr') {
+            if (typeof window._fetchRetencionesISLR === 'function') window._fetchRetencionesISLR();
         }
     };
 
@@ -1768,8 +1775,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Boot
-    fetchData();
+    // Boot - Handled by hash routing at the end of script
+    // fetchData();
 
     // ==========================================
     // FORECAST MODULE: Sales, Consolidated, Events
@@ -3313,12 +3320,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const islrRateModal = parseFloat(selIslrModal?.value) || 0;
             const aplicaIndex = abAplicaIndex?.checked || false;
 
-            const abDescBase = document.getElementById('abDescBase');
+            const abDescBaseAplica = document.getElementById('abDescBaseAplica');
             let descBasePct = 0;
-            if (abDescBase?.checked && Number(d.DescuentoBase_Pct) > 0) {
+            if (abDescBaseAplica?.checked && Number(d.DescuentoBase_Pct) > 0) {
                 descBasePct = Number(d.DescuentoBase_Pct);
             }
-            const deduceIvaBase = document.getElementById('abBaseDeduceIVA')?.checked ?? true;
+            const deduceIvaBase = document.getElementById('abDescBaseDeduceIVA')?.checked ?? true;
             const deduceIvaPP = document.getElementById('abPPDeduceIVA')?.checked ?? true;
 
             const fin = calculateInvoiceFinancials(d, {
@@ -3340,7 +3347,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dynPctDesc = document.getElementById('dynPctDesc');
                         if (dynPctDesc) dynPctDesc.textContent = pctDescuento;
                         const dynMontoDescUsd = document.getElementById('dynMontoDescUsd');
-                        if (dynMontoDescUsd) dynMontoDescUsd.textContent = '-' + usdFormatter(fin.descUsdMonto);
+                        if (dynMontoDescUsd) dynMontoDescUsd.textContent = '-' + usdFormatter(fin.descPPUsdMonto);
                     } else {
                         dynDescuentoBox.style.display = 'none';
                     }
@@ -3352,8 +3359,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const dynPctDescBase = document.getElementById('dynPctDescBase');
                         if (dynPctDescBase) dynPctDescBase.textContent = descBasePct;
                         const dynMontoDescBaseUsd = document.getElementById('dynMontoDescBaseUsd');
-                        // Approximation to split the discount visually for UX if needed, but since math is cascaded we can just use the global descendant representation or recalculate base isolated. 
-                        // fin.descUsdMonto contains total discount. Let's just output it visually
+                        if (dynMontoDescBaseUsd) dynMontoDescBaseUsd.textContent = '-' + usdFormatter(fin.descBaseUsdMonto);
                     } else {
                         dynDescBaseBox.style.display = 'none';
                     }
@@ -3544,6 +3550,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Update new UI fields
         if(document.getElementById('abIvaAPagarBs')) document.getElementById('abIvaAPagarBs').value = formatBs(fin.ivaAPagarBs);
+        if(document.getElementById('abIvaRetenidoBs')) document.getElementById('abIvaRetenidoBs').value = formatBs(fin.retencionBs);
         if(document.getElementById('abRetenIslrBs')) document.getElementById('abRetenIslrBs').value = formatBs(fin.retenIslrBs);
 
         // Re-calculate the visual "Saldo Restante USD" explicitly from the central math engine
@@ -3555,16 +3562,44 @@ document.addEventListener('DOMContentLoaded', () => {
         window.lastCalculatedPaymentBs = parseFloat(targetBs);
 
         const currentMonto = abMontoBs.value;
+        const abExcedenteGroup = document.getElementById('abExcedenteGroup');
+        const abExcedenteVal = document.getElementById('abExcedenteVal');
+        
+        let shouldFreezeInput = false;
+
         if (!forceUserToggle) {
             // No sobreescribir si el usuario ya escribió un monto manual (diferente al auto-llenado previo)
             if (currentMonto && parseFloat(currentMonto) > 0 && currentMonto !== lastAutoFilledBs) {
-                return;
+                shouldFreezeInput = true;
+                abMontoBs.style.border = "2px solid var(--danger)";
+                abMontoBs.style.boxShadow = "0 0 5px rgba(239, 68, 68, 0.5)";
+                abMontoBs.title = "Monto editado manualmente (bloqueado para recálculo automático)";
+                
+                // Excedente calculation:
+                const typedVal = parseFloat(currentMonto);
+                const excd = typedVal - fin.finalBs;
+                if (excd > 0.05) {
+                    if (abExcedenteGroup) {
+                        abExcedenteGroup.style.display = 'flex'; // Use flex to match original input-groups
+                        if (abExcedenteVal) abExcedenteVal.textContent = bsFormatter(excd);
+                    }
+                } else {
+                    if (abExcedenteGroup) abExcedenteGroup.style.display = 'none';
+                }
+            } else {
+                if (abExcedenteGroup) abExcedenteGroup.style.display = 'none';
             }
+        } else {
+            if (abExcedenteGroup) abExcedenteGroup.style.display = 'none';
         }
 
-        if (targetBs) {
+        if (!shouldFreezeInput && targetBs) {
             abMontoBs.value = targetBs;
             lastAutoFilledBs = targetBs;
+            abMontoBs.style.border = "";
+            abMontoBs.style.boxShadow = "";
+            abMontoBs.title = "";
+            if (abExcedenteGroup) abExcedenteGroup.style.display = 'none';
         }
 
         updateActionBarState(d, fin);
@@ -3645,7 +3680,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Event Listeners for Abono Form
     abFechaPago?.addEventListener('change', updateExchangeRate);
-    abMontoBs?.addEventListener('input', calculateUsdAmount);
+    abMontoBs?.addEventListener('input', () => {
+        calculateUsdAmount();
+        const excGrp = document.getElementById('abExcedenteGroup');
+        const excVal = document.getElementById('abExcedenteVal');
+        if (abMontoBs.value && abMontoBs.value !== lastAutoFilledBs) {
+            abMontoBs.style.border = "2px solid var(--danger)";
+            abMontoBs.style.boxShadow = "0 0 5px rgba(239, 68, 68, 0.5)";
+            abMontoBs.title = "Monto editado manualmente (bloqueado para recálculo automático)";
+            // Mostrar excedente si el monto ingresado supera el calculado
+            const typedVal = parseFloat(abMontoBs.value) || 0;
+            const refBs = window.lastCalculatedPaymentBs || 0;
+            if (refBs > 0 && typedVal > refBs + 0.05) {
+                const excd = typedVal - refBs;
+                if (excGrp) {
+                    excGrp.style.display = 'flex';
+                    if (excVal) excVal.textContent = `Bs.S ${bsFormatter(excd)}`;
+                }
+            } else {
+                if (excGrp) excGrp.style.display = 'none';
+            }
+        } else {
+            abMontoBs.style.border = "";
+            abMontoBs.style.boxShadow = "";
+            abMontoBs.title = "";
+            if (excGrp) excGrp.style.display = 'none';
+        }
+    });
     abAplicaIndex?.addEventListener('change', () => {
         fillDefaultPaymentAmount(true);
         calculateUsdAmount();
@@ -4473,16 +4534,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ── Helpers per-row ─────────────────────────────────────────────
         const pmGetDescBase = (cxp, row) => {
-            if (!cxp || !Number(cxp.DescuentoBase_Pct)) return 0;
+            if (!cxp) return 0;
             if (row) {
                 const cb = row.querySelector('.pm-desc-base-check');
                 if (cb && !cb.checked) return 0;
+                const input = row.querySelector('.pm-desc-base-pct');
+                if (input && parseFloat(input.value) > 0) return parseFloat(input.value);
             }
+            if (!Number(cxp.DescuentoBase_Pct)) return 0;
             if (cxp.DescuentoBase_Condicion === 'INDEPENDIENTE') {
                 return Number(cxp.DescuentoBase_Pct);
             } else if (cxp.DescuentoBase_Condicion === 'VENCIMIENTO') {
                 const pagoDateDesc = row ? new Date(getDateValue(row.querySelector('.pm-fecha'))) : new Date();
-                let vDate = new Date(cxp.FechaVSaint); 
+                let vDate = new Date(cxp.FechaVSaint || cxp.FechaV_Calculada); 
                 vDate.setHours(0,0,0,0);
                 pagoDateDesc.setHours(0,0,0,0);
                 if (pagoDateDesc <= vDate) {
@@ -4491,15 +4555,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return 0;
         };
-        const pmGetDeduceIvaBase = (cxp) => {
+        const pmGetDeduceIvaBase = (cxp, row) => {
+            if (row) {
+                const cb = row.querySelector('.pm-db-deduce-iva');
+                if (cb) return cb.checked;
+            }
             if (!cxp) return true;
             return cxp.DescuentoBase_DeduceIVA !== false && cxp.DescuentoBase_DeduceIVA !== '0' && cxp.DescuentoBase_DeduceIVA !== 0;
         };
-        const pmGetDeduceIvaPP = (cxp, pctDesc) => {
+        const pmGetDeduceIvaPP = (cxp, pctDesc, row) => {
+            if (row) {
+                const cb = row.querySelector('.pm-pp-deduce-iva');
+                if (cb) return cb.checked;
+            }
             if (!cxp || !cxp.Descuentos || pctDesc === 0) return true;
             const tier = cxp.Descuentos.find(x => parseFloat(x.Porcentaje) === pctDesc);
             return tier && tier.DeduceIVA !== undefined ? tier.DeduceIVA !== false && tier.DeduceIVA !== 0 && tier.DeduceIVA !== '0' : true;
         };
+
 
         const pmCalcRow = window.pmCalcRow = (row) => {
             const rKey = row.dataset.rowkey;
@@ -4533,8 +4606,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 pctDesc: row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0,
                 descBasePct: pmGetDescBase(cxp, row),
                 islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
-                deduceIvaBase: pmGetDeduceIvaBase(cxp),
-                deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0)
+                deduceIvaBase: pmGetDeduceIvaBase(cxp, row),
+                deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0, row)
             });
 
             const finExigido = calculateInvoiceFinancials(cxp, {
@@ -4544,31 +4617,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 pctDesc: row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0,
                 descBasePct: pmGetDescBase(cxp, row),
                 islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
-                deduceIvaBase: pmGetDeduceIvaBase(cxp),
-                deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0)
+                deduceIvaBase: pmGetDeduceIvaBase(cxp, row),
+                deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0, row)
             });
 
             const deudaExigidaHoy = finExigido.finalBs;
 
-            // Universal Auto-split overpayment shield (protect ERP balances)
-            const pmMontoTotalReal = row.querySelector('.pm-monto-bs');
-            let isManualEdit = pmMontoTotalReal && pmMontoTotalReal.dataset.manualEdit === "true";
+            // ───────────────── ROW CALCULATION LOCK / SHIELD LOGIC ─────────────────
+            const pmMontoBsInput = row.querySelector('.pm-monto-bs');
             
-            let finalMontoBs = parseFloat(pmMontoTotalReal.value) || 0;
-            if (!isManualEdit || finalMontoBs < 0.01) {
-                finalMontoBs = deudaExigidaHoy;
-                if (pmMontoTotalReal) {
-                    pmMontoTotalReal.value = finalMontoBs.toFixed(2);
-                    pmMontoTotalReal.dataset.manualEdit = "false";
+            let finalOutputBs = fin.finalBs; // default pure math target
+            let isManualEdit = pmMontoBsInput && pmMontoBsInput.dataset.manualEdit === "true";
+            
+            if (isManualEdit) {
+                let typedVal = parseFloat(pmMontoBsInput.value) || 0;
+                
+                // Si el usuario borró todo o puso 0, o introdujo exactamente lo mismo que el target previo, deshacemos el modo manual.
+                if (typedVal <= 0 || pmMontoBsInput.value === row.dataset.lastAutoBs) {
+                    pmMontoBsInput.dataset.manualEdit = "false";
+                    isManualEdit = false;
+                } else {
+                    // Pago válido tipeado a mano (inferior, igual o superior al real): LO RESPETAMOS y bloqueamos calculos
+                    finalOutputBs = typedVal;
                 }
-            } else if (finalMontoBs > (deudaExigidaHoy + 0.05)) {
-                // Shield activated
-                finalMontoBs = deudaExigidaHoy;
-                if (pmMontoTotalReal) {
-                    pmMontoTotalReal.value = finalMontoBs.toFixed(2);
-                    pmMontoTotalReal.dataset.manualEdit = "false";
-                }
-                showToast(`🛡️ Sobrepago prevenido en Factura ${cxp.NroControl || cxp.NumeroD}. Monto ajustado a la deuda real (Bs ${finalMontoBs.toFixed(2)}).`, 'info');
+            }
+
+            // Aplicamos UI
+            if (isManualEdit) {
+                 pmMontoBsInput.style.border = "2px solid var(--danger)";
+                 pmMontoBsInput.style.boxShadow = "0 0 5px rgba(239, 68, 68, 0.5)";
+                 pmMontoBsInput.title = "Monto editado manualmente (bloqueado para recálculo automático)";
+            } else {
+                 pmMontoBsInput.style.border = "";
+                 pmMontoBsInput.style.boxShadow = "";
+                 pmMontoBsInput.title = "";
+            }
+
+            // Aplicamos matemática
+            pmMontoBsInput.value = finalOutputBs.toFixed(2);
+            row.dataset.targetBs = fin.finalBs; // la deuda MATEMÁTICA real
+            
+            if (!isManualEdit || finalOutputBs === fin.finalBs) {
+                 row.dataset.lastAutoBs = finalOutputBs.toFixed(2);
             }
 
             pmRecalcRowUsdAmount(row);
@@ -4580,10 +4670,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if(row.querySelector('.pm-exento-bs'))     row.querySelector('.pm-exento-bs').textContent     = fin.exentoBs.toFixed(2);
             if(row.querySelector('.pm-retiva-bs'))     row.querySelector('.pm-retiva-bs').textContent     = (fin.retencionBs + (parseFloat(cxp.RetencionIvaAbonada) || 0)).toFixed(2);
             if(row.querySelector('.pm-retislr-bs'))    row.querySelector('.pm-retislr-bs').textContent    = (fin.retenIslrBs + (parseFloat(cxp.RetencionIslrAbonada) || 0)).toFixed(2);
-
-            // Write Monto Bs (Defaults to the full debt amount)
-            row.querySelector('.pm-monto-bs').value = fin.finalBs.toFixed(2);
-            row.dataset.targetBs = fin.finalBs;
 
             // Equiv USD (for the auto-filled payment amount)
             row.querySelector('.pm-monto-usd').textContent = fin.equivUsd.toFixed(2);
@@ -4668,10 +4754,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const diff = montoReal - totalBs;
             const group = document.getElementById('pmExcedenteGroup');
             if (diff > 0.01) {
-                group.style.display = 'block';
+                group.style.display = 'flex';
                 document.getElementById('pmExcedenteVal').textContent = `Bs.S ${bsFormatter(diff)}`;
+                if(montoInput) montoInput.style.borderColor = 'var(--danger)';
             } else {
                 group.style.display = 'none';
+                if(montoInput) montoInput.style.borderColor = 'var(--primary-accent)';
             }
         };
 
@@ -4695,16 +4783,75 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dec = cxp?.DecimalesTasa !== undefined ? cxp.DecimalesTasa : 4;
                     row.querySelector('.pm-tasa').value = json.rate.toFixed(dec);
                 }
+                
+                // RE-EVALUATE DYNAMIC CHECKS ON DATE CHANGE:
                 if (cxp) {
                     const pagoDate = new Date(fecha);
-                    const niDate   = new Date(cxp.FechaNI_Calculada);
                     pagoDate.setHours(0,0,0,0);
-                    niDate.setHours(0,0,0,0);
-                    row.querySelector('.pm-indexado').checked = pagoDate > niDate;
-                    if(row.querySelector('.pm-indexado-iva')) {
-                        row.querySelector('.pm-indexado-iva').checked = cxp.IndexaIVA !== false;
+
+                    // 1. Indexation
+                    if (cxp.FechaNI_Calculada) {
+                        const niDate = new Date(cxp.FechaNI_Calculada);
+                        niDate.setHours(0,0,0,0);
+                        row.querySelector('.pm-indexado').checked = pagoDate > niDate;
+                        if(row.querySelector('.pm-indexado-iva')) {
+                            row.querySelector('.pm-indexado-iva').checked = cxp.IndexaIVA !== false;
+                        }
+                    }
+
+                    // 2. Descuento Base
+                    const cbDB = row.querySelector('.pm-desc-base-check');
+                    if (cbDB && cxp.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                        const descBasePct = parseFloat(cxp.DescuentoBase_Pct) || 0;
+                        if (descBasePct > 0) {
+                            const vDate = new Date(cxp.FechaVSaint || cxp.FechaV_Calculada);
+                            vDate.setHours(0,0,0,0);
+                            const appliesDescBase = (pagoDate <= vDate);
+                            cbDB.checked = appliesDescBase;
+                            const pctTxtDB = row.querySelector('.pm-desc-base-pct');
+                            if (pctTxtDB) pctTxtDB.readOnly = !appliesDescBase;
+                            const dedDB = row.querySelector('.pm-db-deduce-iva');
+                            if (dedDB) {
+                                dedDB.disabled = !appliesDescBase;
+                                if (!appliesDescBase) dedDB.checked = false;
+                                else dedDB.checked = cxp.DescuentoBase_DeduceIVA !== false && cxp.DescuentoBase_DeduceIVA !== 0 && cxp.DescuentoBase_DeduceIVA !== '0';
+                            }
+                        }
+                    }
+
+                    // 3. Pronto Pago Tiers
+                    if (cxp.Descuentos && cxp.Descuentos.length > 0) {
+                        const baseDateStr = cxp.BaseDiasCredito === 'EMISION' ? cxp.FechaE : (cxp.FechaI || cxp.FechaE);
+                        const baseDate = new Date(baseDateStr);
+                        baseDate.setHours(0,0,0,0);
+                        let diffDays = Math.floor((pagoDate - baseDate) / (1000 * 60 * 60 * 24));
+                        if (diffDays < 0) diffDays = 0;
+                        
+                        const match = cxp.Descuentos.find(tier => diffDays >= tier.DiasDesde && diffDays <= tier.DiasHasta);
+                        const sel = row.querySelector('.pm-desc');
+                        const cbPP = row.querySelector('.pm-pronto-pago');
+                        const dedPP = row.querySelector('.pm-pp-deduce-iva');
+                        if (sel && cbPP) {
+                            if (match) {
+                                sel.value = match.Porcentaje;
+                                sel.disabled = false;
+                                cbPP.checked = true;
+                                if (dedPP) {
+                                    dedPP.disabled = false;
+                                    dedPP.checked = match.DeduceIVA !== false && match.DeduceIVA !== 0 && match.DeduceIVA !== '0';
+                                }
+                            } else {
+                                cbPP.checked = false;
+                                sel.disabled = true;
+                                if (dedPP) {
+                                    dedPP.disabled = true;
+                                    dedPP.checked = false;
+                                }
+                            }
+                        }
                     }
                 }
+
                 pmCalcRow(row);
             } catch (e) { console.error(e); }
         };
@@ -4729,8 +4876,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 pctDesc: pctDesc,
                 descBasePct: pmGetDescBase(cxp, row),
                 islrRate: islrRate,
-                deduceIvaBase: pmGetDeduceIvaBase(cxp),
-                deduceIvaPP: pmGetDeduceIvaPP(cxp, pctDesc)
+                deduceIvaBase: pmGetDeduceIvaBase(cxp, row),
+                deduceIvaPP: pmGetDeduceIvaPP(cxp, pctDesc, row)
             });
 
             // Populate dynModal (reuse existing single-invoice modal elements)
@@ -4763,10 +4910,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     dbbox.style.display = 'flex';
                     const pctBe = dynModal.querySelector('#dynPctDescBase');
                     if (pctBe) pctBe.textContent = pmGetDescBase(cxp, row);
+                    const amBe = dynModal.querySelector('#dynMontoDescBaseUsd');
+                    if (amBe) amBe.textContent = '-' + usdFormatter(fin.descBaseUsdMonto);
                 } else if (dbbox) { dbbox.style.display = 'none'; }
                 
                 const amE = dynModal.querySelector('#dynMontoDescUsd');
-                if (amE) amE.textContent = '-' + usdFormatter(fin.descUsdMonto);
+                if (amE) amE.textContent = '-' + usdFormatter(fin.descPPUsdMonto);
             } else {
                 const dbox = dynModal.querySelector('#dynDescuentoBox');
                 if (dbox) dbox.style.display = 'none';
@@ -4939,12 +5088,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="checkbox" class="pm-indexado" title="Indexar Base" style="margin:0;">
                         <input type="checkbox" class="pm-indexado-iva" title="Indexar IVA" style="margin:0;">
                     </td>
-                    <td style="text-align:center;"><input type="checkbox" class="pm-pronto-pago"></td>
-                    <td>
-                        <select class="form-control pm-desc" disabled
-                            style="width:110px;padding:0.2rem 0.4rem;font-size:0.78rem;">
-                            <option value="0">0%</option>
-                        </select>
+                    <td style="text-align:center;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;"><input type="checkbox" class="pm-pronto-pago"> Activo</label>
+                            <select class="form-control pm-desc" disabled style="width:80px;padding:0.1rem;font-size:0.75rem;">
+                                <option value="0">0%</option>
+                            </select>
+                            <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.7rem;"><input type="checkbox" class="pm-pp-deduce-iva" disabled> Ded. IVA</label>
+                        </div>
+                    </td>
+                    <td style="text-align:center;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;"><input type="checkbox" class="pm-desc-base-check"> Activo</label>
+                            <input type="text" class="form-control pm-desc-base-pct" readonly style="width:80px;padding:0.1rem;font-size:0.75rem;text-align:center;" value="0%">
+                            <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.7rem;"><input type="checkbox" class="pm-db-deduce-iva" disabled> Ded. IVA</label>
+                        </div>
                     </td>
                     <td><input type="number" class="form-control pm-tasa" step="0.0001" readonly
                         style="width:80px;padding:0.3rem;font-size:0.8rem;background:var(--bg-card);"></td>
@@ -4975,16 +5133,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Attach row-level listeners
             tbody.querySelectorAll('tr').forEach(row => {
-                row.querySelector('.pm-fecha')?.addEventListener('change', () => pmFetchRate(row));
-                row.querySelector('.pm-monto-bs')?.addEventListener('input', () => {
+                const dropLock = () => {
+                    const el = row.querySelector('.pm-monto-bs');
+                    if (el) el.dataset.manualEdit = "false";
+                };
+
+                row.querySelector('.pm-fecha')?.addEventListener('change', () => { dropLock(); pmFetchRate(row); });
+                row.querySelector('.pm-monto-bs')?.addEventListener('input', (e) => {
+                    e.target.dataset.manualEdit = "true";
                     pmRecalcRowUsdAmount(row);
                     pmRecalcTotals();
                 });
                 row.querySelector('.pm-islr-concept')?.addEventListener('change', () => {
+                    dropLock();
                     pmCalcRow(row);
                     pmRecalcTotals();
                 });
                 row.querySelector('.pm-indexado')?.addEventListener('change', (e) => {
+                    dropLock();
                     if (!e.target.checked) {
                         const ivaCb = row.querySelector('.pm-indexado-iva');
                         if (ivaCb) ivaCb.checked = false;
@@ -4992,6 +5158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pmCalcRow(row)
                 });
                 row.querySelector('.pm-indexado-iva')?.addEventListener('change', (e) => {
+                    dropLock();
                     const baseCb = row.querySelector('.pm-indexado');
                     if (baseCb && !baseCb.checked && e.target.checked) {
                         e.target.checked = false;
@@ -4999,11 +5166,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     pmCalcRow(row)
                 });
                 row.querySelector('.pm-pronto-pago')?.addEventListener('change', () => {
+                    dropLock();
                     const rKey = row.dataset.rowkey;
                     const cxp = pmCxpStatuses[rKey];
                     const sel = row.querySelector('.pm-desc');
+                    const dedPP = row.querySelector('.pm-pp-deduce-iva');
                     if (sel) {
                         sel.disabled = !row.querySelector('.pm-pronto-pago').checked;
+                        if (dedPP) dedPP.disabled = sel.disabled;
                         if (cxp && !sel.disabled) {
                             let opts = '<option value="0">0%</option>';
                             if (cxp.Descuentos && cxp.Descuentos.length > 0) {
@@ -5016,8 +5186,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     pmCalcRow(row);
                 });
-                row.querySelector('.pm-desc')?.addEventListener('change', () => window.pmCalcRow(row));
-                row.querySelector('.pm-desc-base-check')?.addEventListener('change', () => window.pmCalcRow(row));
+                row.querySelector('.pm-desc')?.addEventListener('change', () => { dropLock(); window.pmCalcRow(row); });
+                row.querySelector('.pm-desc-base-check')?.addEventListener('change', (e) => {
+                    dropLock();
+                    const pctInput = row.querySelector('.pm-desc-base-pct');
+                    const dedDB = row.querySelector('.pm-db-deduce-iva');
+                    if (pctInput) pctInput.readOnly = !e.target.checked;
+                    if (dedDB) dedDB.disabled = !e.target.checked;
+                    window.pmCalcRow(row);
+                });
+                row.querySelector('.pm-desc-base-pct')?.addEventListener('input', () => { dropLock(); window.pmCalcRow(row); });
+                row.querySelector('.pm-db-deduce-iva')?.addEventListener('change', () => { dropLock(); window.pmCalcRow(row); });
+                row.querySelector('.pm-pp-deduce-iva')?.addEventListener('change', () => { dropLock(); window.pmCalcRow(row); });
                 row.querySelector('.pm-btn-calc')?.addEventListener('click', () => pmOpenRowDynamic(row));
                 row.querySelector('.pm-btn-edit-invoice')?.addEventListener('click', (e) => {
                     const rKey = e.currentTarget.dataset.rowkey;
@@ -5052,6 +5232,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     const sel = row.querySelector('.pm-desc');
                     const cbPP = row.querySelector('.pm-pronto-pago');
+                    const dedPP = row.querySelector('.pm-pp-deduce-iva');
                     if (sel && json.data) {
                         let opts = '<option value="0">0%</option>';
                         let bestMatch = null;
@@ -5077,9 +5258,57 @@ document.addEventListener('DOMContentLoaded', () => {
                             sel.value = bestMatch.Porcentaje;
                             sel.disabled = false;
                             cbPP.checked = true;
+                            if (dedPP) {
+                                dedPP.disabled = false;
+                                dedPP.checked = bestMatch.DeduceIVA !== false && bestMatch.DeduceIVA !== 0 && bestMatch.DeduceIVA !== '0';
+                            }
                         } else if (cbPP) {
                             cbPP.checked = false;
                             sel.disabled = true;
+                            if (dedPP) {
+                                dedPP.disabled = true;
+                                dedPP.checked = false;
+                            }
+                        }
+                    }
+
+                    // --- Auto-Initialize Desc Basico Checkbox based on config ---
+                    const cbDB = row.querySelector('.pm-desc-base-check');
+                    const pctTxtDB = row.querySelector('.pm-desc-base-pct');
+                    const dedDB = row.querySelector('.pm-db-deduce-iva');
+                    
+                    if (cbDB && json.data && Number(json.data.DescuentoBase_Pct) > 0) {
+                        let dbPct = Number(json.data.DescuentoBase_Pct);
+                        let appliesInitially = true;
+                        
+                        if (json.data.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                            let pd = new Date();
+                            let vd = new Date(json.data.FechaVSaint || json.data.FechaV_Calculada);
+                            pd.setHours(0,0,0,0); vd.setHours(0,0,0,0);
+                            if (pd > vd) appliesInitially = false;
+                        }
+                        
+                        cbDB.checked = appliesInitially;
+                        if (pctTxtDB) {
+                            pctTxtDB.value = dbPct;
+                            pctTxtDB.readOnly = !appliesInitially;
+                        }
+                        if (dedDB) {
+                            dedDB.disabled = !appliesInitially;
+                            if (appliesInitially) {
+                                dedDB.checked = json.data.DescuentoBase_DeduceIVA !== false && json.data.DescuentoBase_DeduceIVA !== 0 && json.data.DescuentoBase_DeduceIVA !== '0';
+                            }
+                        }
+                    }
+                    if (json.data) {
+                        const pagoDateStr = row.querySelector('.pm-fecha')?.value;
+                        const pagoDate = pagoDateStr ? new Date(pagoDateStr) : new Date();
+                        const niDate   = new Date(json.data.FechaNI_Calculada);
+                        pagoDate.setHours(0,0,0,0);
+                        niDate.setHours(0,0,0,0);
+                        row.querySelector('.pm-indexado').checked = pagoDate > niDate;
+                        if(row.querySelector('.pm-indexado-iva')) {
+                            row.querySelector('.pm-indexado-iva').checked = json.data.IndexaIVA !== false;
                         }
                     }
 
@@ -5097,6 +5326,93 @@ document.addEventListener('DOMContentLoaded', () => {
                 } catch (e) { console.error(e); }
             }
             pmRecalcTotals();
+
+            // Render Histories
+            const container = document.getElementById('pmHistorialContainer');
+            if(container) {
+                container.innerHTML = '';
+                const tipoBadge = (tipo, afectaSaldo) => {
+                    if (tipo === 'DESCUENTO') return '<span class="status-badge" style="background:rgba(234,179,8,0.15);color:#fbbf24;">Descuento</span>';
+                    if (tipo === 'AJUSTE')    return '<span class="status-badge" style="background:rgba(168,85,247,0.15);color:#d8b4fe;">Ajuste</span>';
+                    const map = {
+                        'PAGO_MANUAL':     '<span class="status-badge status-paid">Pago</span>',
+                        'PAGO':            '<span class="status-badge status-paid">Pago</span>',
+                        'RETENCION_IVA':   '<span class="status-badge" style="background:rgba(139,92,246,0.15);color:#a78bfa;">Ret. IVA</span>',
+                        'RETENCION_ISLR':  '<span class="status-badge" style="background:rgba(239,68,68,0.15);color:#f87171;">Ret. ISLR</span>',
+                        'NOTA_CREDITO':    '<span class="status-badge" style="background:rgba(59,130,246,0.15);color:#60a5fa;">N/C</span>',
+                        'NOTA_DEBITO':     '<span class="status-badge" style="background:rgba(239,68,68,0.15);color:#f87171;">N/D</span>',
+                    };
+                    return map[tipo] || `<span class="status-badge">${tipo || 'Pago'}</span>`;
+                };
+
+                items.forEach(item => {
+                    const rKey = window.getItemKey(item);
+                    const d = pmCxpStatuses[rKey];
+                    if (!d) return;
+
+                    let historyRows = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No hay abonos registrados.</td></tr>`;
+                    
+                    if (d.HistorialAbonos && d.HistorialAbonos.length > 0) {
+                        historyRows = d.HistorialAbonos.map(a => {
+                            const esDescuento = a.TipoAbono === 'DESCUENTO';
+                            const rowStyle = esDescuento ? 'opacity:0.75; font-style:italic;' : '';
+                            const displayRef = a.DescripcionAjuste || a.Referencia || '-';
+                            const displayMonto = esDescuento
+                                ? `<span style="color:var(--warning, #fbbf24);">${formatBs(a.MontoBsAbonado)}</span>`
+                                : `${formatBs(a.MontoBsAbonado)}`;
+                            const displayUsd  = esDescuento
+                                ? `<span style="color:var(--warning, #fbbf24);">${usdFormatter(a.MontoUsdAbonado)}</span>`
+                                : `${usdFormatter(a.MontoUsdAbonado)}`;
+                            const canDelete = !['RETENCION_IVA', 'RETENCION_ISLR', 'NOTA_CREDITO', 'DESCUENTO'].includes(a.TipoAbono);
+                            return `
+                            <tr style="${rowStyle}">
+                                <td>${formatDate(a.FechaAbono)}</td>
+                                <td>${tipoBadge(a.TipoAbono, a.AfectaSaldo)}</td>
+                                <td class="amount">${displayMonto}</td>
+                                <td>${bsFormatter(a.TasaCambioDiaAbono)}</td>
+                                <td>${a.AplicaIndexacion ? '<span class="status-badge status-overdue">Sí</span>' : '<span class="status-badge status-paid">No</span>'}</td>
+                                <td class="amount us-amount">${displayUsd}</td>
+                                <td>${displayRef}</td>
+                                <td style="text-align:center;">
+                                    ${canDelete ? `<button type="button" class="btn-icon" title="Anular Abono" onclick="anularAbonoCxp(${a.AbonoID}, '${d.CodProv}', '${d.NumeroD}')"><i data-lucide="trash-2" style="color:var(--danger);width:16px;"></i></button>` : `<span style="font-size:0.75rem;color:var(--text-secondary)" title="Registro automático">Auto.</span>`}
+                                </td>
+                            </tr>`;
+                        }).join('');
+                    }
+
+                    const blockHtml = `
+                    <div style="margin-bottom: 1.5rem; background: rgba(0,0,0,0.15); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <h4 style="margin: 0; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="history" size="18"></i> Histórico Factura
+                                <span style="background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-family: monospace;">${d.NumeroD}</span>
+                            </h4>
+                        </div>
+                        <div class="table-responsive">
+                            <table style="width: 100%; margin: 0; font-size: 0.85rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo</th>
+                                        <th class="amount">Monto Bs</th>
+                                        <th>Tasa C.</th>
+                                        <th>Indexado</th>
+                                        <th class="amount">Amortizado USD</th>
+                                        <th>Referencia</th>
+                                        <th style="text-align:center;">Acción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${historyRows}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', blockHtml);
+                });
+                lucide.createIcons();
+            }
 
             // Sync master checkbox state with the first row (since mostly providers share the same setting)
             const firstCb = tbody.querySelector('.pm-indexado');
@@ -5160,8 +5476,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             aplicaIndex: indexado,
                             aplicaIndexIva: row.querySelector('.pm-indexado-iva') !== null ? row.querySelector('.pm-indexado-iva').checked : (cxp.IndexaIVA ?? true),
                             islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
-                            deduceIvaBase: pmGetDeduceIvaBase(cxp),
-                            deduceIvaPP: pmGetDeduceIvaPP(cxp, pctDesc)
+                            deduceIvaBase: pmGetDeduceIvaBase(cxp, row),
+                            deduceIvaPP: pmGetDeduceIvaPP(cxp, pctDesc, row)
                         };
                         const f0 = calculateInvoiceFinancials(cxp, { ...finParams, pctDesc: 0, descBasePct: 0 });
                         const fB = calculateInvoiceFinancials(cxp, { ...finParams, pctDesc: 0, descBasePct: descBasePct });
@@ -5196,8 +5512,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             pctDesc: row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0,
                             descBasePct: pmGetDescBase(cxp, row),
                             islrRate: parseFloat(row.querySelector('.pm-islr-concept')?.value) || 0,
-                            deduceIvaBase: pmGetDeduceIvaBase(cxp),
-                            deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0)
+                            deduceIvaBase: pmGetDeduceIvaBase(cxp, row),
+                            deduceIvaPP: pmGetDeduceIvaPP(cxp, row.querySelector('.pm-pronto-pago')?.checked ? (parseFloat(row.querySelector('.pm-desc')?.value) || 0) : 0, row)
                         });
 
                         const deudaExigidaHoy = finExigido.finalBs;
@@ -5374,10 +5690,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Expose so the SPA router (switchView) can call it
         window._fetchRetenciones = fetchRetenciones;
 
-        // Date Filters
-        document.getElementById('retencionesDesde')?.addEventListener('change', fetchRetenciones);
-        document.getElementById('retencionesHasta')?.addEventListener('change', fetchRetenciones);
-        document.getElementById('refreshRetencionesBtn')?.addEventListener('click', fetchRetenciones);
+        // Date Filters - Handled by modules-report.js now
+        // document.getElementById('retencionesDesde')?.addEventListener('change', fetchRetenciones);
+        // document.getElementById('retencionesHasta')?.addEventListener('change', fetchRetenciones);
+        // document.getElementById('refreshRetencionesBtn')?.addEventListener('click', fetchRetenciones);
 
         // Enviar Retención por Email
         window.enviarRetencionEmail = async (id) => {
@@ -5797,9 +6113,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         window.closeGenerarRetencionModal = () => forceHideModal(generarRetencionModal);
 
+        let isGeneratingRetencion = false;
         generarRetencionForm?.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (isGeneratingRetencion) return;
             if (currentRetencionItems.length === 0) return;
+            isGeneratingRetencion = true;
 
             const btn = e.target.querySelector('button[type="submit"]');
             btn.innerHTML = '<i class="loader" style="width:14px;height:14px;"></i>';
@@ -5891,6 +6210,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(e);
                 showToast(e.message, 'error');
             } finally {
+                isGeneratingRetencion = false;
                 btn.innerHTML = 'Generar Comprobante';
                 btn.disabled = false;
             }
@@ -6015,9 +6335,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('genRetIslrConcepto')?.addEventListener('change', recalcIslr);
         window.closeGenerarRetencionIslrModal = () => forceHideModal(generarRetencionIslrModal);
 
+        let isGeneratingRetencionIslr = false;
         generarRetencionIslrForm?.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (isGeneratingRetencionIslr) return;
             if (currentIslrItems.length === 0) return;
+            isGeneratingRetencionIslr = true;
 
             const btn = e.target.querySelector('button[type="submit"]');
             btn.innerHTML = '<i class="loader" style="width:14px;height:14px;"></i>';
@@ -6108,6 +6431,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error(e);
                 showToast(e.message, 'error');
             } finally {
+                isGeneratingRetencionIslr = false;
                 btn.innerHTML = 'Generar Comprobante ISLR';
                 btn.disabled = false;
             }
@@ -6237,6 +6561,15 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     initProvidersDatalist();
+    
+    // Handle initial hash routing
+    const initialHash = window.location.hash.substring(1);
+    if (initialHash) {
+        // Delay slightly to ensure modules-report.js has time to register its global overrides
+        setTimeout(() => switchView(initialHash), 500); 
+    } else {
+        fetchData(); // Load default dashboard
+    }
 
 });
 

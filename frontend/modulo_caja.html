@@ -111,8 +111,8 @@
               <i class="fas fa-credit-card fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Tarjetas (TDD+TDC)</h3>
-              <p id="sys-tarjeta">Bs. 0.00</p>
+              <h3 style="font-size:0.75rem;">Terminales POS (Sis)</h3>
+              <p id="sys-dispositivos">Bs. 0.00</p>
             </div>
           </div>
           <div class="stat-card glassmorphism">
@@ -120,17 +120,8 @@
               <i class="fas fa-mobile-alt fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Pago Móvil (Sis)</h3>
-              <p id="sys-pagomovil">Bs. 0.00</p>
-            </div>
-          </div>
-          <div class="stat-card glassmorphism">
-            <div class="stat-icon-wrapper" style="background:rgba(245,158,11,.1);color:var(--warning);">
-              <i class="fas fa-fingerprint fa-lg"></i>
-            </div>
-            <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Biopago (Sis)</h3>
-              <p id="sys-biopago">Bs. 0.00</p>
+              <h3 style="font-size:0.75rem;">Red Bancaria (Sis)</h3>
+              <p id="sys-bancos">Bs. 0.00</p>
             </div>
           </div>
           <div class="stat-card glassmorphism">
@@ -186,6 +177,7 @@
                     <option value="TDC">TDC — Crédito</option>
                     <option value="BIOPAGO">BIOPAGO</option>
                     <option value="PAGO_MOVIL">PAGO MÓVIL</option>
+                    <option value="TRANSFERENCIA">TRANSFERENCIA</option>
                   </select>
                 </div>
                 <div class="input-group">
@@ -248,24 +240,12 @@
                   <span class="summary-value" id="res-sys-ef">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> Tarjetas</span>
-                  <span class="summary-value" id="res-sys-tj">Bs. 0.00</span>
+                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> Terminales POS</span>
+                  <span class="summary-value" id="res-sys-dispositivos">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> TDD</span>
-                  <span class="summary-value" id="res-sys-tdd">Bs. 0.00</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> TDC</span>
-                  <span class="summary-value" id="res-sys-tdc">Bs. 0.00</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-mobile-alt fa-sm"></i> Pago Móvil (Sis.)</span>
-                  <span class="summary-value" id="res-sys-pm">Bs. 0.00</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-fingerprint fa-sm"></i> Biopago (Sis.)</span>
-                  <span class="summary-value" id="res-sys-bio">Bs. 0.00</span>
+                  <span class="summary-label"><i class="fas fa-mobile-alt fa-sm"></i> Red Bancaria</span>
+                  <span class="summary-value" id="res-sys-bancos">Bs. 0.00</span>
                 </div>
               </div>
 
@@ -292,16 +272,12 @@
                   <span class="summary-value" id="diff-ef">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label">TDD / TDC</span>
-                  <span class="summary-value" id="diff-tj">Bs. 0.00</span>
+                  <span class="summary-label">Terminales POS</span>
+                  <span class="summary-value" id="diff-dispositivos">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label">Pago Móvil</span>
-                  <span class="summary-value" id="diff-pm">Bs. 0.00</span>
-                </div>
-                <div class="summary-row">
-                  <span class="summary-label">Biopago</span>
-                  <span class="summary-value" id="diff-bio">Bs. 0.00</span>
+                  <span class="summary-label">Red Bancaria</span>
+                  <span class="summary-value" id="diff-bancos">Bs. 0.00</span>
                 </div>
               </div>
 
@@ -918,6 +894,11 @@ const state = {
   perfil: null
 };
 
+// Globales para Calculadora (Debouncing)
+window._lastCalcPayload = '';
+window._lastCalcTime = 0;
+window._isCalculadoraSaving = false;
+
 const BS_DENOMS  = [1, 5, 10, 20, 50, 100, 200, 500];
 const USD_DENOMS = [1, 5, 10, 20, 50, 100];
 
@@ -1112,17 +1093,14 @@ async function iniciarCuadre() {
 
     state.sysEfectivo   = data.totales_sistema.totefectivo;
     state.sysTarjeta    = data.totales_sistema.tottarjeta;
-    state.sysCheque     = data.totales_sistema.totcheque   ?? 0;
-    state.sysTDD        = data.totales_sistema.tottdd       ?? 0;
-    state.sysTDC        = data.totales_sistema.tottdc       ?? 0;
-    state.sysPagoMovil  = data.totales_sistema.totpagomovil ?? 0;
-    state.sysBiopago    = data.totales_sistema.totbiopago   ?? 0;
+    state.sysCheque     = data.totales_sistema.totcheque       ?? 0;
+    state.sysDispositivos = data.totales_sistema.totdispositivos ?? 0;
+    state.sysBancos       = data.totales_sistema.totbancos       ?? 0;
 
     // Show system totals
-    document.getElementById('sys-efectivo').textContent = fmt(state.sysEfectivo);
-    document.getElementById('sys-tarjeta').textContent  = fmt(state.sysTDD + state.sysTDC); // Suma débito y crédito
-    document.getElementById('sys-pagomovil').textContent = fmt(state.sysPagoMovil);
-    document.getElementById('sys-biopago').textContent   = fmt(state.sysBiopago);
+    document.getElementById('sys-efectivo').textContent     = fmt(state.sysEfectivo);
+    document.getElementById('sys-dispositivos').textContent = fmt(state.sysDispositivos);
+    document.getElementById('sys-bancos').textContent       = fmt(state.sysBancos);
     
     // Fetch dolares from Calculadora Mixta
     fetch(`/caja/calculadora/reporte?fecha=${state.fecha}&vendedor_codigo=${encodeURIComponent(state.vendedor)}`)
@@ -1135,12 +1113,9 @@ async function iniciarCuadre() {
       .catch(err => console.error('Error loading dolares', err));
 
     // Reflect in summary (desglosado)
-    document.getElementById('res-sys-ef').textContent  = fmt(state.sysEfectivo);
-    document.getElementById('res-sys-tj').textContent  = fmt(state.sysTarjeta);
-    document.getElementById('res-sys-tdd').textContent = fmt(state.sysTDD);
-    document.getElementById('res-sys-tdc').textContent = fmt(state.sysTDC);
-    document.getElementById('res-sys-pm').textContent  = fmt(state.sysPagoMovil);
-    document.getElementById('res-sys-bio').textContent = fmt(state.sysBiopago);
+    document.getElementById('res-sys-ef').textContent           = fmt(state.sysEfectivo);
+    document.getElementById('res-sys-dispositivos').textContent = fmt(state.sysDispositivos);
+    document.getElementById('res-sys-bancos').textContent       = fmt(state.sysBancos);
 
     // Load precierre if exists
     if (data.has_precierre && data.borrador_actual) {
@@ -1224,18 +1199,20 @@ function recalculate() {
   const totalTDD = state.tickets.filter(t => t.tipo === 'TDD').reduce((s, t) => s + t.monto, 0);
   const totalTDC = state.tickets.filter(t => t.tipo === 'TDC').reduce((s, t) => s + t.monto, 0);
   const totalBIO = state.tickets.filter(t => t.tipo === 'BIOPAGO').reduce((s, t) => s + t.monto, 0);
-  const totalPM  = state.tickets.filter(t => t.tipo === 'PAGO_MOVIL').reduce((s, t) => s + t.monto, 0);
-  const totalTJ  = totalTDD + totalTDC;
+  
+  const totalPM    = state.tickets.filter(t => t.tipo === 'PAGO_MOVIL').reduce((s, t) => s + t.monto, 0);
+  const totalTrans = state.tickets.filter(t => t.tipo === 'TRANSFERENCIA').reduce((s, t) => s + t.monto, 0);
+  
+  const totalDisp   = totalTDD + totalTDC + totalBIO;
+  const totalBancos = totalPM + totalTrans;
 
-  const diffEf  = totalBs  - state.sysEfectivo;
-  const diffTj  = totalTJ  - (state.sysTDD + state.sysTDC);
-  const diffPM  = totalPM  - state.sysPagoMovil;
-  const diffBio = totalBIO - state.sysBiopago;
+  const diffEf   = totalBs     - state.sysEfectivo;
+  const diffDisp = totalDisp   - state.sysDispositivos;
+  const diffBanc = totalBancos - state.sysBancos;
 
   setDiff('diff-ef',  diffEf);
-  setDiff('diff-tj',  diffTj);
-  setDiff('diff-pm',  diffPM);
-  setDiff('diff-bio', diffBio);
+  setDiff('diff-dispositivos', diffDisp);
+  setDiff('diff-bancos', diffBanc);
 
   // Bank Breakdown
   if (!state.puntosVenta) { state.puntosVenta = []; }
@@ -1360,7 +1337,8 @@ function buildPayload(estado) {
   const tdd  = state.tickets.filter(t => t.tipo === 'TDD').reduce((s, t) => s + t.monto, 0);
   const tdc  = state.tickets.filter(t => t.tipo === 'TDC').reduce((s, t) => s + t.monto, 0);
   const bio  = state.tickets.filter(t => t.tipo === 'BIOPAGO').reduce((s, t) => s + t.monto, 0);
-  const pagoMovil  = state.tickets.filter(t => t.tipo === 'PAGO_MOVIL').reduce((s, t) => s + t.monto, 0);
+  const pagoMovil = state.tickets.filter(t => t.tipo === 'PAGO_MOVIL').reduce((s, t) => s + t.monto, 0);
+  const transferencia = state.tickets.filter(t => t.tipo === 'TRANSFERENCIA').reduce((s, t) => s + t.monto, 0);
 
   return {
     vendedor_codigo: state.vendedor,
@@ -1381,6 +1359,7 @@ function buildPayload(estado) {
     manual_tdc: tdc,
     manual_biopago: bio,
     manual_pago_movil: pagoMovil,
+    manual_transferencia: transferencia,
     estado
   };
 }
@@ -1551,6 +1530,8 @@ async function guardarTransaccionCalc() {
     return;
   }
 
+  if (window._isCalculadoraSaving) return;
+
   const btn = document.getElementById('btn-calc-guardar');
   const factBs = parseFloat(document.getElementById('calc-factura-bs-input').value) || 0;
   
@@ -1558,9 +1539,6 @@ async function guardarTransaccionCalc() {
     showToast('Debe ingresar un monto de factura a cobrar.', 'warning');
     return;
   }
-
-  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
-  btn.disabled = true;
 
   const tasa = parseFloat(document.getElementById('calc-tasa').value) || 1;
   const factUsd = factBs / tasa;
@@ -1611,28 +1589,42 @@ async function guardarTransaccionCalc() {
     diff_bs: diffBs
   };
 
+  // Verificación de duplicados (Debouncing 5s)
+  const currentPayloadStr = JSON.stringify(payload);
+  const now = Date.now();
+  if (currentPayloadStr === window._lastCalcPayload && (now - window._lastCalcTime < 5000)) {
+    showToast('Esta transacción ya fue procesada hace un momento.', 'warning');
+    return;
+  }
+
+  window._isCalculadoraSaving = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+  btn.disabled = true;
+
   try {
     const res = await fetch('/caja/calculadora/guardar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: currentPayloadStr
     });
     
-    if(!res.ok) throw new Error(await res.text());
-    
-    const json = await res.json();
-    showToast('Calculado y guardado en caja central.', 'success');
-    
-    // Refresh el reporte KPI superior
-    cargarReporteDolares();
-    
-    // Limpiar para la prox transacción
-    limpiarCalculadora();
-
-  } catch(e) {
-    showToast('Error guardando transacción: ' + e.message, 'danger');
+    if (res.ok) {
+      window._lastCalcPayload = currentPayloadStr;
+      window._lastCalcTime = now;
+      showToast('Calculado y guardado correctamente.', 'success');
+      
+      // Refrescar el reporte ANTES de limpiar para asegurar que el registro aparezca
+      await cargarReporteDolares();
+      limpiarCalculadora();
+    } else {
+      const err = await res.json();
+      showToast(`Error: ${err.detail || 'No se pudo guardar'}`, 'error');
+    }
+  } catch (e) {
+    showToast('Error de conexión con el servidor.', 'error');
   } finally {
-    btn.innerHTML = '<i class="fas fa-save"></i> Guardar';
+    window._isCalculadoraSaving = false;
+    btn.innerHTML = '<i class="fas fa-save"></i> Guardar Transacción';
     btn.disabled = false;
   }
 }
@@ -1783,7 +1775,7 @@ async function buscarReportes() {
         json.data.forEach(c => {
             const tr = document.createElement('tr');
             const totalEfectivo = c.manual_efectivo_bs + c.manual_divisas * state.tasaDolar;
-            const totalPos = c.manual_tdd + c.manual_tdc + c.manual_biopago + (c.manual_pago_movil || 0);
+            const totalPos = c.manual_tdd + c.manual_tdc + c.manual_biopago + (c.manual_pago_movil || 0) + (c.manual_transferencia || 0);
             // Omitimos calculo directo de diferencia y dejamos que lo vean en detalle (para ser mas rapidos)
 
             const badge = c.estado === 'FINALIZADO' 

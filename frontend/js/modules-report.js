@@ -125,10 +125,13 @@ async function fetchRetencionesView() {
         if (dIni || dFin) url += `?desde=${dIni}&hasta=${dFin}`;
 
         const res = await fetch(url);
-        if (!res.ok) throw new Error("API error");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         
-        window.appState.retenIva = Array.isArray(json.data) ? json.data : json;
+        // Ensure we handle both {data: [...]} and raw [...] formats
+        const rawData = json.data || json;
+        window.appState.retenIva = Array.isArray(rawData) ? rawData : [];
+        
         renderRetencionesIva();
     } catch(err) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:red;">Error cargando datos.</td></tr>`;
@@ -172,7 +175,8 @@ function renderRetencionesIva() {
             </td>
             <td style="text-align: center; display:flex; gap:0.25rem; justify-content:center;">
                 <button class="btn-icon" title="Imprimir" onclick="window.open('/api/retenciones/${i.Id}/pdf', '_blank')"><i data-lucide="printer"></i></button>
-                ${(i.Estado !== 'ANULADA' && i.Estado !== 'ENTERADO') ? `<button class="btn-icon" title="Anular" onclick="anularRetencionIVA(${i.Id})"><i data-lucide="trash-2" style="color:var(--danger)"></i></button>` : ''}
+                <button class="btn-icon" title="Enviar Email" onclick="enviarRetencionEmail(${i.Id})" style="color:var(--success)"><i data-lucide="send"></i></button>
+                ${(i.Estado !== 'ANULADO' && i.Estado !== 'ENTERADO') ? `<button class="btn-icon" title="Anular" onclick="anularRetencionIVA(${i.Id})"><i data-lucide="trash-2" style="color:var(--danger)"></i></button>` : ''}
             </td>
         </tr>`;
     }).join("");
@@ -214,13 +218,12 @@ async function fetchRetencionesISLR() {
         if (dIni || dFin) url += `?desde=${dIni}&hasta=${dFin}`;
 
         const res = await fetch(url);
-        // Fallback for mocked behavior in case endpoint is not fully up for GET
-        if (!res.ok) {
-           console.warn("ISLR list endpoint returned non-200, simulating via general if available");
-        }
-        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        window.appState.retenIslr = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+        
+        const rawData = json.data || json;
+        window.appState.retenIslr = Array.isArray(rawData) ? rawData : [];
+        
         renderRetencionesIslr();
     } catch(err) {
         tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:red;">Error consultando retenciones (o ruta no completada en backend).</td></tr>`;
@@ -261,7 +264,7 @@ function renderRetencionesIslr() {
             <td style="text-align: right; color: var(--danger); font-weight: bold;">${cf.format(i.MontoRetenido || 0)}</td>
             <td style="text-align: center;"><span class="badge ${i.Estado==='GENERADO'?'badge-success':'badge-default'}">${i.Estado||'GENERADO'}</span></td>
             <td style="text-align: center;">
-                ${(i.Estado !== 'ANULADA' && i.Estado !== 'ENTERADO') ? `<button class="btn-icon" title="Anular" onclick="anularRetencionISLR(${i.Id})"><i data-lucide="trash-2" style="color:var(--danger)"></i></button>` : ''}
+                ${(i.Estado !== 'ANULADO' && i.Estado !== 'ENTERADO') ? `<button class="btn-icon" title="Anular" onclick="anularRetencionISLR(${i.Id})"><i data-lucide="trash-2" style="color:var(--danger)"></i></button>` : ''}
             </td>
         </tr>`;
     }).join("");
@@ -323,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // We override original globals so that sidebar clicks trigger our new functions
     window._fetchRetenciones = fetchRetencionesView;
-    window._fetchRetenciones = fetchRetencionesView;
+    window._fetchRetencionesISLR = fetchRetencionesISLR;
     
     // Wire up sidebar for ISLR explicitly since it didn't exist before in script.js logic block
     const islrNav = document.querySelector('.nav-item[data-view="retenciones-islr"]');
@@ -376,6 +379,25 @@ window.openHelpModal = function(module) {
 
 window.closeHelpModal = function() {
     document.getElementById('helpModal').classList.remove('active');
+};
+
+window.enviarRetencionEmail = async function(id) {
+    if (!confirm('¿Enviar comprobante de retención por correo al proveedor?')) return;
+    if (window.showToast) window.showToast('Enviando correo...', 'info');
+    try {
+        const res = await fetch(`/api/retenciones/${id}/send-email`, { method: 'POST' });
+        const json = await res.json();
+        if (json.email_sent) {
+            if (window.showToast) window.showToast(`✅ ${json.message}`, 'success');
+            else alert("✅ " + json.message);
+        } else {
+            if (window.showToast) window.showToast(`⚠️ ${json.message}`, 'warning');
+            else alert("⚠️ " + json.message);
+        }
+    } catch (e) {
+        console.error(e);
+        if (window.showToast) window.showToast("Error enviando correo", "error");
+    }
 };
 
 // --- CANCELLATION LOGIC ---

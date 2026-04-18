@@ -52,6 +52,7 @@ class ConciliarRequest(BaseModel):
     manual_tdc: float
     manual_biopago: float
     manual_pago_movil: float = 0.0
+    manual_transferencia: float = 0.0
 
 @router.get("/caja/vendedores")
 async def get_vendedores():
@@ -126,46 +127,41 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         tot_efectivo = float(row_totales[0] if row_totales else 0.0)
         tot_cheque   = float(row_totales[1] if row_totales else 0.0)
 
-        # 2. Desglose por instrumento desde SAIPAVTA (más preciso que CancelT)
-        # 001=TDD, 002=TDC, 004=PAGO MOVIL, 009=BIOPAGO, 006=EFECTIVO
+        # 2. Desglose dinámico por Categoría Madre (TipoIns) excluyendo Efectivo (006) y Divisas (021)
         cursor.execute("""
             SELECT 
-                ISNULL(SUM(CASE WHEN i.CodTarj = '001' THEN i.Monto ELSE 0 END), 0) AS TotTDD,
-                ISNULL(SUM(CASE WHEN i.CodTarj = '002' THEN i.Monto ELSE 0 END), 0) AS TotTDC,
-                ISNULL(SUM(CASE WHEN i.CodTarj = '004' THEN i.Monto ELSE 0 END), 0) AS TotPagoMovil,
-                ISNULL(SUM(CASE WHEN i.CodTarj = '009' THEN i.Monto ELSE 0 END), 0) AS TotBiopago,
+                ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotDispositivos,
+                ISNULL(SUM(CASE WHEN t.TipoIns = 3 AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotBancos,
                 ISNULL(SUM(CASE WHEN i.CodTarj = '006' THEN i.Monto ELSE 0 END), 0) AS TotEfectivoT,
-                ISNULL(SUM(CASE WHEN i.CodTarj NOT IN ('001','002','004','006','009') THEN i.Monto ELSE 0 END), 0) AS TotOtros
+                ISNULL(SUM(CASE WHEN t.TipoIns NOT IN (2, 3) AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotOtros
             FROM dbo.SAIPAVTA i
             JOIN dbo.SAFACT   f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
+            LEFT JOIN dbo.SATARJ t ON i.CodTarj = t.CodTarj
             WHERE f.CodVend = ?
               AND CAST(f.FechaE AS DATE) = ?
               AND f.TipoFac IN ('A', 'C')
         """, (vendedor_codigo, fecha))
         row_elec = cursor.fetchone()
-        tot_tdd       = float(row_elec[0] if row_elec else 0.0)
-        tot_tdc       = float(row_elec[1] if row_elec else 0.0)
-        tot_pagomovil = float(row_elec[2] if row_elec else 0.0)
-        tot_biopago   = float(row_elec[3] if row_elec else 0.0)
-        tot_efectivot = float(row_elec[4] if row_elec else 0.0)
-        tot_otros     = float(row_elec[5] if row_elec else 0.0)
+        tot_dispositivos = float(row_elec[0] if row_elec else 0.0)
+        tot_bancos       = float(row_elec[1] if row_elec else 0.0)
+        tot_efectivot    = float(row_elec[2] if row_elec else 0.0)
+        tot_otros        = float(row_elec[3] if row_elec else 0.0)
         
         tot_efectivo += tot_efectivot
-        tot_tarjeta   = tot_tdd + tot_tdc + tot_pagomovil + tot_biopago + tot_otros
+        tot_tarjeta   = tot_dispositivos + tot_bancos + tot_otros
 
         totales_sistema = {
-            "totefectivo":  tot_efectivo,
-            "tottarjeta":   tot_tarjeta,
-            "tottdd":       tot_tdd,
-            "tottdc":       tot_tdc,
-            "totpagomovil": tot_pagomovil,
-            "totbiopago":   tot_biopago,
-            "totcheque":    tot_cheque
+            "totefectivo":     tot_efectivo,
+            "tottarjeta":      tot_tarjeta,
+            "totdispositivos": tot_dispositivos,
+            "totbancos":       tot_bancos,
+            "totcheque":       tot_cheque,
+            "tototros":        tot_otros
         }
 
         # 2. Check for an active Precierre (estado = 'BORRADOR')
         cursor.execute('''
-            SELECT id, manual_efectivo_bs, manual_divisas, manual_euros, manual_tdd, manual_tdc, manual_biopago, manual_pago_movil
+            SELECT id, manual_efectivo_bs, manual_divisas, manual_euros, manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, ISNULL(manual_transferencia, 0)
             FROM Custom.CajaCierre
             WHERE vendedor_codigo = ? AND CAST(fecha_ini AS DATE) = ? AND estado = 'BORRADOR'
         ''', (vendedor_codigo, fecha))
@@ -187,6 +183,7 @@ async def get_totales(vendedor_codigo: str, fecha: str):
                 "manual_tdc": float(borrador_row[5]),
                 "manual_biopago": float(borrador_row[6]),
                 "manual_pago_movil": float(borrador_row[7] if borrador_row[7] is not None else 0),
+                "manual_transferencia": float(borrador_row[8]),
                 "detalles_efectivo": [],
                 "detalles_tarjetas": []
             }
@@ -249,10 +246,11 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                     manual_tdc         = ?,
                     manual_biopago     = ?,
                     manual_pago_movil  = ?,
+                    manual_transferencia = ?,
                     estado             = ?
                 WHERE id = ?
             ''', (payload.vendedor_nombre, payload.manual_efectivo_bs, payload.manual_divisas, payload.manual_euros,
-                  payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil,
+                  payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, payload.manual_transferencia,
                   estado, cierre_id))
             # Wipe detail tables before re-inserting
             cursor.execute("DELETE FROM Custom.CajaCierreEfectivo WHERE cierre_id = ?", (cierre_id,))
@@ -265,13 +263,13 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                 INSERT INTO Custom.CajaCierre
                     (vendedor_codigo, vendedor_nombre, fecha_ini, fecha_fin,
                      manual_efectivo_bs, manual_divisas, manual_euros,
-                     manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, estado)
+                     manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, manual_transferencia, estado)
                 OUTPUT INSERTED.id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (payload.vendedor_codigo, payload.vendedor_nombre,
                   payload.fecha_ini, payload.fecha_fin,
                   payload.manual_efectivo_bs, payload.manual_divisas, payload.manual_euros,
-                  payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, estado))
+                  payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, payload.manual_transferencia, estado))
             cierre_id = int(cursor.fetchone()[0])
         
         # ── Insert denomination breakdown (Bs) ────────────────────────────
@@ -361,7 +359,7 @@ async def detalle_reporte(cierre_id: int):
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
-        cursor.execute("SELECT id, vendedor_codigo, vendedor_nombre, fecha_ini, estado, manual_efectivo_bs, manual_divisas, manual_tdd, manual_tdc, manual_biopago, manual_pago_movil FROM Custom.CajaCierre WHERE id = ?", (cierre_id,))
+        cursor.execute("SELECT id, vendedor_codigo, vendedor_nombre, fecha_ini, estado, manual_efectivo_bs, manual_divisas, manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, ISNULL(manual_transferencia, 0) FROM Custom.CajaCierre WHERE id = ?", (cierre_id,))
         header_row = cursor.fetchone()
         if not header_row:
             raise HTTPException(status_code=404, detail="Cierre no encontrado")
@@ -371,7 +369,8 @@ async def detalle_reporte(cierre_id: int):
             "fecha_ini": header_row[3], "estado": header_row[4],
             "manual_efectivo_bs": float(header_row[5] or 0), "manual_divisas": float(header_row[6] or 0),
             "manual_tdd": float(header_row[7] or 0), "manual_tdc": float(header_row[8] or 0),
-            "manual_biopago": float(header_row[9] or 0), "manual_pago_movil": float(header_row[10] or 0)
+            "manual_biopago": float(header_row[9] or 0), "manual_pago_movil": float(header_row[10] or 0),
+            "manual_transferencia": float(header_row[11])
         }
             
         # Differences

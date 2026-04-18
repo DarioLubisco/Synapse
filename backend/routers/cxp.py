@@ -1712,14 +1712,45 @@ async def editar_factura(numeroD: str, cod_prov: str = Query(default=''), payloa
                         (delta, prov_for_delta)
                     )
 
-        # ── 2. SAACXP: Monto si cambia MontoFacturaBS ─────────────────────────
+        # ── 2. SAACXP: Monto si cambia MontoFacturaBS (Recalculate Saldo Delta) ───────
         if "MontoFacturaBS" in payload and payload["MontoFacturaBS"] is not None:
-            cursor.execute(
-                """UPDATE EnterpriseAdmin_AMC.dbo.SAACXP
-                   SET Monto = ?
-                   WHERE NumeroD = ? AND TipoCxP = '10'""",
-                (float(payload["MontoFacturaBS"]), numeroD)
-            )
+            new_monto = float(payload["MontoFacturaBS"])
+            query_cond = "NumeroD = ? AND TipoCxP = '10'"
+            params_cond = [numeroD]
+            if cod_prov:
+                query_cond += " AND CodProv = ?"
+                params_cond.append(cod_prov)
+                
+            cursor.execute(f"SELECT Monto, Saldo FROM EnterpriseAdmin_AMC.dbo.SAACXP WHERE {query_cond}", tuple(params_cond))
+            current = cursor.fetchone()
+            
+            if current:
+                old_monto = float(current.Monto) if current.Monto is not None else 0.0
+                old_saldo = float(current.Saldo) if current.Saldo is not None else 0.0
+                monto_delta = new_monto - old_monto
+                new_saldo = old_saldo + monto_delta
+                
+                cursor.execute(
+                    f"""UPDATE EnterpriseAdmin_AMC.dbo.SAACXP
+                       SET Monto = ?, Saldo = ?
+                       WHERE {query_cond}""",
+                    tuple([new_monto, new_saldo] + params_cond)
+                )
+                
+                if monto_delta != 0 and cod_prov:
+                    cursor.execute(
+                        """UPDATE EnterpriseAdmin_AMC.dbo.SAPROV
+                           SET Saldo = Saldo + ?
+                           WHERE CodProv = ?""",
+                        (monto_delta, cod_prov)
+                    )
+            else:
+                cursor.execute(
+                    f"""UPDATE EnterpriseAdmin_AMC.dbo.SAACXP
+                       SET Monto = ?
+                       WHERE {query_cond}""",
+                    tuple([new_monto] + params_cond)
+                )
 
         # ── 3. SACOMP: fechas + montos ────────────────────────────────────────
         comp_fields = []
@@ -1742,6 +1773,9 @@ async def editar_factura(numeroD: str, cod_prov: str = Query(default=''), payloa
             if field in payload and payload[field] is not None:
                 comp_fields.append(f"{field} = ?")
                 comp_params.append(float(payload[field]))
+                if field == "Factor":
+                    # Also update SAACXP.Factor since frontend depends on it
+                    cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAACXP SET Factor = ? WHERE NumeroD = ? AND TipoCxP = '10'", (float(payload[field]), numeroD))
 
         # Backward compatibility for MontoFacturaBS mapping if MtoTotal wasn't explicitly sent
         if "MontoFacturaBS" in payload and payload["MontoFacturaBS"] is not None and "MtoTotal" not in payload:
@@ -3307,18 +3341,25 @@ async def crear_retencion(payload: dict = Body(...)):
         conn = database.get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Generate sequential number
-        cursor.execute("SELECT UltimoSecuencial FROM EnterpriseAdmin_AMC.Procurement.Retenciones_Config WHERE Id = 1")
-        last_seq = cursor.fetchone()[0]
-        new_seq = last_seq + 1
-        
         from datetime import datetime
         now = datetime.now()
-        nro_comprobante = f"{now.strftime('%Y%m')}{str(new_seq).zfill(8)}"
-        
+
         # Support batch (new format) or single (legacy format)
         facturas = payload.get("facturas", [payload])  # If no facturas key, treat payload as single invoice
         fecha_retencion = payload.get("FechaRetencion", now.strftime('%Y-%m-%d'))
+        
+        # 0. Idempotency check 
+        for f in facturas:
+            cursor.execute("SELECT Id FROM EnterpriseAdmin_AMC.Procurement.Retenciones_IVA WITH (NOLOCK) WHERE NumeroD = ? AND CodProv = ? AND Estado != 'ANULADO'", (f["NumeroD"], f["CodProv"]))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail=f"La factura {f['NumeroD']} ya posee una retención IVA activa.")
+
+        # 1. Generate sequential number
+        cursor.execute("SELECT UltimoSecuencial FROM EnterpriseAdmin_AMC.Procurement.Retenciones_Config WITH (UPDLOCK) WHERE Id = 1")
+        last_seq = cursor.fetchone()[0]
+        new_seq = last_seq + 1
+        
+        nro_comprobante = f"{now.strftime('%Y%m')}{str(new_seq).zfill(8)}"
         
         inserted_ids = []
         for f in facturas:
@@ -4474,19 +4515,26 @@ async def crear_retencion_islr(payload: dict = Body(...)):
         conn = database.get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Generate sequential number for ISLR
-        cursor.execute("SELECT UltimoSecuencial FROM EnterpriseAdmin_AMC.Procurement.Retenciones_ISLR_Config WHERE Id = 1")
-        last_seq = cursor.fetchone()[0]
-        new_seq = last_seq + 1
-        
         from datetime import datetime
         import uuid
         now = datetime.now()
-        nro_comprobante = f"{now.strftime('%Y%m')}-ISLR-{str(new_seq).zfill(4)}"
-        idlote = str(uuid.uuid4())
-        
+
         facturas = payload.get("facturas", [payload])
         fecha_retencion = payload.get("FechaRetencion", now.strftime('%Y-%m-%d'))
+        
+        # 0. Idempotency check 
+        for f in facturas:
+            cursor.execute("SELECT Id FROM EnterpriseAdmin_AMC.Procurement.Retenciones_ISLR WITH (NOLOCK) WHERE NumeroD = ? AND CodProv = ? AND Estado != 'ANULADO'", (f["NumeroD"], f["CodProv"]))
+            if cursor.fetchone():
+                raise HTTPException(status_code=400, detail=f"La factura {f['NumeroD']} ya posee una retención ISLR activa.")
+
+        # 1. Generate sequential number for ISLR
+        cursor.execute("SELECT UltimoSecuencial FROM EnterpriseAdmin_AMC.Procurement.Retenciones_ISLR_Config WITH (UPDLOCK) WHERE Id = 1")
+        last_seq = cursor.fetchone()[0]
+        new_seq = last_seq + 1
+        
+        nro_comprobante = f"{now.strftime('%Y%m')}-ISLR-{str(new_seq).zfill(4)}"
+        idlote = str(uuid.uuid4())
         
         inserted_ids = []
         for f in facturas:
