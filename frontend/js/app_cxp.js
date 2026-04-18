@@ -3690,9 +3690,9 @@ document.addEventListener('DOMContentLoaded', () => {
             abMontoBs.title = "Monto editado manualmente (bloqueado para recálculo automático)";
             // Mostrar excedente si el monto ingresado supera el calculado
             const typedVal = parseFloat(abMontoBs.value) || 0;
-            const refBs = window.lastCalculatedPaymentBs || 0;
+            const refBs = window.lastCalculatedPaymentBs || parseFloat(lastAutoFilledBs) || 0;
             if (refBs > 0 && typedVal > refBs + 0.05) {
-                const excd = typedVal - refBs;
+                const excd = Math.abs(typedVal - refBs); // abs para evitar negativos en UI si el redondeo falla
                 if (excGrp) {
                     excGrp.style.display = 'flex';
                     if (excVal) excVal.textContent = `Bs.S ${bsFormatter(excd)}`;
