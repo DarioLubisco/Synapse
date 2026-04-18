@@ -97,12 +97,17 @@
       <!-- Main workspace (hidden until Iniciar) -->
       <div id="cuadre-workspace" style="display:none;">
 
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem; height: 20px;">
+          <span id="autosave-indicator" style="font-size: 0.8rem; color: var(--text-muted); display: none; align-items: center; gap: 0.4rem;">
+          </span>
+        </div>
+
         <!-- ── Totales Sistema (stat cards) ── -->
         <div class="dashboard-stats" id="stats-sistema" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
           <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper blue"><i class="fas fa-money-bill-wave fa-lg"></i></div>
             <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Efectivo (Sistema)</h3>
+              <h3 style="font-size:0.75rem;">Bolivares</h3>
               <p id="sys-efectivo">Bs. 0.00</p>
             </div>
           </div>
@@ -111,7 +116,7 @@
               <i class="fas fa-credit-card fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Terminales POS (Sis)</h3>
+              <h3 style="font-size:0.75rem;">TARJETAS (TDD+TDC) + Biopago</h3>
               <p id="sys-dispositivos">Bs. 0.00</p>
             </div>
           </div>
@@ -120,8 +125,17 @@
               <i class="fas fa-mobile-alt fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Red Bancaria (Sis)</h3>
+              <h3 style="font-size:0.75rem;">PAGO MÓVIL (PM) /Transferencias</h3>
               <p id="sys-bancos">Bs. 0.00</p>
+            </div>
+          </div>
+          <div class="stat-card glassmorphism">
+            <div class="stat-icon-wrapper" style="background:rgba(245,158,11,.1);color:#f59e0b;">
+              <i class="fas fa-fingerprint fa-lg"></i>
+            </div>
+            <div class="stat-info">
+              <h3 style="font-size:0.75rem;">Dolares Sistema</h3>
+              <p id="sys-divisas-sis">0,00</p>
             </div>
           </div>
           <div class="stat-card glassmorphism">
@@ -129,7 +143,7 @@
               <i class="fas fa-dollar-sign fa-lg"></i>
             </div>
             <div class="stat-info">
-              <h3 style="font-size:0.75rem;">Dólares (Calc. Mixta)</h3>
+              <h3 style="font-size:0.75rem;">DÓLARES (CALC. MIXTA)</h3>
               <p id="sys-dolares">$ 0.00</p>
             </div>
           </div>
@@ -236,16 +250,20 @@
               <div style="margin-bottom:1rem;">
                 <p style="font-size:.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Sistema (Saint)</p>
                 <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-money-bill-wave fa-sm"></i> Efectivo</span>
+                  <span class="summary-label"><i class="fas fa-money-bill-wave fa-sm"></i> Bolivares</span>
                   <span class="summary-value" id="res-sys-ef">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> Terminales POS</span>
+                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> Tarjetas (TDD+TDC) + Biopago</span>
                   <span class="summary-value" id="res-sys-dispositivos">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label"><i class="fas fa-mobile-alt fa-sm"></i> Red Bancaria</span>
+                  <span class="summary-label"><i class="fas fa-mobile-alt fa-sm"></i> Pago Móvil (PM) /Transferencias</span>
                   <span class="summary-value" id="res-sys-bancos">Bs. 0.00</span>
+                </div>
+                <div class="summary-row">
+                  <span class="summary-label"><i class="fas fa-fingerprint fa-sm"></i> Dolares Sistema</span>
+                  <span class="summary-value" id="res-sys-divisas-sis">0,00</span>
                 </div>
               </div>
 
@@ -268,15 +286,15 @@
               <div>
                 <p style="font-size:.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Diferencias (Manual − Sistema)</p>
                 <div class="summary-row">
-                  <span class="summary-label">Efectivo</span>
+                  <span class="summary-label">Bolivares</span>
                   <span class="summary-value" id="diff-ef">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label">Terminales POS</span>
+                  <span class="summary-label">Tarjetas (TDD+TDC) + Biopago</span>
                   <span class="summary-value" id="diff-dispositivos">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label">Red Bancaria</span>
+                  <span class="summary-label">Pago Móvil /Transf.</span>
                   <span class="summary-value" id="diff-bancos">Bs. 0.00</span>
                 </div>
               </div>
@@ -1096,11 +1114,13 @@ async function iniciarCuadre() {
     state.sysCheque     = data.totales_sistema.totcheque       ?? 0;
     state.sysDispositivos = data.totales_sistema.totdispositivos ?? 0;
     state.sysBancos       = data.totales_sistema.totbancos       ?? 0;
+    state.sysDivisasSis   = data.totales_sistema.totdivisas      ?? 0;
 
     // Show system totals
     document.getElementById('sys-efectivo').textContent     = fmt(state.sysEfectivo);
     document.getElementById('sys-dispositivos').textContent = fmt(state.sysDispositivos);
     document.getElementById('sys-bancos').textContent       = fmt(state.sysBancos);
+    document.getElementById('sys-divisas-sis').textContent  = fmt(state.sysDivisasSis).replace('Bs. ','');
     
     // Fetch dolares from Calculadora Mixta
     fetch(`/caja/calculadora/reporte?fecha=${state.fecha}&vendedor_codigo=${encodeURIComponent(state.vendedor)}`)
@@ -1116,6 +1136,7 @@ async function iniciarCuadre() {
     document.getElementById('res-sys-ef').textContent           = fmt(state.sysEfectivo);
     document.getElementById('res-sys-dispositivos').textContent = fmt(state.sysDispositivos);
     document.getElementById('res-sys-bancos').textContent       = fmt(state.sysBancos);
+    document.getElementById('res-sys-divisas-sis').textContent  = fmt(state.sysDivisasSis).replace('Bs. ','');
 
     // Load precierre if exists
     if (data.has_precierre && data.borrador_actual) {
@@ -1242,6 +1263,10 @@ function recalculate() {
   } else {
       bSection.style.display = 'none';
   }
+
+  if (typeof triggerAutosave === 'function') {
+      triggerAutosave();
+  }
 }
 
 function setDiff(id, val) {
@@ -1365,8 +1390,37 @@ function buildPayload(estado) {
 }
 
 // ── Precierre ─────────────────────────────────────────────────────────────────
-async function guardarPrecierre() {
+let autosaveTimer = null;
+let isSaving = false;
+
+function triggerAutosave() {
+  // Only trigger if we have an active session
+  if (!state.vendedor || !state.fecha) return; 
+  if (document.getElementById('cuadre-workspace').style.display === 'none') return;
+  
+  const indicator = document.getElementById('autosave-indicator');
+  if (indicator) {
+    indicator.style.display = 'flex';
+    indicator.innerHTML = '<i class="fas fa-pen"></i> Guardando en 15s...';
+  }
+
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    guardarPrecierre(true);
+  }, 15000);
+}
+
+async function guardarPrecierre(isSilent = false) {
+  if (isSaving) return;
   const payload = buildPayload('BORRADOR');
+  isSaving = true;
+
+  const indicator = document.getElementById('autosave-indicator');
+  if (isSilent && indicator) {
+    indicator.style.display = 'flex';
+    indicator.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Guardando...';
+  }
+
   try {
     const res = await fetch('/caja/conciliar/guardar_borrador', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
@@ -1374,8 +1428,28 @@ async function guardarPrecierre() {
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     if (data.cierre_id) state.cierreId = data.cierre_id;
-    showToast('Precierre guardado — puedes cerrar la sesión y continuar al reabrir.', 'success');
-  } catch(e) { showToast('Error guardando precierre: ' + e.message, 'danger'); }
+    
+    if (isSilent) {
+      if (indicator) {
+        const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        indicator.innerHTML = `<i class="fas fa-check-circle" style="color: var(--success);"></i> Guardado: ${time}`;
+      }
+    } else {
+      showToast('Precierre guardado — puedes cerrar la sesión y continuar al reabrir.', 'success');
+      if (indicator) indicator.style.display = 'none';
+    }
+  } catch(e) { 
+    if (isSilent) {
+      if (indicator) {
+        indicator.style.display = 'flex';
+        indicator.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i> Error autoguardado`;
+      }
+    } else {
+      showToast('Error guardando precierre: ' + e.message, 'danger'); 
+    }
+  } finally {
+    isSaving = false;
+  }
 }
 
 // ── Cierre Definitivo ─────────────────────────────────────────────────────────
@@ -1568,7 +1642,7 @@ async function guardarTransaccionCalc() {
   if(diffUsd < -0.005) resultado = 'FALTA';
 
   const payload = {
-    vendedor_codigo: state.perfil?.cod_usua || null,
+    vendedor_codigo: state.perfil?.cod_vend || state.perfil?.cod_usua || null,
     observacion: null,
     tasa_bcv: tasa,
     factura_bs: factBs,

@@ -133,7 +133,8 @@ async def get_totales(vendedor_codigo: str, fecha: str):
                 ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotDispositivos,
                 ISNULL(SUM(CASE WHEN t.TipoIns = 3 AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotBancos,
                 ISNULL(SUM(CASE WHEN i.CodTarj = '006' THEN i.Monto ELSE 0 END), 0) AS TotEfectivoT,
-                ISNULL(SUM(CASE WHEN t.TipoIns NOT IN (2, 3) AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotOtros
+                ISNULL(SUM(CASE WHEN t.TipoIns NOT IN (2, 3) AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotOtros,
+                ISNULL(SUM(CASE WHEN i.CodTarj = '021' THEN i.Monto ELSE 0 END), 0) AS TotDivisas
             FROM dbo.SAIPAVTA i
             JOIN dbo.SAFACT   f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
             LEFT JOIN dbo.SATARJ t ON i.CodTarj = t.CodTarj
@@ -146,6 +147,7 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         tot_bancos       = float(row_elec[1] if row_elec else 0.0)
         tot_efectivot    = float(row_elec[2] if row_elec else 0.0)
         tot_otros        = float(row_elec[3] if row_elec else 0.0)
+        tot_divisas      = float(row_elec[4] if row_elec else 0.0)
         
         tot_efectivo += tot_efectivot
         tot_tarjeta   = tot_dispositivos + tot_bancos + tot_otros
@@ -156,7 +158,8 @@ async def get_totales(vendedor_codigo: str, fecha: str):
             "totdispositivos": tot_dispositivos,
             "totbancos":       tot_bancos,
             "totcheque":       tot_cheque,
-            "tototros":        tot_otros
+            "tototros":        tot_otros,
+            "totdivisas":      tot_divisas
         }
 
         # 2. Check for an active Precierre (estado = 'BORRADOR')
