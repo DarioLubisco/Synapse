@@ -615,6 +615,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnGenerarRetencion = document.getElementById('btnGenerarRetencion');
         if (btnGenerarRetencion) {
             btnGenerarRetencion.style.display = effectiveCount >= 1 ? 'inline-flex' : 'none';
+            if (effectiveCount >= 1) {
+                let selItems = [];
+                if (window.multiPayMode) {
+                    selItems = Array.from(window.multiPaySelectionData.values());
+                } else {
+                    document.querySelectorAll('.row-checkbox:checked').forEach(cb => {
+                        const idx = cb.getAttribute('data-index');
+                        if (window.currentData[idx]) selItems.push(window.currentData[idx]);
+                    });
+                }
+                const itemsConIva = selItems.filter(i => (parseFloat(i.TGravable) || 0) > 0 || (parseFloat(i.MtoTax) || 0) > 0);
+                const sinRetencion = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !i.Has_Retencion);
+                
+                if (itemsConIva.length > 0 && sinRetencion.length > 0) {
+                    // Amarillo si hay algo pendiente por retener
+                    btnGenerarRetencion.style.color = '#eab308';
+                    btnGenerarRetencion.style.borderColor = 'rgba(234,179,8,0.4)';
+                } else {
+                    // Verde si TODAS ya tienen retención o NINGUNA tiene IVA
+                    btnGenerarRetencion.style.color = '#10b981';
+                    btnGenerarRetencion.style.borderColor = 'rgba(16,185,129,0.4)';
+                }
+            }
         }
 
         const btnGenerarRetencionIslr = document.getElementById('btnGenerarRetencionIslr');
@@ -2959,6 +2982,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const abProntoPago = document.getElementById('abProntoPago');
         const abPPDeduceIVA = document.getElementById('abPPDeduceIVA');
 
+        const abBtnRetIva = document.getElementById('abBtnRetIva');
+        if (abBtnRetIva) {
+            const hasIva = (parseFloat(d.MtoTax) || 0) > 0 || (parseFloat(d.TGravable) || 0) > 0;
+            const hasRetIva = (d.HistorialAbonos && d.HistorialAbonos.some(a => a.TipoAbono === 'RETENCION_IVA')) || d.Has_Retencion || (parseFloat(d.RetencionIvaAbonada) || 0) > 0;
+            if (!hasIva || hasRetIva) {
+                abBtnRetIva.style.color = '#10b981';
+                abBtnRetIva.style.borderColor = 'rgba(16,185,129,0.4)';
+                abBtnRetIva.style.background = 'rgba(16,185,129,0.05)';
+            } else {
+                abBtnRetIva.style.color = '#eab308';
+                abBtnRetIva.style.borderColor = 'rgba(234,179,8,0.4)';
+                abBtnRetIva.style.background = 'rgba(234,179,8,0.05)';
+            }
+        }
+
         // Render Descuento Comercial Base info
         const abDescBaseAplica = document.getElementById('abDescBaseAplica');
         const abDescBaseInfo = document.getElementById('abDescBaseInfo');
@@ -3659,6 +3697,23 @@ document.addEventListener('DOMContentLoaded', () => {
                btnND.title = 'Generar Nota de Débito';
             }
         }
+
+        const submitBtn = document.querySelector('#abonoForm button[type="submit"]');
+        if (fin.finalBs <= 0.01) {
+            if (abMontoBs) abMontoBs.disabled = true;
+            if (document.getElementById('abAplicaIndex')) document.getElementById('abAplicaIndex').disabled = true;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.title = "Factura pagada en su totalidad";
+            }
+        } else {
+            if (abMontoBs) abMontoBs.disabled = false;
+            if (document.getElementById('abAplicaIndex')) document.getElementById('abAplicaIndex').disabled = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.title = "";
+            }
+        }
     };
 
     const calculateUsdAmount = () => {
@@ -3876,7 +3931,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Universal Auto-Split overpayment shield: Si pagan más de la deuda ERP, exigimos split para proteger Saint
             let deudaOriginalBs = currentCxpStatus.Saldo || 0;
-            if (deudaOriginalBs <= 0) deudaOriginalBs = currentCxpStatus.Monto || 0;
+            if (deudaOriginalBs <= 0) {
+                showToast('⚠️ La factura no presenta saldo pendiente. No se pueden registrar más pagos.', 'warning');
+                return;
+            }
             
             if (pagoReal > deudaOriginalBs && deudaOriginalBs > 0) {
                  const tasaAplicada = abAplicaIndex.checked ? (parseFloat(abTasa.value) || 1) : (currentCxpStatus.TasaEmision || 1);
@@ -4023,15 +4081,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) {
             container = document.createElement('div');
             container.id = 'toastContainer';
-            container.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;display:flex;flex-direction:column;gap:0.5rem;z-index:99999;';
             document.body.appendChild(container);
         }
-        const colors = { success: '#22c55e', warning: '#f59e0b', error: '#ef4444' };
+        // Force critical styles every time to prevent background hiding
+        container.style.cssText = 'position:fixed;bottom:1.5rem;right:1.5rem;display:flex;flex-direction:column;gap:0.5rem;z-index:1000001 !important;pointer-events:none;';
+        
+        const colors = { 
+            success: '#22c55e', 
+            warning: '#f59e0b', 
+            error: '#ef4444',
+            info: '#3b82f6',
+            danger: '#ef4444'
+        };
         const toast = document.createElement('div');
-        toast.style.cssText = `background:var(--bg-card);border:1px solid ${colors[type]||colors.success};color:var(--text-primary);padding:0.75rem 1.2rem;border-radius:8px;font-size:0.9rem;box-shadow:0 4px 20px rgba(0,0,0,0.4);max-width:360px;word-wrap:break-word;`;
+        toast.style.cssText = `background:#1e293b;border:1px solid ${colors[type]||colors.success};color:#f8fafc;padding:0.75rem 1.2rem;border-radius:8px;font-size:0.9rem;box-shadow:0 10px 25px rgba(0,0,0,0.5);max-width:400px;word-wrap:break-word;pointer-events:auto;transition:all 0.3s ease;`;
         toast.textContent = message;
         container.appendChild(toast);
-        setTimeout(() => { toast.remove(); }, 4500);
+        setTimeout(() => { 
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            setTimeout(() => { toast.remove(); }, 300);
+        }, 4500);
     };
 
     // --- Helper for forcefully rendering modals ---
@@ -5031,26 +5101,39 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('pmSelectedCountLabel').textContent = items.length;
 
             // Check retentions state for action bar
-            const hasIvaRet = items.some(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
-            const hasIslrRet = items.some(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_ISLR'));
+            const itemsConIva = items.filter(i => (parseFloat(i.TGravable) || 0) > 0 && (parseFloat(i.MtoTax) || 0) > 0);
+            const sinRetencionIva = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !i.Has_Retencion && !(i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
             
+            // Si no hay items con IVA que falten por retener (ya sea porque todos se retuvieron o porque ninguno lleva IVA)
+            const allIvaRetainedOrNoIva = itemsConIva.length > 0 ? (sinRetencionIva.length === 0) : true;
+            const hasAnyIvaRet = items.some(i => (parseFloat(i.RetencionIvaAbonada) || 0) > 0 || i.Has_Retencion || (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
+
             const btnPmRetIva = document.getElementById('pmGoBtnRetIva');
             if (btnPmRetIva) {
-                if (hasIvaRet) {
+                if (itemsConIva.length === 0) {
+                    btnPmRetIva.innerHTML = '<i data-lucide="file-check-2" size="16"></i> Sin IVA';
+                    btnPmRetIva.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+                    btnPmRetIva.style.color = '#10b981';
+                    btnPmRetIva.style.background = 'rgba(16, 185, 129, 0.05)';
+                    btnPmRetIva.dataset.yaCreada = 'true';
+                    btnPmRetIva.disabled = true;
+                } else if (allIvaRetainedOrNoIva) {
                     btnPmRetIva.innerHTML = '<i data-lucide="file-check-2" size="16"></i> Ver Ret. IVA';
                     btnPmRetIva.style.borderColor = 'rgba(16, 185, 129, 0.4)';
                     btnPmRetIva.style.color = '#10b981';
                     btnPmRetIva.style.background = 'rgba(16, 185, 129, 0.05)';
                     btnPmRetIva.dataset.yaCreada = 'true';
+                    btnPmRetIva.disabled = false;
                 } else {
                     btnPmRetIva.innerHTML = '<i data-lucide="receipt" size="16"></i> Ret. IVA';
                     btnPmRetIva.style.borderColor = 'rgba(6, 182, 212, 0.4)';
                     btnPmRetIva.style.color = '#06b6d4';
                     btnPmRetIva.style.background = 'rgba(6, 182, 212, 0.05)';
                     btnPmRetIva.dataset.yaCreada = 'false';
+                    btnPmRetIva.disabled = false;
                 }
             }
-
+            const hasIslrRet = items.some(i => (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_ISLR'));
             const btnPmRetIslr = document.getElementById('pmGoBtnRetIslr');
             if (btnPmRetIslr) {
                 if (hasIslrRet) {
@@ -5494,6 +5577,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                // Check if invoice is already fully paid
+                if (cxp) {
+                    let deudaReal = cxp.Saldo || 0;
+                    if (deudaReal <= 0) {
+                        showToast(`⚠️ Factura ${rawNumeroD} no presenta saldo. Ignorada en el pago.`, 'warning');
+                        return;
+                    }
+                }
+                
                 // Calculate missing amount for this row
                 let montoAjusteBs = 0;
                 let finalMontoBs = montoBs;
@@ -5502,7 +5594,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isAjusteActivo) {
                     if (cxp) {
                         let deudaReal = cxp.Saldo || 0;
-                        if (deudaReal <= 0) deudaReal = cxp.Monto || 0;
                         
                         // Recalculate financial requirement including discounts
                         const finExigido = calculateInvoiceFinancials(cxp, {
@@ -6028,7 +6119,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('⚠️ Ninguna de las facturas seleccionadas posee IVA para retener.', 'warning');
                 return;
             }
-            itemsToRetain = itemsConIva;
+
+            const yaRetenidas = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) > 0 || i.Has_Retencion);
+            const sinRetencion = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !i.Has_Retencion);
+
+            if (sinRetencion.length === 0) {
+                showToast('⚠️ Todas las facturas seleccionadas ya tienen retención de IVA registrada.', 'info');
+                return;
+            }
+
+            if (yaRetenidas.length > 0) {
+                const retenidasNums = yaRetenidas.map(i => i.NumeroD).join(', ');
+                const sinRetenNums = sinRetencion.map(i => i.NumeroD).join(', ');
+                
+                if (itemsConIva.length > 1) {
+                    // Create a foreground alert overlay to prevent background hiding issues with native alert()
+                    const overlay = document.createElement('div');
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);z-index:9999999;display:flex;align-items:center;justify-content:center;';
+                    overlay.innerHTML = `
+                        <div style="background:#1e293b;border:1px solid #f59e0b;padding:2rem;border-radius:8px;max-width:500px;color:white;text-align:center;box-shadow:0 10px 25px rgba(0,0,0,0.5);">
+                            <h3 style="color:#f59e0b;margin-bottom:1rem;font-size:1.2rem;">⚠️ Aviso de Retención Parcial</h3>
+                            <p style="margin-bottom:1rem;">Se procesará la retención <b>SOLO</b> para:<br><span style="color:#10b981;">${sinRetenNums}</span></p>
+                            <p style="margin-bottom:1.5rem;">Las facturas <span style="color:#ef4444;">[${retenidasNums}]</span> ya poseen retención de IVA registrada y serán omitidas.</p>
+                            <button onclick="this.parentElement.parentElement.remove()" style="background:#3b82f6;color:white;border:none;padding:0.5rem 1.5rem;border-radius:4px;cursor:pointer;font-weight:600;">Entendido</button>
+                        </div>
+                    `;
+                    document.body.appendChild(overlay);
+                }
+            }
+
+            itemsToRetain = sinRetencion;
 
             // Validate: all same provider
             const provs = new Set(itemsToRetain.map(i => i.CodProv));
@@ -6111,7 +6231,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('genRetPctGaceta')?.addEventListener('change', recalcAllRetenciones);
 
-        window.closeGenerarRetencionModal = () => forceHideModal(generarRetencionModal);
+        window.closeGenerarRetencionModal = () => {
+            forceHideModal(generarRetencionModal);
+            if (window._pendingAbonosReturn) {
+                const { codProv, numeroD } = window._pendingAbonosReturn;
+                window._pendingAbonosReturn = null;
+                setTimeout(() => {
+                    if (typeof openAbonosPanel === 'function') openAbonosPanel(codProv, numeroD);
+                }, 100);
+            }
+        };
 
         let isGeneratingRetencion = false;
         generarRetencionForm?.addEventListener('submit', async (e) => {
@@ -6167,9 +6296,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await res.json();
                 showToast(`✅ Retención generada. Comprobante Nro: ${result.NumeroComprobante} (${facturas.length} factura${facturas.length > 1 ? 's' : ''})`, 'success');
                 
-                closeGenerarRetencionModal();
                 const pmModal = document.getElementById('pagoMultipleModal');
                 if (pmModal && pmModal.classList.contains('active')) {
+                    closeGenerarRetencionModal();
                     facturas.forEach(f => {
                         const it = currentRetencionItems.find(i => i.NumeroD === f.NumeroD);
                         if (it) {
@@ -6204,7 +6333,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         lucide.createIcons();
                     }
                 } else {
-                    if (typeof fetchData === 'function') fetchData();
+                    if (typeof fetchData === 'function') await fetchData();
+                    closeGenerarRetencionModal();
                 }
             } catch (e) {
                 console.error(e);
@@ -6333,7 +6463,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         document.getElementById('genRetIslrConcepto')?.addEventListener('change', recalcIslr);
-        window.closeGenerarRetencionIslrModal = () => forceHideModal(generarRetencionIslrModal);
+        window.closeGenerarRetencionIslrModal = () => {
+            forceHideModal(generarRetencionIslrModal);
+            if (window._pendingAbonosReturn) {
+                const { codProv, numeroD } = window._pendingAbonosReturn;
+                window._pendingAbonosReturn = null;
+                setTimeout(() => {
+                    if (typeof openAbonosPanel === 'function') openAbonosPanel(codProv, numeroD);
+                }, 100);
+            }
+        };
 
         let isGeneratingRetencionIslr = false;
         generarRetencionIslrForm?.addEventListener('submit', async (e) => {
@@ -6388,9 +6527,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await res.json();
                 showToast(`✅ Retención ISLR generada. Comprobante Nro: ${result.NumeroComprobante}`, 'success');
                 
-                closeGenerarRetencionIslrModal();
                 const pmModal = document.getElementById('pagoMultipleModal');
                 if (pmModal && pmModal.classList.contains('active')) {
+                    closeGenerarRetencionIslrModal();
                     facturas.forEach(f => {
                         const it = currentIslrItems.find(i => i.NumeroD === f.NumeroD);
                         if (it) {
@@ -6425,7 +6564,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         lucide.createIcons();
                     }
                 } else {
-                    if (typeof fetchData === 'function') fetchData();
+                    if (typeof fetchData === 'function') await fetchData();
+                    closeGenerarRetencionIslrModal();
                 }
             } catch (e) {
                 console.error(e);
@@ -6495,6 +6635,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.openRetencionFromMain = (codProv, numeroD) => {
         const item = window.currentData?.find(d => d.CodProv === codProv && d.NumeroD === numeroD);
         if (!item) return;
+        window._pendingAbonosReturn = { codProv, numeroD };
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
         const cb = document.querySelector(`.row-checkbox[data-nrounico="${item.NroUnico}"]`);
         if (cb) cb.checked = true;
@@ -6505,6 +6646,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.openRetencionIslrFromMain = (codProv, numeroD) => {
         const item = window.currentData?.find(d => d.CodProv === codProv && d.NumeroD === numeroD);
         if (!item) return;
+        window._pendingAbonosReturn = { codProv, numeroD };
         document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
         const cb = document.querySelector(`.row-checkbox[data-nrounico="${item.NroUnico}"]`);
         if (cb) cb.checked = true;
