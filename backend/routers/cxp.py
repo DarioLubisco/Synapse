@@ -1550,29 +1550,31 @@ async def eliminar_abono(id_abono: int):
         cursor = conn.cursor()
         
         # Verify it exists and get amount to revert balances
-        cursor.execute("SELECT TipoAbono, MontoBsAbonado, NumeroD, CodProv FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WHERE AbonoID = ?", (id_abono,))
+        cursor.execute("SELECT TipoAbono, MontoBsAbonado, NumeroD, CodProv, AfectaSaldo FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WHERE AbonoID = ?", (id_abono,))
         row = cursor.fetchone()
         
         if not row:
             raise HTTPException(status_code=404, detail="Abono no encontrado.")
             
-        tipo_abono, monto_bs, num_d, cod_prov = row
+        tipo_abono, monto_bs, num_d, cod_prov, afecta_saldo = row
         monto_bs = float(monto_bs) if monto_bs else 0.0
+        afecta_saldo = bool(afecta_saldo) if afecta_saldo is not None else True
 
         # Restrict deletion to manual payments or undefined (legacy). System generated abonos (retenciones) must be cancelled via their modules.
         if tipo_abono in ['RETENCION_IVA', 'RETENCION_ISLR', 'NOTA_CREDITO']:
             raise HTTPException(status_code=400, detail=f"No se puede eliminar directamente un abono de tipo {tipo_abono}. Anule el documento origen en su módulo interactivo correspondiente.")
 
         # Revert balances in Saint, ensuring MtoPagos never drops below 0 to avoid balance poisoning from improperly synced external records
-        cursor.execute("""
-            UPDATE EnterpriseAdmin_AMC.dbo.SACOMP WITH (ROWLOCK) 
-            SET 
-                MtoPagos = CASE WHEN ISNULL(MtoPagos,0) - ? < 0 THEN 0 ELSE ISNULL(MtoPagos,0) - ? END, 
-                SaldoAct = SaldoAct + ? 
-            WHERE NumeroD = ? AND CodProv = ?
-        """, (monto_bs, monto_bs, monto_bs, num_d, cod_prov))
-        cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAACXP WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE NumeroD = ? AND CodProv = ? AND TipoCxP = '10'", (monto_bs, num_d, cod_prov))
-        cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAPROV WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE CodProv = ?", (monto_bs, cod_prov))
+        if afecta_saldo:
+            cursor.execute("""
+                UPDATE EnterpriseAdmin_AMC.dbo.SACOMP WITH (ROWLOCK) 
+                SET 
+                    MtoPagos = CASE WHEN ISNULL(MtoPagos,0) - ? < 0 THEN 0 ELSE ISNULL(MtoPagos,0) - ? END, 
+                    SaldoAct = SaldoAct + ? 
+                WHERE NumeroD = ? AND CodProv = ?
+            """, (monto_bs, monto_bs, monto_bs, num_d, cod_prov))
+            cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAACXP WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE NumeroD = ? AND CodProv = ? AND TipoCxP = '10'", (monto_bs, num_d, cod_prov))
+            cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAPROV WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE CodProv = ?", (monto_bs, cod_prov))
 
         cursor.execute("DELETE FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WHERE AbonoID = ?", (id_abono,))
         conn.commit()

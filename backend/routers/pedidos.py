@@ -4,9 +4,10 @@ import logging
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Form, UploadFile, File, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import pandas as pd
 import pyodbc
+import math
 import database
 
 router = APIRouter(prefix="/api/pedidos", tags=["Pedidos"])
@@ -56,7 +57,10 @@ async def generate_report(
     pedido_days: str = Form(...),
     num_rows: int = Form(...),
     categories: Optional[str] = Form(None),
-    subtraction_files: Optional[List[UploadFile]] = File(None)
+    subtraction_files: Optional[List[UploadFile]] = File(None),
+    umbral_rotacion: float = Form(0.0),
+    forced_includes: Optional[str] = Form(None),
+    preview_mode: str = Form("false")
 ):
     try:
         query = load_query()
@@ -98,22 +102,23 @@ async def generate_report(
             if 'Instancia' in df.columns:
                 df = df[df['Instancia'].isin(parsed_categories)]
 
-        # Lógica de Generación
-        pedido_column = f'Pedido{pedido_days}'
-        if pedido_column not in df.columns:
-            # Fallback a la primera columna tipo Pedido que encontremos o error
-            cols_pedido = [c for c in df.columns if c.startswith('Pedido')]
-            if cols_pedido:
-                pedido_column = cols_pedido[0]
-            else:
-                raise ValueError(f"La columna {pedido_column} no existe en el set de datos.")
-
-        df_filtered = df[df[pedido_column] > 0].copy()
-        df_final = df_filtered[['CodProd', pedido_column]].copy()
-        df_final.rename(columns={'CodProd': 'BARRA', pedido_column: 'CANTIDAD'}, inplace=True)
+        # Lógica de Generación (Cálculo dinámico en Python)
+        df['RotacionMensual'] = pd.to_numeric(df.get('RotacionMensual', 0.0), errors='coerce').fillna(0.0)
+        df['Existen'] = pd.to_numeric(df.get('Existen', 0), errors='coerce').fillna(0)
         
-        # Aplicar Límite
-        df_final = df_final.head(num_rows)
+        try:
+            days = float(pedido_days)
+        except ValueError:
+            days = 14.0
+            
+        df['CANTIDAD'] = (df['RotacionMensual'] * days / 30.0) - df['Existen']
+        df['CANTIDAD'] = df['CANTIDAD'].round().astype(int)
+
+        cols_to_keep = ['CodProd', 'CANTIDAD', 'RotacionMensual', 'Existen']
+        if 'Descrip' in df.columns: cols_to_keep.append('Descrip')
+        
+        df_final = df[cols_to_keep].copy()
+        df_final.rename(columns={'CodProd': 'BARRA'}, inplace=True)
 
         # Aplicar Resta si hay archivos
         if subtraction_dfs:
@@ -130,20 +135,59 @@ async def generate_report(
                 df_merged = pd.merge(df_final, agg_sub, on='BARRA', how='left', suffixes=('', '_subtract'))
                 df_merged['CANTIDAD_subtract'] = df_merged['CANTIDAD_subtract'].fillna(0)
                 df_merged['CANTIDAD'] = df_merged['CANTIDAD'] - df_merged['CANTIDAD_subtract']
-                df_final = df_merged[df_merged['CANTIDAD'] > 0][['BARRA', 'CANTIDAD']].copy()
+                df_final = df_merged.copy()
 
-        # Limpieza final
-        df_final['CANTIDAD'] = df_final['CANTIDAD'].astype(int)
-        df_final['BARRA'] = df_final['BARRA'].astype(str)
+        df_final['RotacionMensual'] = pd.to_numeric(df_final['RotacionMensual'], errors='coerce').fillna(0.0)
+
+        # Separar por umbral de rotación ANTES de filtrar CANTIDAD > 0
+        # Excluidos: todos los que tengan rotación por debajo del umbral (para que el usuario los force si quiere)
+        df_excluidos = df_final[df_final['RotacionMensual'] < umbral_rotacion].copy()
+        df_excluidos = df_excluidos.drop_duplicates(subset=['BARRA'])
+
+        # Prefiltrados: los que tienen buena rotación Y ADEMÁS tienen CANTIDAD calculada > 0
+        df_prefiltrados = df_final[(df_final['RotacionMensual'] >= umbral_rotacion) & (df_final['CANTIDAD'] > 0)].copy()
+        df_prefiltrados = df_prefiltrados.drop_duplicates(subset=['BARRA'])
+
+        if preview_mode.lower() == "true":
+            excluidos_list = df_excluidos.to_dict(orient='records')
+            
+            # Limpiar valores NaN/Infinity para asegurar serialización JSON válida
+            for item in excluidos_list:
+                for k, v in item.items():
+                    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+                        item[k] = 0.0
+            
+            return JSONResponse(content={"excluidos": excluidos_list})
+
+        # Aplicar inclusiones forzadas de productos excluidos seleccionados por el usuario
+        forced_barcodes = []
+        if forced_includes:
+            forced_barcodes = [b.strip() for b in forced_includes.split(",") if b.strip()]
+
+        df_forced = df_excluidos[df_excluidos['BARRA'].astype(str).isin(forced_barcodes)].copy()
+        df_final_export = pd.concat([df_prefiltrados, df_forced], ignore_index=True)
+
+        # Ordenar opcionalmente si hiciera falta (mantendremos el orden natural)
+        # Aplicar Límite al final
+        df_final_export = df_final_export.head(num_rows)
+
+        # Limpieza final: Forzar mínimo de 1 para evitar CANTIDAD=0 en Excel exportado
+        df_final_export['CANTIDAD'] = df_final_export['CANTIDAD'].astype(int)
+        df_final_export.loc[df_final_export['CANTIDAD'] < 1, 'CANTIDAD'] = 1
+        df_final_export['BARRA'] = df_final_export['BARRA'].astype(str)
+
+        # Dejar solo las columnas requeridas para el Excel
+        df_excel = df_final_export[['BARRA', 'CANTIDAD']].copy()
 
         # Crear Excel en Memoria
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df_final.to_excel(writer, sheet_name='Precios', index=False)
+            df_excel.to_excel(writer, sheet_name='Precios', index=False)
         output.seek(0)
 
         filename = f"Pedido_Synapse_{datetime.now().strftime('%Y%m%d')}_{pedido_days}Dias.xlsx"
         
+        from fastapi.responses import StreamingResponse
         return StreamingResponse(
             output, 
             media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
