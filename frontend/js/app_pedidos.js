@@ -20,6 +20,40 @@ document.addEventListener('DOMContentLoaded', () => {
     let categoryMap = {};
     let categoryTree = [];
 
+    // --- CONFIG DEFAULTS LOGIC ---
+    const btnSaveDefaults = document.getElementById('btnSaveDefaults');
+    const inputDays = document.getElementById('pedidoDays');
+    const inputRows = document.getElementById('numRows');
+    const inputUmbral = document.getElementById('umbralRotacion');
+
+    function loadDefaults() {
+        const d_days = localStorage.getItem('syn_ped_days');
+        const d_rows = localStorage.getItem('syn_ped_rows');
+        const d_umbral = localStorage.getItem('syn_ped_umbral');
+        
+        if (d_days) inputDays.value = d_days;
+        if (d_rows) inputRows.value = d_rows;
+        if (d_umbral) inputUmbral.value = d_umbral;
+    }
+    
+    if (btnSaveDefaults) {
+        btnSaveDefaults.addEventListener('click', () => {
+            localStorage.setItem('syn_ped_days', inputDays.value);
+            localStorage.setItem('syn_ped_rows', inputRows.value);
+            localStorage.setItem('syn_ped_umbral', inputUmbral.value);
+            btnSaveDefaults.innerHTML = '<i class="fas fa-check"></i> Guardado';
+            btnSaveDefaults.classList.remove('btn-secondary');
+            btnSaveDefaults.classList.add('btn-primary');
+            setTimeout(() => {
+                btnSaveDefaults.innerHTML = '<i class="fas fa-save"></i> Guardar por Defecto';
+                btnSaveDefaults.classList.remove('btn-primary');
+                btnSaveDefaults.classList.add('btn-secondary');
+            }, 2000);
+        });
+    }
+
+    loadDefaults();
+
     // --- CATEGORY LOGIC ---
     async function fetchCategories() {
         try {
@@ -262,10 +296,17 @@ document.addEventListener('DOMContentLoaded', () => {
             
             submitBtn.disabled = true;
             btnText.innerHTML = '<div class="loader" style="width:20px; height:20px; border-width:2px;"></div> Procesando...';
+            
+            const excludedSection = document.getElementById('excludedSection');
+            if (excludedSection) excludedSection.style.display = 'none';
 
             const formData = new FormData();
             formData.append('pedido_days', document.getElementById('pedidoDays').value);
             formData.append('num_rows', document.getElementById('numRows').value);
+            
+            const umbral = document.getElementById('umbralRotacion') ? document.getElementById('umbralRotacion').value : '0.0';
+            formData.append('umbral_rotacion', umbral);
+            formData.append('preview_mode', 'true'); // We want to preview the exclusions first
 
             selectedFiles.forEach(file => formData.append('subtraction_files', file));
 
@@ -288,26 +329,45 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(errorData.detail || "Error al calcular el reporte");
                 }
 
-                const blob = await response.blob();
-                let filename = "Pedido.xlsx";
-                const disposition = response.headers.get('Content-Disposition');
-                if (disposition && disposition.indexOf('filename=') !== -1) {
-                    const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
-                    if (match != null && match[1]) filename = match[1].replace(/['"]/g, '');
+                // Parse the JSON response since preview_mode is true
+                const data = await response.json();
+                
+                if (data.excluidos && data.excluidos.length > 0) {
+                    // Show the excluded section
+                    const tbody = document.getElementById('excludedTableBody');
+                    const countSpan = document.getElementById('excludedCount');
+                    
+                    if (tbody && countSpan && excludedSection) {
+                        tbody.innerHTML = '';
+                        countSpan.textContent = `${data.excluidos.length} Productos`;
+                        
+                        data.excluidos.forEach(item => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">
+                                    <input type="checkbox" class="exclude-checkbox" value="${item.BARRA}">
+                                </td>
+                                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); font-family: monospace; color: var(--text-primary);">${item.BARRA}</td>
+                                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-primary);">${item.Descrip || ''}</td>
+                                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--danger); font-weight: bold;">${item.RotacionMensual.toFixed(2)}</td>
+                                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">${item.Existen || 0}</td>
+                                <td style="padding: 0.5rem; border-bottom: 1px solid var(--border-color); color: var(--text-primary);">${item.CANTIDAD}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        });
+                        
+                        excludedSection.style.display = 'block';
+                        showAlert("Se encontraron productos con rotación inferior al umbral. Por favor, revise la lista de exclusiones abajo antes de generar el archivo definitivo.", false);
+                        setTimeout(() => {
+                            excludedSection.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        }, 100);
+                    }
+                } else {
+                    // No exclusions, generate immediately
+                    formData.set('preview_mode', 'false'); // Set to false to get the blob
+                    await generateFinalExcel(formData);
                 }
 
-                const downloadUrl = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = downloadUrl;
-                a.download = filename;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(downloadUrl);
-                a.remove();
-
-                showAlert("Matríz de Pedidos generada y descargada exitosamente.", true);
-                selectedFiles = [];
-                renderFileList();
             } catch (error) {
                 showAlert(error.message, false);
             } finally {
@@ -315,5 +375,84 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnText.innerHTML = '<i class="fas fa-file-excel"></i> Generar Pedido Maestro';
             }
         });
+    }
+
+    // Logic for Select All in exclusions table
+    const selectAllExcluded = document.getElementById('selectAllExcluded');
+    if (selectAllExcluded) {
+        selectAllExcluded.addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.exclude-checkbox');
+            checkboxes.forEach(cb => cb.checked = e.target.checked);
+        });
+    }
+
+    // Logic for Final Generate
+    const generateFinalBtn = document.getElementById('generateFinalBtn');
+    if (generateFinalBtn) {
+        generateFinalBtn.addEventListener('click', async () => {
+            hideAlert();
+            generateFinalBtn.disabled = true;
+            const originalHtml = generateFinalBtn.innerHTML;
+            generateFinalBtn.innerHTML = '<div class="loader" style="width:20px; height:20px; border-width:2px; border-color: white transparent transparent transparent;"></div> Generando...';
+            
+            const formData = new FormData();
+            formData.append('pedido_days', document.getElementById('pedidoDays').value);
+            formData.append('num_rows', document.getElementById('numRows').value);
+            const umbral = document.getElementById('umbralRotacion') ? document.getElementById('umbralRotacion').value : '0.0';
+            formData.append('umbral_rotacion', umbral);
+            formData.append('preview_mode', 'false'); // Force final download
+            
+            selectedFiles.forEach(file => formData.append('subtraction_files', file));
+            
+            const selectedCategoryNames = Object.values(categoryMap)
+                .filter(c => c.selected).map(c => c.name);
+            formData.append('categories', selectedCategoryNames.join(','));
+
+            // Gather forced includes
+            const checkedBoxes = document.querySelectorAll('.exclude-checkbox:checked');
+            const forcedBarcodes = Array.from(checkedBoxes).map(cb => cb.value);
+            if (forcedBarcodes.length > 0) {
+                formData.append('forced_includes', forcedBarcodes.join(','));
+            }
+
+            try {
+                await generateFinalExcel(formData);
+                document.getElementById('excludedSection').style.display = 'none';
+            } catch (error) {
+                showAlert(error.message, false);
+            } finally {
+                generateFinalBtn.disabled = false;
+                generateFinalBtn.innerHTML = originalHtml;
+            }
+        });
+    }
+
+    async function generateFinalExcel(formData) {
+        const response = await fetch('/api/pedidos/generate', { method: 'POST', body: formData });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.detail || "Error al generar el archivo Excel");
+        }
+
+        const blob = await response.blob();
+        let filename = "Pedido.xlsx";
+        const disposition = response.headers.get('Content-Disposition');
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+            const match = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+            if (match != null && match[1]) filename = match[1].replace(/['"]/g, '');
+        }
+
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(downloadUrl);
+        a.remove();
+
+        showAlert("Matríz de Pedidos generada y descargada exitosamente.", true);
+        selectedFiles = [];
+        renderFileList();
     }
 });

@@ -1,0 +1,17 @@
+import paramiko
+import os
+
+HOST       = "10.147.18.204"
+USER       = "root"
+PASSWORD   = "Twinc3pt.2"
+
+ssh = paramiko.SSHClient()
+ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+try:
+    ssh.connect(HOST, username=USER, password=PASSWORD, timeout=10)
+    stdin, stdout, stderr = ssh.exec_command("find / -maxdepth 3 -type d -name '*ynapse*' 2>/dev/null")
+    print("Found 'synapse' folders:", stdout.read().decode().strip())
+    ssh.close()
+except Exception as e:
+    print(f"Error SSH: {e}")

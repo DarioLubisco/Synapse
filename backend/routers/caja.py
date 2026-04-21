@@ -54,6 +54,10 @@ class ConciliarRequest(BaseModel):
     manual_pago_movil: float = 0.0
     manual_transferencia: float = 0.0
 
+class RepararFechasRequest(BaseModel):
+    fecha_inicio: str
+    fecha_fin: str
+
 @router.get("/caja/vendedores")
 async def get_vendedores():
     conn = get_db_connection()
@@ -113,28 +117,23 @@ async def get_totales(vendedor_codigo: str, fecha: str):
     cursor = conn.cursor()
     
     try:
-        # 1. Totales de Efectivo y Cheque desde SAFACT
+        # 1. Base Efectivo (CancelE) ajustado por TipoFac
         cursor.execute("""
-            SELECT 
-                ISNULL(SUM(CancelE), 0) AS TotEfectivo,
-                ISNULL(SUM(CancelC), 0) AS TotCheque
+            SELECT ISNULL(SUM(CASE WHEN TipoFac = 'C' THEN -CancelE ELSE CancelE END), 0)
             FROM dbo.SAFACT
-            WHERE CodVend = ? 
-              AND CAST(FechaE AS DATE) = ? 
-              AND TipoFac IN ('A', 'C')
+            WHERE CodVend = ? AND CAST(FechaE AS DATE) = ? AND TipoFac IN ('A', 'C')
         """, (vendedor_codigo, fecha))
-        row_totales = cursor.fetchone()
-        tot_efectivo = float(row_totales[0] if row_totales else 0.0)
-        tot_cheque   = float(row_totales[1] if row_totales else 0.0)
+        row_fact = cursor.fetchone()
+        base_efectivo = float(row_fact[0] if row_fact else 0.0)
 
-        # 2. Desglose dinámico por Categoría Madre (TipoIns) excluyendo Efectivo (006) y Divisas (021)
+        # 2. Desglose dinámico usando SAIPAVTA puro con multiplicador de signo
         cursor.execute("""
             SELECT 
-                ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotDispositivos,
-                ISNULL(SUM(CASE WHEN t.TipoIns = 3 AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotBancos,
-                ISNULL(SUM(CASE WHEN i.CodTarj = '006' THEN i.Monto ELSE 0 END), 0) AS TotEfectivoT,
-                ISNULL(SUM(CASE WHEN t.TipoIns NOT IN (2, 3) AND i.CodTarj NOT IN ('006', '021') THEN i.Monto ELSE 0 END), 0) AS TotOtros,
-                ISNULL(SUM(CASE WHEN i.CodTarj = '021' THEN i.Monto ELSE 0 END), 0) AS TotDivisas
+                ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND i.CodTarj NOT IN ('006', '021') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotDispositivos,
+                ISNULL(SUM(CASE WHEN t.TipoIns = 3 AND i.CodTarj NOT IN ('006', '021') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotBancos,
+                ISNULL(SUM(CASE WHEN i.CodTarj = '006' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotEfectivoBs,
+                ISNULL(SUM(CASE WHEN t.TipoIns NOT IN (2, 3) AND i.CodTarj NOT IN ('006', '021') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotOtros,
+                ISNULL(SUM(CASE WHEN i.CodTarj = '021' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotDivisas
             FROM dbo.SAIPAVTA i
             JOIN dbo.SAFACT   f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
             LEFT JOIN dbo.SATARJ t ON i.CodTarj = t.CodTarj
@@ -145,21 +144,28 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         row_elec = cursor.fetchone()
         tot_dispositivos = float(row_elec[0] if row_elec else 0.0)
         tot_bancos       = float(row_elec[1] if row_elec else 0.0)
-        tot_efectivot    = float(row_elec[2] if row_elec else 0.0)
+        tot_efectivo_tarj= float(row_elec[2] if row_elec else 0.0)
         tot_otros        = float(row_elec[3] if row_elec else 0.0)
         tot_divisas      = float(row_elec[4] if row_elec else 0.0)
-        
-        tot_efectivo += tot_efectivot
-        tot_tarjeta   = tot_dispositivos + tot_bancos + tot_otros
+
+        tot_efectivo_bs = base_efectivo + tot_efectivo_tarj
+
+        # 3. Extraer las devoluciones (Notas de Crédito) de hoy para mostrarlas
+        cursor.execute("""
+            SELECT f.NumeroD, f.Monto, f.CancelE, f.CancelT
+            FROM dbo.SAFACT f
+            WHERE f.CodVend = ? AND CAST(f.FechaE AS DATE) = ? AND f.TipoFac = 'C'
+        """, (vendedor_codigo, fecha))
+        devoluciones = [{"factura": row[0], "monto": float(row[1])} for row in cursor.fetchall()]
 
         totales_sistema = {
-            "totefectivo":     tot_efectivo,
-            "tottarjeta":      tot_tarjeta,
+            "totefectivo_bs":  tot_efectivo_bs,
+            "totdivisas":      tot_divisas,
+            "tottarjeta":      tot_dispositivos + tot_bancos + tot_otros,
             "totdispositivos": tot_dispositivos,
             "totbancos":       tot_bancos,
-            "totcheque":       tot_cheque,
             "tototros":        tot_otros,
-            "totdivisas":      tot_divisas
+            "devoluciones":    devoluciones
         }
 
         # 2. Check for an active Precierre (estado = 'BORRADOR')
@@ -767,7 +773,8 @@ async def generar_pdf_cierre(cierre_id: int):
         # 1. Cabecera del cierre
         cursor.execute("""
             SELECT id, vendedor_codigo, vendedor_nombre, fecha_ini, estado,
-                   manual_efectivo_bs, manual_divisas, manual_tdd, manual_tdc, manual_biopago, manual_pago_movil
+                   manual_efectivo_bs, manual_divisas, manual_tdd, manual_tdc,
+                   manual_biopago, manual_pago_movil, ISNULL(manual_transferencia, 0)
             FROM Custom.CajaCierre WHERE id = ?
         """, (cierre_id,))
         row = cursor.fetchone()
@@ -781,6 +788,7 @@ async def generar_pdf_cierre(cierre_id: int):
             "ef_bs": float(row[5] or 0), "divisas": float(row[6] or 0),
             "tdd": float(row[7] or 0), "tdc": float(row[8] or 0),
             "biopago": float(row[9] or 0), "pago_movil": float(row[10] or 0),
+            "transferencia": float(row[11] or 0),
         }
 
         # 2. Última venta del vendedor ese día (hora de factura)
@@ -794,35 +802,54 @@ async def generar_pdf_cierre(cierre_id: int):
         hora_ultima_venta = str(ult_vta[0]).strip() if ult_vta else "--:--:--"
         ultima_factura = str(ult_vta[1]).strip() if ult_vta else "N/A"
 
-        # 3. Totales del sistema para ese vendedor ese día
+        # 3. Totales detallados del sistema para ese vendedor ese día
         cursor.execute("""
-            WITH TotalesFactura AS (
-                SELECT 
-                    SUM(ISNULL(CancelE, 0)) AS base_efectivo,
-                    SUM(ISNULL(CancelT, 0)) AS base_tarjeta,
-                    COUNT(NumeroD) AS nro_facturas
-                FROM dbo.SAFACT 
-                WHERE CodVend = ? AND CAST(FechaE AS DATE) = ? AND TipoFac IN ('A','C')
-            ),
-            EfecEnTarj AS (
-                SELECT 
-                    SUM(ISNULL(i.Monto, 0)) AS efec_tarj
-                FROM dbo.SAIPAVTA i
-                JOIN dbo.SAFACT f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
-                WHERE f.CodVend = ? AND CAST(f.FechaE AS DATE) = ? AND f.TipoFac IN ('A','C')
-                  AND i.CodTarj = '006'
-            )
             SELECT 
-                ISNULL(t.base_efectivo, 0) + ISNULL(e.efec_tarj, 0),
-                ISNULL(t.base_tarjeta, 0) - ISNULL(e.efec_tarj, 0),
-                ISNULL(t.nro_facturas, 0)
-            FROM TotalesFactura t
-            LEFT JOIN EfecEnTarj e ON 1=1
-        """, (cierre["cod_vend"], cierre["fecha"], cierre["cod_vend"], cierre["fecha"]))
-        sys_row = cursor.fetchone()
-        sis_efectivo = float(sys_row[0] if sys_row else 0)
-        sis_tarjeta  = float(sys_row[1] if sys_row else 0)
-        nro_facturas = int(sys_row[2] if sys_row else 0)
+                -- Efectivo y Divisas
+                ISNULL(SUM(CASE WHEN i.CodTarj = '006' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_ef_bs_tarj,
+                ISNULL(SUM(CASE WHEN i.CodTarj = '021' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_divisas_bs,
+                -- Dispositivos POS (TipoIns 2)
+                ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND UPPER(t.Descrip) NOT LIKE '%CREDITO%' AND UPPER(t.Descrip) NOT LIKE '%TDC%' AND UPPER(t.Descrip) NOT LIKE '%BIOPAGO%' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_tdd,
+                ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND (UPPER(t.Descrip) LIKE '%CREDITO%' OR UPPER(t.Descrip) LIKE '%TDC%') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_tdc,
+                ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND UPPER(t.Descrip) LIKE '%BIOPAGO%' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_biopago,
+                -- Bancos/Transferencias (TipoIns 3)
+                ISNULL(SUM(CASE WHEN t.TipoIns = 3 AND (UPPER(t.Descrip) LIKE '%PAGO%MOVIL%' OR UPPER(t.Descrip) LIKE '%PM%' OR UPPER(t.Descrip) LIKE '%MOVIL%') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_pm,
+                ISNULL(SUM(CASE WHEN t.TipoIns = 3 AND UPPER(t.Descrip) NOT LIKE '%PAGO%MOVIL%' AND UPPER(t.Descrip) NOT LIKE '%PM%' AND UPPER(t.Descrip) NOT LIKE '%MOVIL%' THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_transferencia,
+                -- Otros
+                ISNULL(SUM(CASE WHEN t.TipoIns NOT IN (2, 3) AND i.CodTarj NOT IN ('006', '021') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS sis_otros
+            FROM dbo.SAIPAVTA i
+            JOIN dbo.SAFACT f ON i.NumeroD = f.NumeroD AND i.TipoFac = f.TipoFac
+            LEFT JOIN dbo.SATARJ t ON i.CodTarj = t.CodTarj
+            WHERE f.CodVend = ? AND CAST(f.FechaE AS DATE) = ? AND f.TipoFac IN ('A','C')
+        """, (cierre["cod_vend"], cierre["fecha"]))
+        
+        gran_row = cursor.fetchone()
+        sys_vals = {
+            "ef_bs_tarj": float(gran_row[0]),
+            "divisas_bs": float(gran_row[1]),
+            "tdd": float(gran_row[2]),
+            "tdc": float(gran_row[3]),
+            "biopago": float(gran_row[4]),
+            "pm": float(gran_row[5]),
+            "transferencia": float(gran_row[6]),
+            "otros": float(gran_row[7])
+        }
+
+        # Complementar con SAFACT (Efectivo base)
+        cursor.execute("""
+            SELECT SUM(ISNULL(CASE WHEN TipoFac = 'C' THEN -CancelE ELSE CancelE END, 0)), COUNT(NumeroD)
+            FROM dbo.SAFACT 
+            WHERE CodVend = ? AND CAST(FechaE AS DATE) = ? AND TipoFac IN ('A','C')
+        """, (cierre["cod_vend"], cierre["fecha"]))
+        fact_row = cursor.fetchone()
+        sys_vals["ef_bs_base"] = float(fact_row[0] if fact_row[0] else 0)
+        nro_facturas = int(fact_row[1] if fact_row[1] else 0)
+
+        # Totales agrupados para el comparativo
+        sis_ef_bs_total = sys_vals["ef_bs_base"] + sys_vals["ef_bs_tarj"]
+        sis_efectivo = sis_ef_bs_total + sys_vals["divisas_bs"]
+        sis_tarjeta  = sys_vals["tdd"] + sys_vals["tdc"] + sys_vals["biopago"] + sys_vals["pm"] + sys_vals["transferencia"] + sys_vals["otros"]
+
 
         # 4. Tickets de tarjeta anotados
         cursor.execute("""
@@ -831,6 +858,14 @@ async def generar_pdf_cierre(cierre_id: int):
             ORDER BY tipo, monto DESC
         """, (cierre_id,))
         tickets = [{"tipo": r[0], "pos": r[1], "ref": r[2], "monto": float(r[3])} for r in cursor.fetchall()]
+
+        # 4.5. Extraer devoluciones (Notas de Crédito)
+        cursor.execute("""
+            SELECT f.NumeroD, f.Monto, f.CancelE, f.CancelT
+            FROM dbo.SAFACT f
+            WHERE f.CodVend = ? AND CAST(f.FechaE AS DATE) = ? AND f.TipoFac = 'C'
+        """, (cierre["cod_vend"], cierre["fecha"]))
+        devoluciones_aplicadas = [{"factura": row[0], "monto": float(row[1])} for row in cursor.fetchall()]
 
         # 5. Desglose de billetes Bs. y divisa
         cursor.execute("SELECT denominacion, cantidad, total FROM Custom.CajaCierreEfectivo WHERE cierre_id = ? ORDER BY denominacion DESC", (cierre_id,))
@@ -863,9 +898,9 @@ async def generar_pdf_cierre(cierre_id: int):
     MGRAY = colors.HexColor("#94a3b8")
 
     styles = getSampleStyleSheet()
-    h1 = ParagraphStyle("h1", fontSize=20, textColor=DARK, spaceAfter=4, fontName="Helvetica-Bold", alignment=TA_CENTER)
-    h2 = ParagraphStyle("h2", fontSize=13, textColor=BLUE, spaceAfter=6, fontName="Helvetica-Bold")
-    normal = ParagraphStyle("normal", fontSize=9, textColor=DARK, fontName="Helvetica")
+    h1 = ParagraphStyle("h1", fontSize=18, fontName="Helvetica-Bold", textColor=DARK, alignment=TA_CENTER, spaceAfter=20)
+    h2 = ParagraphStyle("h2", fontSize=12, fontName="Helvetica-Bold", textColor=BLUE, spaceAfter=10, alignment=TA_CENTER)
+    normal = ParagraphStyle("n", fontSize=9, fontName="Helvetica")
     small  = ParagraphStyle("small", fontSize=8, textColor=MGRAY, fontName="Helvetica")
     mono   = ParagraphStyle("mono", fontSize=9, textColor=DARK, fontName="Courier")
     right  = ParagraphStyle("right", fontSize=9, textColor=DARK, fontName="Helvetica", alignment=TA_RIGHT)
@@ -924,39 +959,78 @@ async def generar_pdf_cierre(cierre_id: int):
     story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
     story.append(Spacer(1, 0.2*cm))
 
-    man_ef  = cierre["ef_bs"] + cierre["divisas"]
-    man_pos = cierre["tdd"] + cierre["tdc"] + cierre["biopago"] + cierre["pago_movil"]
-    diff_ef  = man_ef  - sis_efectivo
-    diff_pos = man_pos - sis_tarjeta
+    man_ef    = cierre["ef_bs"]
+    man_div   = cierre["divisas"]
+    man_tdd   = cierre["tdd"]
+    man_tdc   = cierre["tdc"]
+    man_bio   = cierre["biopago"]
+    man_pm    = cierre["pago_movil"]
+    man_trans = cierre["transferencia"]
+
+    man_ef_total  = man_ef + man_div
+    man_disp      = man_tdd + man_tdc + man_bio          # Dispositivos POS
+    man_bancos    = man_pm + man_trans                   # Transferencias bancarias
+    man_pos_total = man_disp + man_bancos
+
+    diff_ef   = man_ef_total - sis_efectivo
+    diff_disp = man_disp     - sis_tarjeta
+    diff_banc = man_bancos   - 0.0   # sistema no desglosa bancos por separado
+    diff_tot  = (man_ef_total + man_pos_total) - (sis_efectivo + sis_tarjeta)
 
     def diff_color(v): return GREEN if v >= 0 else RED
     def diff_str(v): return ("+ " if v >= 0 else "- ") + fmtN(abs(v))
+    def sub_p(txt): return Paragraph(txt, ParagraphStyle("sub", fontSize=8, fontName="Helvetica", textColor=MGRAY, leftIndent=8))
+    def sub_r(txt): return Paragraph(txt, ParagraphStyle("subr", fontSize=8, fontName="Helvetica", textColor=MGRAY, alignment=TA_RIGHT))
 
-    comp_header = [Paragraph("<b>Categoría</b>", normal), 
-                   Paragraph("<b>Sistema</b>", right), 
-                   Paragraph("<b>Declarado</b>", right), 
-                   Paragraph("<b>Diferencia</b>", right)]
+    comp_header = [
+        Paragraph("<b>Categoría</b>", normal),
+        Paragraph("<b>Sistema</b>", right),
+        Paragraph("<b>Declarado</b>", right),
+        Paragraph("<b>Diferencia</b>", right)
+    ]
     comp_rows = [
         comp_header,
-        [Paragraph("Efectivo Bs.", normal), Paragraph(fmt(sis_efectivo), right),
-         Paragraph(fmt(man_ef), right),
-         Paragraph(diff_str(diff_ef), ParagraphStyle("d", fontSize=9, fontName="Helvetica-Bold", textColor=diff_color(diff_ef), alignment=TA_RIGHT))],
-        [Paragraph("POS / Electrónico", normal), Paragraph(fmt(sis_tarjeta), right),
-         Paragraph(fmt(man_pos), right),
-         Paragraph(diff_str(diff_pos), ParagraphStyle("d2", fontSize=9, fontName="Helvetica-Bold", textColor=diff_color(diff_pos), alignment=TA_RIGHT))],
-        [Paragraph("<b>TOTAL</b>", ParagraphStyle("tb", fontSize=9, fontName="Helvetica-Bold")), 
-         Paragraph(fmt(sis_efectivo + sis_tarjeta), ParagraphStyle("tr", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
-         Paragraph(fmt(man_ef + man_pos), ParagraphStyle("tr2", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
-         Paragraph(diff_str(diff_ef + diff_pos), ParagraphStyle("td", fontSize=9, fontName="Helvetica-Bold", textColor=diff_color(diff_ef + diff_pos), alignment=TA_RIGHT))],
+        # ── EFECTIVO ──
+        [Paragraph("<b>EFECTIVO TOTAL</b>", ParagraphStyle("gr",fontSize=9,fontName="Helvetica-Bold")),
+         Paragraph(fmt(sis_efectivo), ParagraphStyle("gr2",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(fmt(man_ef_total), ParagraphStyle("gr3",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(diff_str(diff_ef), ParagraphStyle("dg",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_ef),alignment=TA_RIGHT))],
+        [sub_p("  → Efectivo Bs."), sub_r(fmt(sis_ef_bs_total)), sub_r(fmt(man_ef)), Paragraph("", right)],
+        [sub_p("  → Divisas USD (en Bs.)"), sub_r(fmt(sys_vals["divisas_bs"])), sub_r(fmt(man_div)), Paragraph("", right)],
+        # ── DISPOSITIVOS POS ──
+        [Paragraph("<b>DISPOSITIVOS POS</b>", ParagraphStyle("gr4",fontSize=9,fontName="Helvetica-Bold")),
+         Paragraph(fmt(sis_tarjeta), ParagraphStyle("gr5",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(fmt(man_disp + man_bancos), ParagraphStyle("gr6",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(diff_str(diff_disp + diff_banc), ParagraphStyle("dd",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_disp + diff_banc),alignment=TA_RIGHT))],
+        [sub_p("  → TDD (Débito)"), sub_r(fmt(sys_vals["tdd"])), sub_r(fmt(man_tdd)), Paragraph("", right)],
+        [sub_p("  → TDC (Crédito)"), sub_r(fmt(sys_vals["tdc"])), sub_r(fmt(man_tdc)), Paragraph("", right)],
+        [sub_p("  → Biopago"), sub_r(fmt(sys_vals["biopago"])), sub_r(fmt(man_bio)), Paragraph("", right)],
+        # ── TRANSFERENCIAS BANCARIAS ──
+        [Paragraph("<b>PAGO MÓVIL / TRANSF.</b>", ParagraphStyle("gr7",fontSize=9,fontName="Helvetica-Bold")),
+         Paragraph(fmt(sys_vals["pm"] + sys_vals["transferencia"]), right),
+         Paragraph(fmt(man_bancos), ParagraphStyle("gr8",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph("", right)],
+        [sub_p("  → Pago Móvil"), sub_r(fmt(sys_vals["pm"])), sub_r(fmt(man_pm)), Paragraph("", right)],
+        [sub_p("  → Transferencia"), sub_r(fmt(sys_vals["transferencia"])), sub_r(fmt(man_trans)), Paragraph("", right)],
+        # ── TOTAL ──
+        [Paragraph("<b>TOTAL GENERAL</b>", ParagraphStyle("tb",fontSize=9,fontName="Helvetica-Bold")),
+         Paragraph(fmt(sis_efectivo+sis_tarjeta), ParagraphStyle("tr",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(fmt(man_ef_total+man_pos_total), ParagraphStyle("tr2",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(diff_str(diff_tot), ParagraphStyle("td",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_tot),alignment=TA_RIGHT))],
     ]
-    comp_tbl = Table(comp_rows, colWidths=[4*cm, 4*cm, 4*cm, 4*cm])
+    comp_tbl = Table(comp_rows, colWidths=[5.5*cm, 3.5*cm, 3.5*cm, 3.5*cm])
     comp_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), DARK),
         ("TEXTCOLOR", (0,0), (-1,0), colors.white),
         ("BACKGROUND", (0,-1), (-1,-1), LGRAY),
-        ("ROWBACKGROUNDS", (0,1), (-1,-2), [colors.white, LGRAY]),
+        ("BACKGROUND", (0,1), (-1,1), colors.HexColor("#e8f5e9")),
+        ("BACKGROUND", (0,4), (-1,4), colors.HexColor("#e3f2fd")),
+        ("BACKGROUND", (0,8), (-1,8), colors.HexColor("#fff8e1")),
+        ("ROWBACKGROUNDS", (0,2), (-1,3), [colors.white, LGRAY]),
+        ("ROWBACKGROUNDS", (0,5), (-1,7), [colors.white, LGRAY, colors.white]),
+        ("ROWBACKGROUNDS", (0,9), (-1,10), [colors.white, LGRAY]),
         ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
-        ("TOPPADDING", (0,0), (-1,-1), 7), ("BOTTOMPADDING", (0,0), (-1,-1), 7),
+        ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5),
         ("LEFTPADDING", (0,0), (-1,-1), 8), ("RIGHTPADDING", (0,0), (-1,-1), 8),
         ("ALIGN", (1,0), (-1,-1), "RIGHT"),
     ]))
@@ -1036,7 +1110,7 @@ async def generar_pdf_cierre(cierre_id: int):
         tk_rows.append([
             Paragraph("", normal), Paragraph("", normal),
             Paragraph("<b>TOTAL TICKETS</b>", ParagraphStyle("tt", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
-            Paragraph(fmt(man_pos), ParagraphStyle("tm", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
+            Paragraph(fmt(man_pos_total), ParagraphStyle("tm", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
         ])
         tk_tbl = Table(tk_rows, colWidths=[2.5*cm, 6.5*cm, 3*cm, 4*cm])
         tk_tbl.setStyle(TableStyle([
@@ -1049,6 +1123,36 @@ async def generar_pdf_cierre(cierre_id: int):
             ("ALIGN", (3,0), (3,-1), "RIGHT"),
         ]))
         story.append(tk_tbl)
+        story.append(Spacer(1, 0.6*cm))
+
+    # ── Devoluciones (Notas de Crédito) ───────────────────────────────────────
+    if devoluciones_aplicadas:
+        story.append(Paragraph("DEVOLUCIONES APLICADAS AL SISTEMA", h2))
+        story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
+        story.append(Spacer(1, 0.2*cm))
+        dev_rows = [[Paragraph("<b>Factura / Nota C.</b>", normal), Paragraph("<b>Monto Retornado</b>", right)]]
+        tot_dev = 0
+        for d in devoluciones_aplicadas:
+            dev_rows.append([
+                Paragraph(f"#{d['factura']}", mono),
+                Paragraph(f"- {fmt(d['monto'])}", ParagraphStyle("dm", fontSize=9, textColor=RED, alignment=TA_RIGHT)),
+            ])
+            tot_dev += d["monto"]
+        dev_rows.append([
+            Paragraph("<b>TOTAL DEVOLUCIONES</b>", ParagraphStyle("td", fontSize=9, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
+            Paragraph(f"- {fmt(tot_dev)}", ParagraphStyle("tdm", fontSize=9, textColor=RED, fontName="Helvetica-Bold", alignment=TA_RIGHT)),
+        ])
+        dev_tbl = Table(dev_rows, colWidths=[10*cm, 6*cm])
+        dev_tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), DARK), ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+            ("BACKGROUND", (0,-1), (-1,-1), colors.HexColor("#fee2e2")), # Light red background for total
+            ("ROWBACKGROUNDS", (0,1), (-1,-2), [colors.white, LGRAY]),
+            ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("LEFTPADDING", (0,0), (-1,-1), 6), ("RIGHTPADDING", (0,0), (-1,-1), 6),
+            ("ALIGN", (1,0), (1,-1), "RIGHT"),
+        ]))
+        story.append(dev_tbl)
         story.append(Spacer(1, 0.6*cm))
 
     # ── Pie de Página ─────────────────────────────────────────────────────────
@@ -1215,6 +1319,23 @@ async def capturar_pagomovil(payload: CapturarPagoMovilRequest):
     except pyodbc.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+@router.post("/caja/admin/reparar-fechas")
+async def reparar_fechas(req: RepararFechasRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        query = "UPDATE SAFACT SET FechaE=FechaT WHERE FechaT BETWEEN ? AND ?"
+        cursor.execute(query, (req.fecha_inicio, req.fecha_fin))
+        filas_afectadas = cursor.rowcount
+        conn.commit()
+        return {"status": "success", "message": f"Se repararon {filas_afectadas} facturas.", "filas_afectadas": filas_afectadas}
+    except pyodbc.Error as strErr:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(strErr)}")
     finally:
         cursor.close()
         conn.close()

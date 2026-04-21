@@ -334,11 +334,11 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
               PP.ID AS Plan_ID,
               PP.Banco AS Plan_Banco,
               PP.FechaPlanificada AS Plan_Fecha,
-              CAST(CASE WHEN SAACXP.RetenIVA > 0 THEN 1 ELSE 0 END AS BIT) AS Has_Retencion,
+              CAST(CASE WHEN SAACXP.RetenIVA > 0 OR portal_ret.Id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS Has_Retencion,
               CAST(CASE WHEN abonos.TotalBs IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS Has_Abonos,
               ISNULL(abonos.TotalBs, 0) AS TotalBsAbonado,
-              ISNULL(CASE WHEN SAACXP.Saldo <= 0 OR SAACXP.CancelC >= SAACXP.Monto THEN SACOMP.MontoMEx ELSE abonos.CalculatedTotalUSD END, 0) AS TotalUsdAbonado,
-              ISNULL(abonos.TotalIVA, 0) AS RetencionIvaAbonada,
+              ISNULL(abonos.TotalUsd, 0) AS TotalUsdAbonado,
+              ISNULL(CASE WHEN abonos.TotalIVA > 0 THEN abonos.TotalIVA ELSE portal_ret.MontoRetenido END, 0) AS RetencionIvaAbonada,
               ISNULL(abonos.TotalISLR, 0) AS RetencionIslrAbonada,
               ISNULL(SAPROV.PorctRet, 0) AS PorctRet,
               ISNULL(SAPROV.EsReten, 0) AS EsReten,
@@ -347,13 +347,17 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
             FROM dbo.SAACXP
             OUTER APPLY (
                 SELECT SUM(MontoBsAbonado) AS TotalBs,
-                       -- Calculate real amortized USD values from partial logic
-                       SUM(CASE WHEN MontoUsdAbonado IS NOT NULL AND MontoUsdAbonado > 0 THEN MontoUsdAbonado ELSE ROUND((MontoBsAbonado / NULLIF(TasaCambioDiaAbono, 0)), 2) END) AS CalculatedTotalUSD,
+                       SUM(CASE WHEN MontoUsdAbonado IS NOT NULL AND MontoUsdAbonado > 0 THEN MontoUsdAbonado ELSE ROUND((MontoBsAbonado / NULLIF(TasaCambioDiaAbono, 0)), 2) END) AS TotalUsd,
                        SUM(CASE WHEN TipoAbono = 'RETENCION_IVA' THEN MontoBsAbonado ELSE 0 END) AS TotalIVA,
                        SUM(CASE WHEN TipoAbono = 'RETENCION_ISLR' THEN MontoBsAbonado ELSE 0 END) AS TotalISLR
                 FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos A 
                 WHERE A.CodProv = SAACXP.CodProv AND A.NumeroD = SAACXP.NumeroD AND ISNULL(A.AfectaSaldo, 1) = 1
             ) abonos
+            OUTER APPLY (
+                SELECT TOP 1 Id, MontoRetenido
+                FROM EnterpriseAdmin_AMC.Procurement.Retenciones_IVA WITH (NOLOCK)
+                WHERE CodProv = SAACXP.CodProv AND NumeroD = SAACXP.NumeroD AND Estado != 'ANULADO'
+            ) portal_ret
             OUTER APPLY (
                 SELECT TOP 1 NumeroD
                 FROM dbo.SAPAGCXP
@@ -1083,6 +1087,13 @@ async def registrar_abonos_batch(
         
         # cursor.execute("BEGIN TRANSACTION;") # Rely on pyodbc autocommit=False default
         for p in pagos:
+            # Idempotency / Double payment check
+            cursor.execute("SELECT Saldo FROM EnterpriseAdmin_AMC.dbo.SAACXP WITH (NOLOCK) WHERE NumeroD = ? AND TipoCxP = '10' AND CodProv = ?", (p['NumeroD'], p['CodProv']))
+            saldo_row = cursor.fetchone()
+            if not saldo_row or float(saldo_row[0]) <= 0:
+                if float(p.get('MontoBsAbonado', 0)) > 0:
+                    raise HTTPException(status_code=400, detail=f"La factura {p['NumeroD']} ya no presenta saldo pendiente en el ERP.")
+                    
             aplica_idx = 1 if p.get('AplicaIndexacion') in [True, 'true', 'True', 1] else 0
             
             # Phase 8: Lookup mirror fields for independence
@@ -1322,6 +1333,17 @@ async def registrar_abono(
 
         rutas_json = _json.dumps(filepaths) if filepaths else ""
 
+        # Idempotency / Double payment check
+        if NroUnico:
+            cursor.execute("SELECT Saldo FROM EnterpriseAdmin_AMC.dbo.SAACXP WITH (NOLOCK) WHERE NroUnico = ?", (NroUnico,))
+        else:
+            cursor.execute("SELECT Saldo FROM EnterpriseAdmin_AMC.dbo.SAACXP WITH (NOLOCK) WHERE NumeroD = ? AND TipoCxP = '10' AND CodProv = ?", (NumeroD, CodProv))
+            
+        saldo_row = cursor.fetchone()
+        if not saldo_row or float(saldo_row[0]) <= 0:
+            if float(MontoBsAbonado) > 0:
+                raise HTTPException(status_code=400, detail=f"La factura {NumeroD} ya no presenta saldo pendiente en el ERP.")
+
         # Phase 8: Mirror fields
         cursor.execute("SELECT Factor, MontoMEx FROM dbo.SACOMP WITH (NOLOCK) WHERE NumeroD = ? AND TipoCom = 'H'", (NumeroD,))
         sacomp_row = cursor.fetchone()
@@ -1528,29 +1550,31 @@ async def eliminar_abono(id_abono: int):
         cursor = conn.cursor()
         
         # Verify it exists and get amount to revert balances
-        cursor.execute("SELECT TipoAbono, MontoBsAbonado, NumeroD, CodProv FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WHERE AbonoID = ?", (id_abono,))
+        cursor.execute("SELECT TipoAbono, MontoBsAbonado, NumeroD, CodProv, AfectaSaldo FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WHERE AbonoID = ?", (id_abono,))
         row = cursor.fetchone()
         
         if not row:
             raise HTTPException(status_code=404, detail="Abono no encontrado.")
             
-        tipo_abono, monto_bs, num_d, cod_prov = row
+        tipo_abono, monto_bs, num_d, cod_prov, afecta_saldo = row
         monto_bs = float(monto_bs) if monto_bs else 0.0
+        afecta_saldo = bool(afecta_saldo) if afecta_saldo is not None else True
 
         # Restrict deletion to manual payments or undefined (legacy). System generated abonos (retenciones) must be cancelled via their modules.
         if tipo_abono in ['RETENCION_IVA', 'RETENCION_ISLR', 'NOTA_CREDITO']:
             raise HTTPException(status_code=400, detail=f"No se puede eliminar directamente un abono de tipo {tipo_abono}. Anule el documento origen en su módulo interactivo correspondiente.")
 
         # Revert balances in Saint, ensuring MtoPagos never drops below 0 to avoid balance poisoning from improperly synced external records
-        cursor.execute("""
-            UPDATE EnterpriseAdmin_AMC.dbo.SACOMP WITH (ROWLOCK) 
-            SET 
-                MtoPagos = CASE WHEN ISNULL(MtoPagos,0) - ? < 0 THEN 0 ELSE ISNULL(MtoPagos,0) - ? END, 
-                SaldoAct = SaldoAct + ? 
-            WHERE NumeroD = ? AND CodProv = ?
-        """, (monto_bs, monto_bs, monto_bs, num_d, cod_prov))
-        cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAACXP WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE NumeroD = ? AND CodProv = ? AND TipoCxP = '10'", (monto_bs, num_d, cod_prov))
-        cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAPROV WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE CodProv = ?", (monto_bs, cod_prov))
+        if afecta_saldo:
+            cursor.execute("""
+                UPDATE EnterpriseAdmin_AMC.dbo.SACOMP WITH (ROWLOCK) 
+                SET 
+                    MtoPagos = CASE WHEN ISNULL(MtoPagos,0) - ? < 0 THEN 0 ELSE ISNULL(MtoPagos,0) - ? END, 
+                    SaldoAct = SaldoAct + ? 
+                WHERE NumeroD = ? AND CodProv = ?
+            """, (monto_bs, monto_bs, monto_bs, num_d, cod_prov))
+            cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAACXP WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE NumeroD = ? AND CodProv = ? AND TipoCxP = '10'", (monto_bs, num_d, cod_prov))
+            cursor.execute("UPDATE EnterpriseAdmin_AMC.dbo.SAPROV WITH (ROWLOCK) SET Saldo = Saldo + ? WHERE CodProv = ?", (monto_bs, cod_prov))
 
         cursor.execute("DELETE FROM EnterpriseAdmin_AMC.dbo.CxP_Abonos WHERE AbonoID = ?", (id_abono,))
         conn.commit()

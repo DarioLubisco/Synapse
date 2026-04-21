@@ -36,6 +36,75 @@
     .toast-error, .toast-danger { background: #ef4444; }
     .toast-warning { background: #f59e0b; color: #000; }
     .toast-info { background: #4f46e5; }
+
+    /* ── Bloques del Resumen del Cuadre ────────────────────────────── */
+    .resumen-bloque {
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      margin-bottom: 0.85rem;
+      border: 1px solid transparent;
+      transition: box-shadow 0.2s;
+    }
+    .resumen-bloque:hover {
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+    }
+
+    /* SISTEMA (Azul) */
+    .bloque-sistema {
+      background: rgba(59, 130, 246, 0.07);
+      border-color: rgba(59, 130, 246, 0.35);
+      border-left: 4px solid #3b82f6;
+    }
+    .bloque-sistema .bloque-header {
+      color: #60a5fa;
+    }
+
+    /* MANUAL (Verde) */
+    .bloque-manual {
+      background: rgba(16, 185, 129, 0.07);
+      border-color: rgba(16, 185, 129, 0.35);
+      border-left: 4px solid #10b981;
+    }
+    .bloque-manual .bloque-header {
+      color: #34d399;
+    }
+
+    /* DIFERENCIAS (Ámbar) */
+    .bloque-diferencias {
+      background: rgba(245, 158, 11, 0.07);
+      border-color: rgba(245, 158, 11, 0.35);
+      border-left: 4px solid #f59e0b;
+    }
+    .bloque-diferencias .bloque-header {
+      color: #fbbf24;
+    }
+
+    /* Header de cada bloque */
+    .bloque-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.65rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .bloque-header .bloque-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      flex-shrink: 0;
+    }
+    .bloque-sistema .bloque-icon { background: rgba(59, 130, 246, 0.2); }
+    .bloque-manual  .bloque-icon { background: rgba(16, 185, 129, 0.2); }
+    .bloque-diferencias .bloque-icon { background: rgba(245, 158, 11, 0.2); }
   </style>
 
 </head>
@@ -279,8 +348,12 @@
             <div class="section-card">
               <h3><i class="fas fa-balance-scale"></i> Resumen del Cuadre</h3>
 
-              <div style="margin-bottom:1rem;">
-                <p style="font-size:.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Sistema (Saint)</p>
+              <!-- BLOQUE SISTEMA -->
+              <div class="resumen-bloque bloque-sistema" style="margin-bottom:0.85rem;">
+                <div class="bloque-header">
+                  <span class="bloque-icon"><i class="fas fa-server"></i></span>
+                  <span>Sistema (Saint)</span>
+                </div>
                 <div class="summary-row">
                   <span class="summary-label"><i class="fas fa-money-bill-wave fa-sm"></i> Bolivares</span>
                   <span class="summary-value" id="res-sys-ef">Bs. 0.00</span>
@@ -297,10 +370,18 @@
                   <span class="summary-label"><i class="fas fa-fingerprint fa-sm"></i> Dolares Sistema</span>
                   <span class="summary-value" id="res-sys-divisas-sis">0,00</span>
                 </div>
+                <div class="summary-row" id="res-sys-devoluciones-row" style="display:none;">
+                  <span class="summary-label" style="color:var(--danger);"><i class="fas fa-undo fa-sm"></i> Devoluciones (Netas)</span>
+                  <span class="summary-value" id="res-sys-devoluciones" style="color:var(--danger);">- Bs. 0.00</span>
+                </div>
               </div>
 
-              <div style="margin-bottom:1rem;">
-                <p style="font-size:.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Manual (Conteo Físico)</p>
+              <!-- BLOQUE MANUAL -->
+              <div class="resumen-bloque bloque-manual" style="margin-bottom:0.85rem;">
+                <div class="bloque-header">
+                  <span class="bloque-icon"><i class="fas fa-hand-holding-usd"></i></span>
+                  <span>Manual (Conteo Físico)</span>
+                </div>
                 <div class="summary-row">
                   <span class="summary-label"><i class="fas fa-coins fa-sm"></i> Efectivo Bs.</span>
                   <span class="summary-value" id="res-man-bs">Bs. 0.00</span>
@@ -315,18 +396,22 @@
                 </div>
               </div>
 
-              <div>
-                <p style="font-size:.78rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.5rem;">Diferencias (Manual − Sistema)</p>
+              <!-- BLOQUE DIFERENCIAS -->
+              <div class="resumen-bloque bloque-diferencias" style="margin-bottom:0.85rem;">
+                <div class="bloque-header">
+                  <span class="bloque-icon"><i class="fas fa-not-equal"></i></span>
+                  <span>Diferencias (Manual − Sistema)</span>
+                </div>
                 <div class="summary-row">
-                  <span class="summary-label">Bolivares</span>
+                  <span class="summary-label"><i class="fas fa-money-bill-wave fa-sm"></i> Bolivares</span>
                   <span class="summary-value" id="diff-ef">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label">Tarjetas (TDD+TDC) + Biopago</span>
+                  <span class="summary-label"><i class="fas fa-credit-card fa-sm"></i> Tarjetas (TDD+TDC) + Biopago</span>
                   <span class="summary-value" id="diff-dispositivos">Bs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                  <span class="summary-label">Pago Móvil /Transf.</span>
+                  <span class="summary-label"><i class="fas fa-mobile-alt fa-sm"></i> Pago Móvil /Transf.</span>
                   <span class="summary-value" id="diff-bancos">Bs. 0.00</span>
                 </div>
               </div>
@@ -827,6 +912,9 @@
             <button class="btn btn-primary" onclick="cargarResumenDiarioAdmin()" style="padding:0.4rem 0.8rem;">
               <i class="fas fa-sync-alt"></i> Actualizar
             </button>
+            <button class="btn btn-warning" onclick="abrirModalRepararFechas()" style="padding:0.4rem 0.8rem;" title="Solucionar error de fechas en SAFACT">
+              <i class="fas fa-tools"></i> Reparar Saint
+            </button>
           </div>
         </div>
         <div class="table-responsive">
@@ -915,6 +1003,36 @@
       </button>
     </div>
 
+  </div>
+</div>
+
+<!-- ── Modal Reparar Fechas Saint ── -->
+<div class="modal" id="modal-reparar-fechas">
+  <div class="modal-content glassmorphism" style="max-width: 500px; width:90%; padding:2rem;">
+    <h2 style="margin-top:0;"><i class="fas fa-tools" style="color:var(--warning);"></i> Reparar Fechas de Saint</h2>
+    <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">
+      Esta herramienta ejecuta un <code>UPDATE SAFACT SET FechaE=FechaT WHERE FechaT BETWEEN [Inicio] AND [Fin]</code> para solucionar problemas de fechas en el sistema Saint.
+    </p>
+    
+    <div style="display:grid; gap:1rem; margin-bottom:1.5rem;">
+      <div class="input-group">
+        <label>Fecha y Hora Inicio</label>
+        <input type="datetime-local" id="rep-fecha-ini" class="form-control" />
+      </div>
+      <div class="input-group">
+        <label>Fecha y Hora Fin</label>
+        <input type="datetime-local" id="rep-fecha-fin" class="form-control" />
+      </div>
+    </div>
+    
+    <div style="display:flex; justify-content:flex-end; gap:0.75rem;">
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-reparar-fechas').classList.remove('active')">
+        <i class="fas fa-times"></i> Cancelar
+      </button>
+      <button class="btn btn-warning" id="btn-ejecutar-reparacion" onclick="ejecutarReparacionFechas()">
+        <i class="fas fa-play"></i> Ejecutar Reparación
+      </button>
+    </div>
   </div>
 </div>
 
@@ -1169,12 +1287,12 @@ async function iniciarCuadre() {
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
 
-    state.sysEfectivo   = data.totales_sistema.totefectivo;
+    state.sysEfectivo   = data.totales_sistema.totefectivo_bs;
     state.sysTarjeta    = data.totales_sistema.tottarjeta;
-    state.sysCheque     = data.totales_sistema.totcheque       ?? 0;
     state.sysDispositivos = data.totales_sistema.totdispositivos ?? 0;
     state.sysBancos       = data.totales_sistema.totbancos       ?? 0;
     state.sysDivisasSis   = data.totales_sistema.totdivisas      ?? 0;
+    state.sysDevoluciones = data.totales_sistema.devoluciones    || [];
 
     // Show system totals
     document.getElementById('sys-efectivo').textContent     = fmt(state.sysEfectivo);
@@ -1271,6 +1389,14 @@ function recalculate() {
   document.getElementById('res-total-sistema').textContent = fmt(totalSistema);
   document.getElementById('res-total-manual').textContent = fmt(totalManual);
   
+  const totalDevoluciones = (state.sysDevoluciones || []).reduce((s, d) => s + d.monto, 0);
+  if (totalDevoluciones > 0) {
+      document.getElementById('res-sys-devoluciones-row').style.display = 'flex';
+      document.getElementById('res-sys-devoluciones').textContent = '- ' + fmt(totalDevoluciones);
+  } else {
+      document.getElementById('res-sys-devoluciones-row').style.display = 'none';
+  }
+
   const diffTotal = totalManual - totalSistema;
   const difTotEl = document.getElementById('res-total-diferencia');
   difTotEl.textContent = (diffTotal >= 0 ? '+' : '') + fmt(diffTotal);
@@ -2425,6 +2551,73 @@ iniciarCuadre = async function() {
         cargarBandejaPM();
     }
 };
+
+// ── Reparación de Fechas Saint ───────────────────────────────────────────────
+function abrirModalRepararFechas() {
+  const modal = document.getElementById('modal-reparar-fechas');
+  
+  // Pre-fill con las fechas de hoy
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+  
+  // Format to YYYY-MM-DDThh:mm
+  const formatForInput = (d) => {
+    return d.getFullYear() + '-' + 
+           String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(d.getDate()).padStart(2, '0') + 'T' + 
+           String(d.getHours()).padStart(2, '0') + ':' + 
+           String(d.getMinutes()).padStart(2, '0');
+  };
+  
+  document.getElementById('rep-fecha-ini').value = formatForInput(startOfDay);
+  document.getElementById('rep-fecha-fin').value = formatForInput(endOfDay);
+  
+  modal.classList.add('active');
+}
+
+async function ejecutarReparacionFechas() {
+  const ini = document.getElementById('rep-fecha-ini').value;
+  const fin = document.getElementById('rep-fecha-fin').value;
+  
+  if (!ini || !fin) {
+    showToast('Debe ingresar ambas fechas', 'warning');
+    return;
+  }
+  
+  // Adjust format for SQL Server (YYYY-MM-DD HH:MM:SS)
+  const formatForSql = (val) => val.replace('T', ' ') + ':00.000';
+  
+  const payload = {
+    fecha_inicio: formatForSql(ini),
+    fecha_fin: formatForSql(fin)
+  };
+  
+  const btn = document.getElementById('btn-ejecutar-reparacion');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Ejecutando...';
+  
+  try {
+    const res = await fetch('/caja/admin/reparar-fechas', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    
+    const data = await res.json();
+    if (res.ok && data.status === 'success') {
+      showToast(data.message, 'success');
+      document.getElementById('modal-reparar-fechas').classList.remove('active');
+    } else {
+      alert('Error en reparación: ' + (data.detail || data.message || 'Desconocido'));
+    }
+  } catch(e) {
+    alert('Fallo de red al intentar reparar: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-play"></i> Ejecutar Reparación';
+  }
+}
 
 </script>
 <script src="js/sidebar.js"></script>
