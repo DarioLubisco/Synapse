@@ -2854,6 +2854,12 @@
                         style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(139,92,246,0.08);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);border-radius:6px;">
                         <i data-lucide="filter-x" style="width:13px;height:13px;"></i> Solo optimizados
                     </button>
+                    <!-- Botón reporte -->
+                    <button class="btn btn-sm" onclick="window.generateAntigravityReport()"
+                        title="Generar reporte detallado con análisis por factura"
+                        style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(59,130,246,0.08);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);border-radius:6px;">
+                        <i data-lucide="file-text" style="width:13px;height:13px;"></i> Reporte
+                    </button>
                     <!-- Botón configuración -->
                     <button class="btn btn-secondary" onclick="closeAntigravityModal();openRetConfigModal();"
                         title="Parametrizar Motor Antigravity"
@@ -3097,7 +3103,7 @@
 
     <datalist id="datalistProviders"></datalist>
 
-    <script src="js/app_cxp.js?v=50.02"></script>
+    <script src="js/app_cxp.js?v=50.03"></script>
     <script src="js/modules-report.js?v=49.63"></script>
     <script>
         lucide.createIcons();
