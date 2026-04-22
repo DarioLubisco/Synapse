@@ -3588,6 +3588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const nroU = abonosModal.dataset.nrounico || null;
         if (!cod || !num) return;
         await fetchCxpStatus(cod, num, nroU);
+        fillDefaultPaymentAmount(true);
         checkIndexationStatus();
         
         // Simular el click en la calculadora como pidió el usuario para refresque automático total
@@ -4592,6 +4593,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (res.ok) {
                         const json = await res.json();
                         pmCxpStatuses[rKey] = json.data;
+                        const pmMontoBsInput = row.querySelector('.pm-monto-bs');
+                        if (pmMontoBsInput) pmMontoBsInput.dataset.manualEdit = "false";
                     }
                 } catch(e) { console.warn('PM recalc: error re-fetching cxp-status', e); }
                 pmCalcRow(row);
@@ -4808,8 +4811,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             const indexado = row.querySelector('.pm-indexado')?.checked;
-            const nD = row.dataset.nrounico;
-            const cxp = pmCxpStatuses[nD];
+            const rKey = row.dataset.rowkey;
+            const cxp = pmCxpStatuses[rKey];
             
             if (!indexado && cxp && cxp.TasaEmision) {
                 usdCell.textContent = (bs / parseFloat(cxp.TasaEmision)).toFixed(2);
