@@ -3379,27 +3379,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (pctDescuento > 0 || descBasePct > 0) {
                 const dynDescuentoBox = document.getElementById('dynDescuentoBox');
-                if (dynDescuentoBox) {
+                const dynDescuentoBoxBs = document.getElementById('dynDescuentoBoxBs');
+                if (dynDescuentoBox && dynDescuentoBoxBs) {
                     if (pctDescuento > 0) {
                         dynDescuentoBox.style.display = 'flex';
+                        dynDescuentoBoxBs.style.display = 'flex';
                         const dynPctDesc = document.getElementById('dynPctDesc');
+                        const dynPctDescBs = document.getElementById('dynPctDescBs');
                         if (dynPctDesc) dynPctDesc.textContent = pctDescuento;
+                        if (dynPctDescBs) dynPctDescBs.textContent = pctDescuento;
                         const dynMontoDescUsd = document.getElementById('dynMontoDescUsd');
+                        const dynMontoDescBs = document.getElementById('dynMontoDescBs');
                         if (dynMontoDescUsd) dynMontoDescUsd.textContent = '-' + usdFormatter(fin.descPPUsdMonto);
+                        if (dynMontoDescBs) dynMontoDescBs.textContent = '-' + formatBs(fin.descPPUsdMonto * fin.currentTasa);
                     } else {
                         dynDescuentoBox.style.display = 'none';
+                        dynDescuentoBoxBs.style.display = 'none';
                     }
                 }
                 const dynDescBaseBox = document.getElementById('dynDescBaseBox');
-                if (dynDescBaseBox) {
+                const dynDescBaseBoxBs = document.getElementById('dynDescBaseBoxBs');
+                if (dynDescBaseBox && dynDescBaseBoxBs) {
                     if (descBasePct > 0) {
                         dynDescBaseBox.style.display = 'flex';
+                        dynDescBaseBoxBs.style.display = 'flex';
                         const dynPctDescBase = document.getElementById('dynPctDescBase');
+                        const dynPctDescBaseBs = document.getElementById('dynPctDescBaseBs');
                         if (dynPctDescBase) dynPctDescBase.textContent = descBasePct;
+                        if (dynPctDescBaseBs) dynPctDescBaseBs.textContent = descBasePct;
                         const dynMontoDescBaseUsd = document.getElementById('dynMontoDescBaseUsd');
+                        const dynMontoDescBaseBs = document.getElementById('dynMontoDescBaseBs');
                         if (dynMontoDescBaseUsd) dynMontoDescBaseUsd.textContent = '-' + usdFormatter(fin.descBaseUsdMonto);
+                        if (dynMontoDescBaseBs) dynMontoDescBaseBs.textContent = '-' + formatBs(fin.descBaseUsdMonto * fin.currentTasa);
                     } else {
                         dynDescBaseBox.style.display = 'none';
+                        dynDescBaseBoxBs.style.display = 'none';
                     }
                 }
             } else {
@@ -3407,34 +3421,67 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (dynDescuentoBox) dynDescuentoBox.style.display = 'none';
                 const dynDescBaseBox = document.getElementById('dynDescBaseBox');
                 if (dynDescBaseBox) dynDescBaseBox.style.display = 'none';
+                
+                const dynDescuentoBoxBs = document.getElementById('dynDescuentoBoxBs');
+                if (dynDescuentoBoxBs) dynDescuentoBoxBs.style.display = 'none';
+                const dynDescBaseBoxBs = document.getElementById('dynDescBaseBoxBs');
+                if (dynDescBaseBoxBs) dynDescBaseBoxBs.style.display = 'none';
             }
             
             // UI Updates
             const exactUsdFormatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
             document.getElementById('dynTasaBcv').textContent = 'Bs ' + new Intl.NumberFormat('de-DE', { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(fin.currentTasa);
+            
+            // USD Column
             document.getElementById('dynSubtotalUsd').textContent = '$' + exactUsdFormatter.format(fin.subtotalUsd);
             document.getElementById('dynMtoTotalUsd').textContent = '$' + exactUsdFormatter.format(fin.origTotalUsd);
             
-            // Conditionally show Fletes/Desctos
+            // Bs Column
+            document.getElementById('dynSubtotalBs').textContent = formatBs(fin.subtotalUsd * fin.currentTasa);
+            document.getElementById('dynMtoTotalBs').textContent = formatBs(fin.origTotalUsd * fin.currentTasa);
+            
+            // Conditionally show Fletes/Desctos USD
             let desctoFletesHtml = '';
             if (fin.fletesUsd > 0) desctoFletesHtml += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(+) Fletes:</span> <span>${usdFormatter(fin.fletesUsd)}</span></div>`;
             if (fin.d1Usd > 0) desctoFletesHtml += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 1:</span> <span style="color:var(--danger);">${usdFormatter(fin.d1Usd)}</span></div>`;
             if (fin.d2Usd > 0) desctoFletesHtml += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 2:</span> <span style="color:var(--danger);">${usdFormatter(fin.d2Usd)}</span></div>`;
             document.getElementById('dynDesctoFletesBox').innerHTML = desctoFletesHtml;
 
-            document.getElementById('dynBaseBs').textContent = formatBs(fin.baseBs);
-            document.getElementById('dynIvaUsd').textContent = usdFormatter(aplicaIndex ? fin.ivaUsd : roundFixed(fin.ivaBs / fin.currentTasa));
-            
-            // New IVA breakdown layout
-            document.getElementById('dynIvaBs').textContent = formatBs(fin.ivaBs);
-            if(document.getElementById('dynIvaAPagar')) document.getElementById('dynIvaAPagar').textContent = formatBs(fin.ivaAPagarBs);
-            if(document.getElementById('dynIvaRetenido')) document.getElementById('dynIvaRetenido').textContent = formatBs(fin.retencionBs);
-            if(document.getElementById('dynRetenIslrBs')) document.getElementById('dynRetenIslrBs').textContent = '- ' + formatBs(fin.retenIslrBs);
+            // Conditionally show Fletes/Desctos Bs
+            let desctoFletesHtmlBs = '';
+            if (fin.fletesUsd > 0) desctoFletesHtmlBs += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(+) Fletes:</span> <span>${formatBs(fin.fletesUsd * fin.currentTasa)}</span></div>`;
+            if (fin.d1Usd > 0) desctoFletesHtmlBs += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 1:</span> <span style="color:var(--danger);">${formatBs(fin.d1Usd * fin.currentTasa)}</span></div>`;
+            if (fin.d2Usd > 0) desctoFletesHtmlBs += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 2:</span> <span style="color:var(--danger);">${formatBs(fin.d2Usd * fin.currentTasa)}</span></div>`;
+            if(document.getElementById('dynDesctoFletesBoxBs')) document.getElementById('dynDesctoFletesBoxBs').innerHTML = desctoFletesHtmlBs;
 
+            // Base Imponible
+            document.getElementById('dynBaseBs').textContent = formatBs(fin.baseBs);
+            document.getElementById('dynBaseUsd').textContent = usdFormatter(fin.baseBs / fin.currentTasa);
+
+            // IVA
+            const ivaUsdVal = aplicaIndex ? fin.ivaUsd : roundFixed(fin.ivaBs / fin.currentTasa);
+            document.getElementById('dynIvaBs').textContent = formatBs(fin.ivaBs);
+            document.getElementById('dynIvaUsd').textContent = usdFormatter(ivaUsdVal);
+            
+            // IVA A Pagar
+            if(document.getElementById('dynIvaAPagar')) document.getElementById('dynIvaAPagar').textContent = formatBs(fin.ivaAPagarBs);
+            if(document.getElementById('dynIvaAPagarUsd')) document.getElementById('dynIvaAPagarUsd').textContent = usdFormatter(fin.ivaAPagarBs / fin.currentTasa);
+            
+            // IVA Retenido
+            if(document.getElementById('dynIvaRetenido')) document.getElementById('dynIvaRetenido').textContent = formatBs(fin.retencionBs);
+            if(document.getElementById('dynIvaRetenidoUsd')) document.getElementById('dynIvaRetenidoUsd').textContent = usdFormatter(fin.retencionBs / fin.currentTasa);
+            
+            // ISLR Retenido
+            if(document.getElementById('dynRetenIslrBs')) document.getElementById('dynRetenIslrBs').textContent = '- ' + formatBs(fin.retenIslrBs);
+            if(document.getElementById('dynRetenIslrUsd')) document.getElementById('dynRetenIslrUsd').textContent = '- ' + usdFormatter(fin.retenIslrBs / fin.currentTasa);
+
+            // Exento
             document.getElementById('dynExentoBs').textContent = formatBs(fin.exentoBs);
+            document.getElementById('dynExentoUsd').textContent = usdFormatter(fin.exentoBs / fin.currentTasa);
             
             // Final total payable
             document.getElementById('dynRestanteBs').textContent = formatBs(fin.finalBs);
+            document.getElementById('dynRestanteUsd').textContent = usdFormatter(fin.finalBs / fin.currentTasa);
 
             const modalRecalculo = document.getElementById('dynamicInvoiceStatusModal');
             if (modalRecalculo) {
