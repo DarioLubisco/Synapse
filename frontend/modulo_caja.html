@@ -1474,9 +1474,23 @@ function agregarTicket() {
   }
   if (!ref) ref = 'S/R'; // Default si omiten la referencia para ingreso rápido
 
+  const isDuplicate = state.tickets.length > 0 && 
+    state.tickets[state.tickets.length - 1].tipo === tipo &&
+    state.tickets[state.tickets.length - 1].punto_de_venta === pos &&
+    state.tickets[state.tickets.length - 1].referencia === ref &&
+    state.tickets[state.tickets.length - 1].monto === monto;
+
+  if (isDuplicate) {
+    if (!confirm('⚠️ Advertencia: Esta transacción es idéntica a la última registrada. ¿Desea guardarla de nuevo (doble registro)?')) {
+      return;
+    }
+  }
+
   addTicketToState(tipo, pos, ref, monto);
   renderTickets();
   recalculate();
+
+  showToast('✅ Transacción guardada exitosamente.', 'success');
 
   // Para ingreso rápido: NO reiniciamos t-pos ni t-tipo.
   // Solo borramos monto y referencia, y volvemos a enfocar el monto.
