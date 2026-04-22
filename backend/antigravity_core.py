@@ -222,7 +222,20 @@ class AntigravityEngine:
                 "usd_cost": cost_info["usd_cost_future"],
                 "savings": nominal_savings,
                 "priority": inv.get("priority", "Media"),
-                "note": note
+                "note": note,
+                # ── Campos de explicación detallada para el reporte ──
+                "tc_emision": inv.get("tc_emision", 0),
+                "tc_pago_proyectado": self.project_tc(chosen_t, r_dev, current_tc),
+                "dias_desde_emision": inv.get("days_elapsed_since_emission", 0),
+                "chosen_day": chosen_t,
+                "t_due_actual": data["t_due_actual"],
+                "baseline_usd": data["baseline_usd"],
+                "descuento_base_pct": inv.get("desc_base_pct", 0),
+                "descuento_base_cond": inv.get("desc_base_cond", "N/A"),
+                "descuentos_pronto_pago": inv.get("descuentos", []),
+                "indexacion_aplicada": (inv.get("days_elapsed_since_emission", 0) + chosen_t) > inv.get("t_tolerance", 15),
+                "t_tolerance": inv.get("t_tolerance", 15),
+                "pv_usd": cost_info["pv_usd"]
             })
             
             total_savings_usd += nominal_savings
@@ -236,7 +249,9 @@ class AntigravityEngine:
             "schedule": schedule,
             "metrics": {
                 "r_dev_daily": r_dev,
+                "r_dev_monthly": ((1 + r_dev) ** 30 - 1),
                 "volatility": vol,
+                "current_tc": current_tc,
                 "total_savings_usd": total_savings_usd,
                 "total_cost_usd": total_cost_usd,
                 "annual_wacc": self.daily_wacc * 365,
