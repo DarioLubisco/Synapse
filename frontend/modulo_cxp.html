@@ -2278,7 +2278,7 @@
 
     <!-- Dynamic Invoice Status Modal -->
     <div id="dynamicInvoiceStatusModal" class="modal" style="z-index: 10030;">
-        <div class="modal-content glassmorphism" style="max-width: 450px;">
+        <div class="modal-content glassmorphism" style="max-width: 900px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h3 style="margin:0; color: var(--primary-accent); display:flex; align-items:center; gap:0.5rem;"><i data-lucide="calculator" size="20"></i> Recálculo Dinámico</h3>
                 <button class="btn-icon" onclick="closeDynamicInvoiceStatusModal()"><i data-lucide="x"></i></button>
@@ -2292,63 +2292,133 @@
                 
                 <hr style="border:0; border-top:1px dashed var(--border-color); margin: 0.75rem 0;">
                 
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <span style="color: var(--text-secondary);">Subtotal (USD):</span>
-                    <strong id="dynSubtotalUsd">$ 0.00</strong>
-                </div>
-                <div id="dynDesctoFletesBox" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
-                    <!-- Inserted conditionally by JS -->
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
-                    <span style="color: var(--text-secondary);">Monto Total Original (USD):</span>
-                    <strong id="dynMtoTotalUsd" style="color: var(--success);">$ 0.00</strong>
-                </div>
-
-                <div id="dynDescBaseBox" style="display: none; justify-content: space-between; margin-bottom: 0.25rem;">
-                    <span style="color: var(--warning);">Descuento Base (<span id="dynPctDescBase">0</span>%):</span>
-                    <strong id="dynMontoDescBaseUsd" style="color: var(--warning);">-$ 0.00</strong>
-                </div>
-
-                <div id="dynDescuentoBox" style="display: none; justify-content: space-between; margin-bottom: 0.75rem;">
-                    <span style="color: var(--warning);">Descuento PP (<span id="dynPctDesc">0</span>%):</span>
-                    <strong id="dynMontoDescUsd" style="color: var(--warning);">-$ 0.00</strong>
-                </div>
-
-                <hr style="border:0; border-top:1px solid var(--border-color); margin: 0.75rem 0;">
-
-                <div style="display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem; font-size: 0.95rem; align-items: center;">
-                    <div style="color: var(--text-secondary);">Base Imponible (Recalculada):</div>
-                    <div id="dynBaseBs" style="text-align: right; font-weight: 600;">Bs 0.00</div>
-
-                    <div style="color: var(--text-secondary);">IVA (Recalculado):</div>
-                    <div style="display: flex; flex-direction: column; width: 100%;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                            <span id="dynIvaUsd" style="color: var(--success); font-weight: 600; font-size: 0.9em; white-space: nowrap;">$ 0.00</span>
-                            <span id="dynIvaBs" style="text-align: right; font-weight: 600; color: var(--warning); white-space: nowrap;">Bs 0.00</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                    <!-- LEFT COLUMN: USD -->
+                    <div>
+                        <h4 style="color: var(--success); margin-bottom: 1rem; border-bottom: 1px solid rgba(16, 185, 129, 0.3); padding-bottom: 0.5rem;">Operación en Dólares (USD)</h4>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="color: var(--text-secondary);">Subtotal (USD):</span>
+                            <strong id="dynSubtotalUsd">$ 0.00</strong>
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-top: 1px dotted rgba(255,255,255,0.1); padding-top: 5px; margin-top: 5px; font-size: 0.85em;">
-                            <span style="color: var(--text-secondary);">↳ IVA A Pagar:</span>
-                            <span id="dynIvaAPagar" style="text-align: right; font-weight: 600; color: var(--primary-accent);">Bs 0.00</span>
+                        <div id="dynDesctoFletesBox" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                            <!-- Inserted conditionally by JS -->
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.85em; margin-top: 3px;">
-                            <span style="color: var(--text-secondary);">↳ IVA Retenido:</span>
-                            <span id="dynIvaRetenido" style="text-align: right; font-weight: 600; color: var(--danger);">Bs 0.00</span>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="color: var(--text-secondary);">Monto Total Original (USD):</span>
+                            <strong id="dynMtoTotalUsd" style="color: var(--success);">$ 0.00</strong>
                         </div>
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.85em; margin-top: 3px;">
-                            <span style="color: var(--text-secondary);">↳ ISLR Retenido:</span>
-                            <span id="dynRetenIslrBs" style="text-align: right; font-weight: 600; color: var(--danger);">Bs 0.00</span>
+
+                        <div id="dynDescBaseBox" style="display: none; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="color: var(--warning);">Descuento Base (<span id="dynPctDescBase">0</span>%):</span>
+                            <strong id="dynMontoDescBaseUsd" style="color: var(--warning);">-$ 0.00</strong>
+                        </div>
+
+                        <div id="dynDescuentoBox" style="display: none; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="color: var(--warning);">Descuento PP (<span id="dynPctDesc">0</span>%):</span>
+                            <strong id="dynMontoDescUsd" style="color: var(--warning);">-$ 0.00</strong>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border-color); margin: 0.75rem 0;">
+
+                        <div style="display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem; font-size: 0.95rem; align-items: center;">
+                            <div style="color: var(--text-secondary);"><strong>* Base Imponible (Recalculada):</strong></div>
+                            <div id="dynBaseUsd" style="text-align: right; font-weight: bold;">$ 0.00</div>
+
+                            <div style="color: var(--text-secondary);"><strong>* IVA (Recalculado):</strong></div>
+                            <div style="display: flex; flex-direction: column; width: 100%;">
+                                <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+                                    <span id="dynIvaUsd" style="color: var(--success); font-weight: bold; white-space: nowrap;">$ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-top: 1px dotted rgba(255,255,255,0.1); padding-top: 5px; margin-top: 5px; font-size: 0.85em;">
+                                    <span style="color: var(--text-secondary);">↳ IVA A Pagar:</span>
+                                    <span id="dynIvaAPagarUsd" style="text-align: right; font-weight: bold; color: var(--primary-accent);">$ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.85em; margin-top: 3px;">
+                                    <span style="color: var(--text-secondary);">↳ IVA Retenido:</span>
+                                    <span id="dynIvaRetenidoUsd" style="text-align: right; font-weight: bold; color: var(--danger);">$ 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.85em; margin-top: 3px;">
+                                    <span style="color: var(--text-secondary);">↳ ISLR Retenido:</span>
+                                    <span id="dynRetenIslrUsd" style="text-align: right; font-weight: bold; color: var(--danger);">$ 0.00</span>
+                                </div>
+                            </div>
+
+                            <div style="color: var(--text-secondary);"><strong>* Exento (Recalculado):</strong></div>
+                            <div id="dynExentoUsd" style="text-align: right; font-weight: bold;">$ 0.00</div>
+                        </div>
+
+                        <div style="margin-top: 0.75rem; background: rgba(16, 185, 129, 0.05); border: 1px solid var(--success); padding: 0.85rem; border-radius: var(--radius-sm);">
+                            <div style="display:flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--text-secondary); font-weight: bold;">* TOTAL A PAGAR (USD):</span>
+                                <strong id="dynRestanteUsd" style="font-size: 1.4rem; color: var(--success); font-weight: bold;">$ 0.00</strong>
+                            </div>
                         </div>
                     </div>
 
-                    <div style="color: var(--text-secondary);">Exento (Recalculado):</div>
-                    <div id="dynExentoBs" style="text-align: right; font-weight: 600;">Bs 0.00</div>
-                </div>
+                    <!-- RIGHT COLUMN: BOLIVARES -->
+                    <div>
+                        <h4 style="color: var(--warning); margin-bottom: 1rem; border-bottom: 1px solid rgba(245, 158, 11, 0.3); padding-bottom: 0.5rem;">Operación en Bolívares (Bs)</h4>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="color: var(--text-secondary);">Subtotal (Bs):</span>
+                            <strong id="dynSubtotalBs" style="color: var(--warning);">Bs 0.00</strong>
+                        </div>
+                        <div id="dynDesctoFletesBoxBs" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem;">
+                            <!-- Inserted conditionally by JS -->
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="color: var(--text-secondary);">Monto Total Original (Bs):</span>
+                            <strong id="dynMtoTotalBs" style="color: var(--warning);">Bs 0.00</strong>
+                        </div>
 
-                <div style="margin-top: 0.75rem; background: rgba(99, 102, 241, 0.05); border: 1px solid var(--primary-accent); padding: 0.85rem; border-radius: var(--radius-sm);">
-                    <div style="display:flex; justify-content: space-between; align-items: center;">
-                        <span style="color: var(--text-secondary); font-weight: 500;">TOTAL A PAGAR (Bs):</span>
-                        <strong id="dynRestanteBs" style="font-size: 1.4rem; color: var(--primary-accent);">Bs 0.00</strong>
+                        <div id="dynDescBaseBoxBs" style="display: none; justify-content: space-between; margin-bottom: 0.25rem;">
+                            <span style="color: var(--warning);">Descuento Base (<span id="dynPctDescBaseBs">0</span>%):</span>
+                            <strong id="dynMontoDescBaseBs" style="color: var(--warning);">-Bs 0.00</strong>
+                        </div>
+
+                        <div id="dynDescuentoBoxBs" style="display: none; justify-content: space-between; margin-bottom: 0.75rem;">
+                            <span style="color: var(--warning);">Descuento PP (<span id="dynPctDescBs">0</span>%):</span>
+                            <strong id="dynMontoDescBs" style="color: var(--warning);">-Bs 0.00</strong>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border-color); margin: 0.75rem 0;">
+
+                        <div style="display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem 1rem; font-size: 0.95rem; align-items: center;">
+                            <div style="color: var(--text-secondary);"><strong>* Base Imponible (Recalculada):</strong></div>
+                            <div id="dynBaseBs" style="text-align: right; font-weight: bold;">Bs 0.00</div>
+
+                            <div style="color: var(--text-secondary);"><strong>* IVA (Recalculado):</strong></div>
+                            <div style="display: flex; flex-direction: column; width: 100%;">
+                                <div style="display: flex; justify-content: flex-end; align-items: center; width: 100%;">
+                                    <span id="dynIvaBs" style="text-align: right; font-weight: bold; color: var(--warning); white-space: nowrap;">Bs 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; border-top: 1px dotted rgba(255,255,255,0.1); padding-top: 5px; margin-top: 5px; font-size: 0.85em;">
+                                    <span style="color: var(--text-secondary);">↳ IVA A Pagar:</span>
+                                    <span id="dynIvaAPagar" style="text-align: right; font-weight: bold; color: var(--primary-accent);">Bs 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.85em; margin-top: 3px;">
+                                    <span style="color: var(--text-secondary);">↳ IVA Retenido:</span>
+                                    <span id="dynIvaRetenido" style="text-align: right; font-weight: bold; color: var(--danger);">Bs 0.00</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; font-size: 0.85em; margin-top: 3px;">
+                                    <span style="color: var(--text-secondary);">↳ ISLR Retenido:</span>
+                                    <span id="dynRetenIslrBs" style="text-align: right; font-weight: bold; color: var(--danger);">Bs 0.00</span>
+                                </div>
+                            </div>
+
+                            <div style="color: var(--text-secondary);"><strong>* Exento (Recalculado):</strong></div>
+                            <div id="dynExentoBs" style="text-align: right; font-weight: bold;">Bs 0.00</div>
+                        </div>
+
+                        <div style="margin-top: 0.75rem; background: rgba(99, 102, 241, 0.05); border: 1px solid var(--primary-accent); padding: 0.85rem; border-radius: var(--radius-sm);">
+                            <div style="display:flex; justify-content: space-between; align-items: center;">
+                                <span style="color: var(--text-secondary); font-weight: bold;">* TOTAL A PAGAR (Bs):</span>
+                                <strong id="dynRestanteBs" style="font-size: 1.4rem; color: var(--primary-accent); font-weight: bold;">Bs 0.00</strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
