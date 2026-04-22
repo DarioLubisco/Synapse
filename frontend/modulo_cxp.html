@@ -2848,6 +2848,12 @@
                             <i data-lucide="flame" style="width:13px;height:13px;"></i> Agresivo
                         </button>
                     </div>
+                    <!-- Botón filtro -->
+                    <button id="btnAntigFilterToggle" class="btn btn-sm" onclick="window.toggleAntigravityFilter()"
+                        title="Mostrar/ocultar pagos sin optimización de fecha"
+                        style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(139,92,246,0.08);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);border-radius:6px;">
+                        <i data-lucide="filter-x" style="width:13px;height:13px;"></i> Solo optimizados
+                    </button>
                     <!-- Botón configuración -->
                     <button class="btn btn-secondary" onclick="closeAntigravityModal();openRetConfigModal();"
                         title="Parametrizar Motor Antigravity"
@@ -3091,7 +3097,7 @@
 
     <datalist id="datalistProviders"></datalist>
 
-    <script src="js/app_cxp.js?v=50.01"></script>
+    <script src="js/app_cxp.js?v=50.02"></script>
     <script src="js/modules-report.js?v=49.63"></script>
     <script>
         lucide.createIcons();

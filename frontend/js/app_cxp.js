@@ -6793,33 +6793,114 @@ document.addEventListener('DOMContentLoaded', () => {
 // ANTIGRAVITY ENGINE CLIENT LOGIC — MULTI-ESCENARIO
 // ==========================================
 
-/** Render rows into a tbody element from a schedule array */
-function _antigRenderRows(tbody, schedule) {
+// Cache para re-filtrar sin llamar de nuevo a la API
+window._antigScenarioData = { conservador: null, moderado: null, agresivo: null };
+window._antigFilterActive = false;
+window._antigLoanCosts = { conservador: 0, moderado: 0, agresivo: 0 };
+window._antigCredits = { conservador: 0, moderado: 0, agresivo: 0 };
+
+/**
+ * Render rows into a tbody element from a schedule array.
+ * @param {HTMLElement} tbody
+ * @param {Array} schedule
+ * @param {boolean} filterOptimized - If true, hide rows with savings=0 and same dates
+ * @returns {{total: number, optimized: number}}
+ */
+function _antigRenderRows(tbody, schedule, filterOptimized = false) {
     const usdF = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
     const bsF  = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
-    if (!tbody) return;
+    if (!tbody) return { total: 0, optimized: 0 };
     if (!schedule || schedule.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">No hay pagos pendientes para este escenario.</td></tr>';
-        return;
+        return { total: 0, optimized: 0 };
     }
     schedule.sort((a, b) => a.date_t - b.date_t || b.savings - a.savings);
-    tbody.innerHTML = schedule.map(item => {
+
+    let optimized = 0;
+    const rows = [];
+    for (const item of schedule) {
+        const dateP = (item.date_str || '').substring(0, 10);
+        const dateV = (item.due_date_str || '').substring(0, 10);
+        const hasSavings = (item.savings || 0) > 0.005;
+        const dateShifted = dateP !== dateV;
+        const isOptimized = hasSavings || dateShifted;
+        if (isOptimized) optimized++;
+
+        if (filterOptimized && !isOptimized) continue;
+
         const noteHtml = item.note ? `<span title="${item.note}">⚠️</span>` : '';
         const pColor = item.priority === 'Alta' ? '#ef4444' : (item.priority === 'Media' ? '#f59e0b' : '#3b82f6');
         const pBg    = item.priority === 'Alta' ? 'rgba(239,68,68,0.1)' : (item.priority === 'Media' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)');
-        return `<tr>
-            <td>${(item.date_str||'').substring(0,10)} ${noteHtml}</td>
-            <td style="color:var(--text-secondary)">${(item.due_date_str||'').substring(0,10)}</td>
+        const rowStyle = !isOptimized ? 'opacity:0.35;' : '';
+        rows.push(`<tr style="${rowStyle}">
+            <td>${dateP} ${noteHtml}</td>
+            <td style="color:var(--text-secondary)">${dateV}</td>
             <td>${item.id}</td>
             <td>${item.supplier}</td>
             <td><span class="status-badge" style="background:${pBg};color:${pColor}">${item.priority}</span></td>
             <td class="amount" style="color:var(--text-secondary)">Bs ${bsF(item.orig_bs)}</td>
             <td class="amount">Bs ${bsF(item.final_bs)}</td>
             <td class="amount">$ ${usdF(item.usd_cost)}</td>
-            <td class="amount" style="color:var(--success);font-weight:bold">$ ${usdF(item.savings)}</td>
-        </tr>`;
-    }).join('');
+            <td class="amount" style="color:${hasSavings ? 'var(--success)' : 'var(--text-secondary)'};font-weight:${hasSavings ? 'bold' : 'normal'}">$ ${usdF(item.savings)}</td>
+        </tr>`);
+    }
+    if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">Ninguna factura tiene optimización de fecha en este escenario.</td></tr>';
+    } else {
+        tbody.innerHTML = rows.join('');
+    }
+    return { total: schedule.length, optimized };
 }
+
+/** Re-render all 3 tables with the current filter state */
+function _antigReRenderAll() {
+    const f = window._antigFilterActive;
+    const usdF = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
+    const scenarioMap = {
+        conservador: { tbody: 'antigravityTableBody',    badge: 'antigConservadorBadge' },
+        moderado:    { tbody: 'antigravityTableBodyMod',  badge: 'antigModeradoBadge' },
+        agresivo:    { tbody: 'antigravityTableBodyAgr',  badge: 'antigAgesivoBadge' }
+    };
+    for (const [key, ids] of Object.entries(scenarioMap)) {
+        const data = window._antigScenarioData[key];
+        if (!data) continue;
+        const counts = _antigRenderRows(document.getElementById(ids.tbody), data.schedule, f);
+        const badge = document.getElementById(ids.badge);
+        if (badge) {
+            const credit = window._antigCredits[key] || 0;
+            const loanCost = window._antigLoanCosts[key] || 0;
+            const savingsBruto = data.metrics?.total_savings_usd || 0;
+            const savingsNeto = savingsBruto - loanCost;
+            const filterLabel = f ? `(mostrando ${counts.optimized})` : `${counts.optimized} de ${counts.total} optimizadas`;
+            if (key === 'conservador') {
+                badge.textContent = `Prestado: $${usdF(credit)} · Neto: $${usdF(savingsNeto)} · ${filterLabel}`;
+            } else {
+                badge.textContent = `Prestado: $${usdF(credit)} · Costo: $${usdF(loanCost)} · Neto: $${usdF(savingsNeto)} · ${filterLabel}`;
+            }
+        }
+    }
+}
+
+/** Toggle del filtro "Solo optimizados" */
+window.toggleAntigravityFilter = function() {
+    window._antigFilterActive = !window._antigFilterActive;
+    _antigReRenderAll();
+    const btn = document.getElementById('btnAntigFilterToggle');
+    if (btn) {
+        if (window._antigFilterActive) {
+            btn.style.background = 'rgba(139,92,246,0.25)';
+            btn.style.color = '#a78bfa';
+            btn.style.borderColor = 'rgba(139,92,246,0.6)';
+            btn.innerHTML = '<i data-lucide="filter" style="width:13px;height:13px;"></i> Filtro activo';
+        } else {
+            btn.style.background = 'rgba(139,92,246,0.08)';
+            btn.style.color = '#8b5cf6';
+            btn.style.borderColor = 'rgba(139,92,246,0.3)';
+            btn.innerHTML = '<i data-lucide="filter-x" style="width:13px;height:13px;"></i> Solo optimizados';
+        }
+        if (window.lucide) window.lucide.createIcons();
+    }
+};
 
 window.runAntigravity = async function() {
     const usdF = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
@@ -6832,20 +6913,19 @@ window.runAntigravity = async function() {
         const cfg = window.globalRetConfig || {};
         const pctFlow   = (parseFloat(cfg.AntigravityFlow)  || 90)  / 100.0;
         const wacc      = parseFloat(cfg.AntigravityWacc)   || 0.12;
-        // Montos prestados — cada escenario es independiente
-        const creditCon = parseFloat(cfg.AntigravityMaxCredit)    || 0;
+        const creditCon = parseFloat(cfg.AntigravityMaxCredit)     || 0;
         const creditMod = parseFloat(cfg.AntigravityMaxCreditMod)  || 0;
         const creditAgr = parseFloat(cfg.AntigravityMaxCreditAgr)  || 0;
-        // Variables de costo financiero del préstamo
         const loanDays  = parseFloat(cfg.AntigravityLoanDays) || 30;
-        const loanRate  = (parseFloat(cfg.AntigravityLoanRate) || 18) / 100; // tasa anual → decimal
+        const loanRate  = (parseFloat(cfg.AntigravityLoanRate) || 18) / 100;
 
-        // Costo financiero proporcional = principal × tasa_anual × (dias / 365)
         const loanCostCon = creditCon * loanRate * (loanDays / 365);
         const loanCostMod = creditMod * loanRate * (loanDays / 365);
         const loanCostAgr = creditAgr * loanRate * (loanDays / 365);
 
-        // Parámetros de flujo de caja base
+        window._antigCredits   = { conservador: creditCon, moderado: creditMod, agresivo: creditAgr };
+        window._antigLoanCosts = { conservador: loanCostCon, moderado: loanCostMod, agresivo: loanCostAgr };
+
         const savedFcParams = JSON.parse(localStorage.getItem('cashflowParams') || '{}');
         const cajaUsd   = savedFcParams.cajaUsd   || parseFloat(document.getElementById('paramCajaUsd')?.value)  || 0;
         const cajaBs    = savedFcParams.cajaBs    || parseFloat(document.getElementById('paramCajaBs')?.value)   || 0;
@@ -6859,7 +6939,6 @@ window.runAntigravity = async function() {
         const basePayload = { porcentaje_flujo: pctFlow, caja_usd: cajaUsd, caja_bs: cajaBs,
                               fecha_arranque: fechaCero, delay_days: delayDays, wacc };
 
-        // ── Llamadas paralelas a la API (un escenario por llamada) ──
         const [resCon, resMod, resAgr] = await Promise.all([
             fetch('/api/antigravity/run', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({ ...basePayload, max_credit: creditCon }) }),
@@ -6871,44 +6950,44 @@ window.runAntigravity = async function() {
         if (!resCon.ok || !resMod.ok || !resAgr.ok) throw new Error('Error en el motor Antigravity');
         const [dataCon, dataMod, dataAgr] = await Promise.all([resCon.json(), resMod.json(), resAgr.json()]);
 
-        // ── Métricas brutas ──
+        window._antigScenarioData = { conservador: dataCon, moderado: dataMod, agresivo: dataAgr };
+        window._antigFilterActive = false;
+
         const savingsConBruto = dataCon.metrics?.total_savings_usd || 0;
         const savingsModBruto = dataMod.metrics?.total_savings_usd || 0;
         const savingsAgrBruto = dataAgr.metrics?.total_savings_usd || 0;
-
-        // ── Ahorro Neto = Ahorro Bruto − Costo Financiero del Préstamo ──
         const savingsConNeto = savingsConBruto - loanCostCon;
         const savingsModNeto = savingsModBruto - loanCostMod;
         const savingsAgrNeto = savingsAgrBruto - loanCostAgr;
 
-        // ── Rellenar Conservador (kpis del encabezado conservador) ──
+        // ── Conservador KPIs ──
         document.getElementById('antigDevMensual').innerText = ((dataCon.metrics?.r_dev_daily || 0) * 30 * 100).toFixed(2) + '%';
         document.getElementById('antigAhorroUsd').innerText  = '$ ' + usdF(savingsConBruto);
         document.getElementById('antigGastoUsd').innerText   = '$ ' + usdF(dataCon.metrics?.total_cost_usd || 0);
         document.getElementById('antigLimiteFlujo').innerText = (pctFlow * 100).toFixed(0) + '%';
-        _antigRenderRows(document.getElementById('antigravityTableBody'), dataCon.schedule);
-        const badge = document.getElementById('antigConservadorBadge');
-        if (badge) badge.textContent = `Prestado: $${usdF(creditCon)} · Ahorro neto: $${usdF(savingsConNeto)}`;
+        const cntCon = _antigRenderRows(document.getElementById('antigravityTableBody'), dataCon.schedule, false);
+        const badgeCon = document.getElementById('antigConservadorBadge');
+        if (badgeCon) badgeCon.textContent = `Prestado: $${usdF(creditCon)} · Neto: $${usdF(savingsConNeto)} · ${cntCon.optimized} de ${cntCon.total} optimizadas`;
 
-        // ── Rellenar Moderado ──
+        // ── Moderado KPIs ──
         document.getElementById('antigModCreditUsd').innerText        = '$ ' + usdF(creditMod);
         document.getElementById('antigModAhorroUsd').innerText        = '$ ' + usdF(savingsModBruto);
         document.getElementById('antigModCostoFinanciero').innerText  = '$ ' + usdF(loanCostMod);
         document.getElementById('antigModAhorroNeto').innerText       = '$ ' + usdF(savingsModNeto);
-        _antigRenderRows(document.getElementById('antigravityTableBodyMod'), dataMod.schedule);
+        const cntMod = _antigRenderRows(document.getElementById('antigravityTableBodyMod'), dataMod.schedule, false);
         const badgeMod = document.getElementById('antigModeradoBadge');
-        if (badgeMod) badgeMod.textContent = `Prestado: $${usdF(creditMod)} · Costo: $${usdF(loanCostMod)} · Neto: $${usdF(savingsModNeto)}`;
+        if (badgeMod) badgeMod.textContent = `Prestado: $${usdF(creditMod)} · Costo: $${usdF(loanCostMod)} · Neto: $${usdF(savingsModNeto)} · ${cntMod.optimized} de ${cntMod.total} optimizadas`;
 
-        // ── Rellenar Agresivo ──
+        // ── Agresivo KPIs ──
         document.getElementById('antigAgrCreditUsd').innerText        = '$ ' + usdF(creditAgr);
         document.getElementById('antigAgrAhorroUsd').innerText        = '$ ' + usdF(savingsAgrBruto);
         document.getElementById('antigAgrCostoFinanciero').innerText  = '$ ' + usdF(loanCostAgr);
         document.getElementById('antigAgrAhorroNeto').innerText       = '$ ' + usdF(savingsAgrNeto);
-        _antigRenderRows(document.getElementById('antigravityTableBodyAgr'), dataAgr.schedule);
+        const cntAgr = _antigRenderRows(document.getElementById('antigravityTableBodyAgr'), dataAgr.schedule, false);
         const badgeAgr = document.getElementById('antigAgesivoBadge');
-        if (badgeAgr) badgeAgr.textContent = `Prestado: $${usdF(creditAgr)} · Costo: $${usdF(loanCostAgr)} · Neto: $${usdF(savingsAgrNeto)}`;
+        if (badgeAgr) badgeAgr.textContent = `Prestado: $${usdF(creditAgr)} · Costo: $${usdF(loanCostAgr)} · Neto: $${usdF(savingsAgrNeto)} · ${cntAgr.optimized} de ${cntAgr.total} optimizadas`;
 
-        // ── Rellenar comparativa rápida ──
+        // ── Comparativa rápida ──
         document.getElementById('cmpConservadorCredit').innerText  = '$ ' + usdF(creditCon);
         document.getElementById('cmpConservadorSavings').innerText = '$ ' + usdF(savingsConNeto);
         document.getElementById('cmpModeradoCredit').innerText     = '$ ' + usdF(creditMod);
@@ -6916,7 +6995,15 @@ window.runAntigravity = async function() {
         document.getElementById('cmpAgresivoCredit').innerText     = '$ ' + usdF(creditAgr);
         document.getElementById('cmpAgresivoSavings').innerText    = '$ ' + usdF(savingsAgrNeto);
 
-        // Mostrar modal, siempre arrancando en Conservador
+        // Reset filter button
+        const filterBtn = document.getElementById('btnAntigFilterToggle');
+        if (filterBtn) {
+            filterBtn.style.background = 'rgba(139,92,246,0.08)';
+            filterBtn.style.color = '#8b5cf6';
+            filterBtn.style.borderColor = 'rgba(139,92,246,0.3)';
+            filterBtn.innerHTML = '<i data-lucide="filter-x" style="width:13px;height:13px;"></i> Solo optimizados';
+        }
+
         window.switchAntigravityScenario('conservador');
         forceShowModal(document.getElementById('antigravityModal'));
         if (window.lucide) window.lucide.createIcons();
@@ -6933,13 +7020,10 @@ window.runAntigravity = async function() {
 };
 
 window.switchAntigravityScenario = function(scenario) {
-    // Ocultar todos los paneles
     document.querySelectorAll('.antg-scenario-pane').forEach(p => p.style.display = 'none');
-    // Mostrar el seleccionado
     const pane = document.getElementById(`pane-scenario-${scenario}`);
     if (pane) pane.style.display = '';
 
-    // Highlight en botones de encabezado
     document.querySelectorAll('.antg-scenario-btn').forEach(b => {
         b.style.fontWeight = 'normal';
         b.style.boxShadow  = 'none';
@@ -6950,7 +7034,6 @@ window.switchAntigravityScenario = function(scenario) {
         activeBtn.style.boxShadow  = '0 0 0 2px currentColor';
     }
 
-    // Highlight en tarjetas de comparativa
     document.querySelectorAll('#antigScenarioComparison .stat-card').forEach(c => c.style.opacity = '0.55');
     const cmpCard = document.getElementById(`cmp${scenario.charAt(0).toUpperCase() + scenario.slice(1)}`);
     if (cmpCard) cmpCard.style.opacity = '1';
@@ -6976,6 +7059,16 @@ window.abrirModalAuditarFechas = function() {
         if (!item.FechaE || !item.FechaI) return false;
         const fe = new Date(item.FechaE);
         const fi = new Date(item.FechaI);
+        
+        // Si el año es distinto, pero el mes/día de emisión es anterior al de ingreso, lo consideramos válido (salto de año)
+        if (fe.getFullYear() !== fi.getFullYear()) {
+            const me = fe.getMonth();
+            const de = fe.getDate();
+            const mi = fi.getMonth();
+            const di = fi.getDate();
+            if (me < mi || (me === mi && de <= di)) return false;
+        }
+        
         return fe > fi;
     });
 
