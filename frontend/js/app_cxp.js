@@ -7045,6 +7045,228 @@ window.closeAntigravityModal = function() {
     forceHideModal(document.getElementById('antigravityModal'));
 };
 
+/**
+ * Genera un reporte detallado en ventana nueva con explicación factura por factura
+ * de la lógica financiera detrás del ahorro/costo.
+ */
+window.generateAntigravityReport = function() {
+    const scenarioNames = { conservador: '🛡️ Conservador', moderado: '⚡ Moderado', agresivo: '🔥 Agresivo' };
+    const usdF = v => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+    const bsF  = v => new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+    const pctF = v => (v * 100).toFixed(4) + '%';
+    const cfg = window.globalRetConfig || {};
+    const loanDays = parseFloat(cfg.AntigravityLoanDays) || 30;
+    const loanRate = (parseFloat(cfg.AntigravityLoanRate) || 18) / 100;
+
+    let html = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+    <title>Reporte Detallado — Motor Antigravity</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#0f172a; color:#e2e8f0; padding:2rem; font-size:13px; }
+        h1 { font-size:1.6rem; margin-bottom:0.3rem; color:#60a5fa; }
+        h2 { font-size:1.2rem; margin:1.5rem 0 0.8rem; padding-bottom:0.4rem; border-bottom:1px solid #334155; color:#f1f5f9; }
+        h3 { font-size:1rem; margin:1rem 0 0.4rem; color:#a78bfa; }
+        .subtitle { color:#94a3b8; font-size:0.85rem; margin-bottom:1.5rem; }
+        .summary-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:0.8rem; margin-bottom:1.5rem; }
+        .summary-card { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:0.8rem; }
+        .summary-card .label { font-size:0.7rem; text-transform:uppercase; color:#94a3b8; letter-spacing:0.5px; }
+        .summary-card .value { font-size:1.1rem; font-weight:700; color:#f1f5f9; margin-top:0.2rem; }
+        .value.green { color:#4ade80; }
+        .value.red { color:#f87171; }
+        .value.yellow { color:#fbbf24; }
+        table { width:100%; border-collapse:collapse; margin:0.5rem 0 1.5rem; }
+        th { background:#1e293b; color:#94a3b8; font-weight:600; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.5px; padding:0.5rem 0.6rem; text-align:left; border-bottom:1px solid #334155; }
+        td { padding:0.45rem 0.6rem; border-bottom:1px solid #1e293b; vertical-align:top; }
+        tr:nth-child(even) { background:rgba(30,41,59,0.5); }
+        .inv-detail { background:#1e293b; border:1px solid #334155; border-radius:8px; padding:1rem; margin-bottom:1rem; page-break-inside:avoid; }
+        .inv-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; }
+        .inv-header .inv-id { font-weight:700; font-size:0.95rem; color:#60a5fa; }
+        .inv-header .inv-supplier { color:#94a3b8; }
+        .explanation { font-size:0.82rem; line-height:1.6; color:#cbd5e1; }
+        .explanation strong { color:#f1f5f9; }
+        .explanation .highlight { color:#4ade80; font-weight:600; }
+        .explanation .warn { color:#fbbf24; font-weight:600; }
+        .explanation .negative { color:#f87171; font-weight:600; }
+        .tag { display:inline-block; padding:0.1rem 0.4rem; border-radius:4px; font-size:0.7rem; font-weight:600; margin-left:0.5rem; }
+        .tag-optimized { background:rgba(74,222,128,0.15); color:#4ade80; }
+        .tag-neutral { background:rgba(148,163,184,0.15); color:#94a3b8; }
+        .tag-indexed { background:rgba(251,191,36,0.15); color:#fbbf24; }
+        .scenario-separator { border:none; border-top:2px solid #3b82f6; margin:2rem 0; }
+        .footer { margin-top:2rem; padding-top:1rem; border-top:1px solid #334155; color:#64748b; font-size:0.75rem; text-align:center; }
+        @media print {
+            body { background:#fff; color:#1e293b; font-size:11px; padding:1rem; }
+            .summary-card { border-color:#e2e8f0; }
+            .inv-detail { border-color:#e2e8f0; background:#f8fafc; }
+            th { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+            td { border-color:#f1f5f9; }
+            h1 { color:#1e40af; }
+            h2 { color:#1e293b; border-color:#e2e8f0; }
+            h3 { color:#7c3aed; }
+            .value.green { color:#16a34a; }
+            .value.red { color:#dc2626; }
+            .explanation { color:#475569; }
+            .explanation strong { color:#1e293b; }
+            .highlight { color:#16a34a !important; }
+            .warn { color:#d97706 !important; }
+            .negative { color:#dc2626 !important; }
+        }
+    </style></head><body>`;
+
+    html += `<h1>📊 Reporte Detallado — Motor Tesorería Antigravity</h1>`;
+    html += `<p class="subtitle">Generado: ${new Date().toLocaleString('es-VE')} · Parámetros: Plazo ${loanDays} días, Tasa ${(loanRate*100).toFixed(1)}% anual</p>`;
+
+    for (const [key, label] of Object.entries(scenarioNames)) {
+        const data = window._antigScenarioData[key];
+        if (!data) continue;
+        const credit = window._antigCredits[key] || 0;
+        const loanCost = window._antigLoanCosts[key] || 0;
+        const m = data.metrics || {};
+        const schedule = data.schedule || [];
+        const savingsBruto = m.total_savings_usd || 0;
+        const savingsNeto = savingsBruto - loanCost;
+        const currentTc = m.current_tc || 0;
+        const rDevMonthly = m.r_dev_monthly || 0;
+
+        html += `<hr class="scenario-separator">`;
+        html += `<h2>${label} — Monto Prestado: $${usdF(credit)}</h2>`;
+
+        // ── Resumen del Escenario ──
+        html += `<div class="summary-grid">
+            <div class="summary-card"><div class="label">Monto Prestado</div><div class="value">$ ${usdF(credit)}</div></div>
+            <div class="summary-card"><div class="label">Ahorro Bruto</div><div class="value ${savingsBruto > 0 ? 'green' : ''}">$ ${usdF(savingsBruto)}</div></div>
+            <div class="summary-card"><div class="label">Costo Financiero</div><div class="value red">$ ${usdF(loanCost)}</div></div>
+            <div class="summary-card"><div class="label">Ahorro Neto</div><div class="value ${savingsNeto >= 0 ? 'green' : 'red'}">$ ${usdF(savingsNeto)}</div></div>
+            <div class="summary-card"><div class="label">Tasa BCV Actual</div><div class="value">Bs ${bsF(currentTc)}</div></div>
+            <div class="summary-card"><div class="label">Devaluación Mensual</div><div class="value yellow">${pctF(rDevMonthly)}</div></div>
+            <div class="summary-card"><div class="label">WACC Anualizado</div><div class="value">${pctF(m.annual_wacc || 0)}</div></div>
+            <div class="summary-card"><div class="label">Estado Solver</div><div class="value">${m.optimization_status || 'N/A'}</div></div>
+        </div>`;
+
+        // Fórmula del costo financiero
+        html += `<div class="explanation" style="margin-bottom:1rem;background:#0f172a;padding:0.7rem;border-radius:6px;border:1px solid #334155;">
+            <strong>Fórmula Costo Financiero:</strong> $${usdF(credit)} × ${(loanRate*100).toFixed(1)}% × (${loanDays}/365) = <strong class="${loanCost > 0 ? 'negative' : ''}">$${usdF(loanCost)}</strong>
+        </div>`;
+
+        // ── Tabla resumen rápida ──
+        const optimized = schedule.filter(i => (i.savings||0) > 0.005 || (i.date_str||'').substring(0,10) !== (i.due_date_str||'').substring(0,10));
+        html += `<h3>Resumen de Facturas (${schedule.length} total, ${optimized.length} con optimización)</h3>`;
+        html += `<table><thead><tr>
+            <th>Nro Doc</th><th>Proveedor</th><th>Fecha Pago</th><th>Venc. Original</th>
+            <th>Deuda Bs</th><th>Pago Equiv. Bs</th><th>Costo USD</th><th>Ahorro USD</th><th>Estado</th>
+        </tr></thead><tbody>`;
+        for (const item of schedule) {
+            const dateP = (item.date_str||'').substring(0,10);
+            const dateV = (item.due_date_str||'').substring(0,10);
+            const hasSavings = (item.savings||0) > 0.005;
+            const shifted = dateP !== dateV;
+            const tagClass = hasSavings ? 'tag-optimized' : (item.indexacion_aplicada ? 'tag-indexed' : 'tag-neutral');
+            const tagLabel = hasSavings ? 'Optimizado' : (item.indexacion_aplicada ? 'Indexado' : 'Sin cambio');
+            html += `<tr style="${!hasSavings && !shifted ? 'opacity:0.5' : ''}">
+                <td>${item.id}</td><td>${item.supplier}</td>
+                <td>${dateP}</td><td>${dateV}</td>
+                <td style="text-align:right">Bs ${bsF(item.orig_bs)}</td>
+                <td style="text-align:right">Bs ${bsF(item.final_bs)}</td>
+                <td style="text-align:right">$ ${usdF(item.usd_cost)}</td>
+                <td style="text-align:right;color:${hasSavings ? '#4ade80' : '#94a3b8'}">$ ${usdF(item.savings)}</td>
+                <td><span class="tag ${tagClass}">${tagLabel}</span></td>
+            </tr>`;
+        }
+        html += `</tbody></table>`;
+
+        // ── Detalle factura por factura ──
+        html += `<h3>Análisis Detallado por Factura</h3>`;
+        for (const item of schedule) {
+            const dateP = (item.date_str||'').substring(0,10);
+            const dateV = (item.due_date_str||'').substring(0,10);
+            const hasSavings = (item.savings||0) > 0.005;
+            const shifted = dateP !== dateV;
+            const tagClass = hasSavings ? 'tag-optimized' : (item.indexacion_aplicada ? 'tag-indexed' : 'tag-neutral');
+            const tagLabel = hasSavings ? '✅ Optimizado' : (item.indexacion_aplicada ? '⚠️ Indexado' : '— Sin cambio');
+            const diasTotales = (item.dias_desde_emision || 0) + (item.chosen_day || 0);
+
+            html += `<div class="inv-detail">`;
+            html += `<div class="inv-header">
+                <span class="inv-id">Factura #${item.id} <span class="tag ${tagClass}">${tagLabel}</span></span>
+                <span class="inv-supplier">${item.supplier}</span>
+            </div>`;
+            html += `<div class="explanation">`;
+
+            // Línea 1: Contexto temporal
+            html += `<strong>Contexto Temporal:</strong> La factura lleva <strong>${item.dias_desde_emision || 0} días</strong> desde su emisión. `;
+            html += `El plazo de vencimiento es <strong>${item.t_due_actual || 0} días</strong> desde hoy. `;
+            html += `El motor la programó para pago en <strong>T+${item.chosen_day || 0} días</strong> (${dateP}), vs vencimiento original ${dateV}.<br>`;
+
+            // Línea 2: Tasas de cambio
+            const tcE = item.tc_emision || 0;
+            const tcP = item.tc_pago_proyectado || 0;
+            if (tcE > 0 && tcP > 0) {
+                const diffTc = ((tcP / tcE - 1) * 100).toFixed(2);
+                html += `<strong>Tasa de Cambio:</strong> Al momento de emisión: <strong>Bs ${bsF(tcE)}</strong>/$ · Proyección al pago: <strong>Bs ${bsF(tcP)}</strong>/$ · Variación: <strong class="${parseFloat(diffTc) > 0 ? 'warn' : 'highlight'}">${diffTc}%</strong><br>`;
+            }
+
+            // Línea 3: Indexación
+            const tTol = item.t_tolerance || 15;
+            if (item.indexacion_aplicada) {
+                html += `<strong>Indexación:</strong> <span class="warn">SÍ aplica</span>. Los ${diasTotales} días acumulados <strong>superan</strong> la tolerancia de ${tTol} días del proveedor. `;
+                html += `El monto original de <strong>Bs ${bsF(item.orig_bs)}</strong> se re-expresó a <strong>Bs ${bsF(item.final_bs)}</strong> usando la tasa proyectada.<br>`;
+            } else {
+                html += `<strong>Indexación:</strong> <span class="highlight">NO aplica</span>. Los ${diasTotales} días acumulados están <strong>dentro</strong> de la tolerancia de ${tTol} días → se paga al monto original en Bs.<br>`;
+            }
+
+            // Línea 4: Descuentos
+            const descBase = item.descuento_base_pct || 0;
+            if (descBase > 0) {
+                html += `<strong>Descuento Base:</strong> ${(descBase * 100).toFixed(1)}% (Condición: ${item.descuento_base_cond || 'N/A'}). `;
+            }
+            const descPP = item.descuentos_pronto_pago || [];
+            if (descPP.length > 0) {
+                const applied = descPP.find(d => diasTotales >= d.DiasDesde && diasTotales <= d.DiasHasta);
+                if (applied) {
+                    html += `<strong>Descuento Pronto Pago:</strong> <span class="highlight">${(applied.Porcentaje * 100).toFixed(1)}%</span> (rango ${applied.DiasDesde}-${applied.DiasHasta} días). `;
+                } else {
+                    html += `Descuento Pronto Pago: No aplica para los ${diasTotales} días acumulados. `;
+                }
+            }
+            if (descBase > 0 || descPP.length > 0) html += `<br>`;
+
+            // Línea 5: Cálculo final
+            html += `<strong>Costo USD:</strong> Bs ${bsF(item.final_bs)} ÷ Bs ${bsF(tcP)}/$ = <strong>$ ${usdF(item.usd_cost)}</strong> · `;
+            html += `Valor Presente (WACC): <strong>$ ${usdF(item.pv_usd || item.usd_cost)}</strong><br>`;
+
+            // Línea 6: Savings
+            const baselineUsd = item.baseline_usd || 0;
+            if (hasSavings) {
+                html += `<strong>Ahorro:</strong> Costo si se paga al vencimiento: $${usdF(baselineUsd)} · Costo optimizado: $${usdF(item.usd_cost)} → <span class="highlight">Ahorro: $${usdF(item.savings)}</span>`;
+            } else {
+                html += `<strong>Ahorro:</strong> $${usdF(item.savings)} — <span class="warn">No hay ventana de optimización</span>. El solver no encontró un día de pago más barato que el vencimiento (Baseline: $${usdF(baselineUsd)}).`;
+            }
+
+            if (item.note) {
+                html += `<br><strong>⚠️ Nota:</strong> <span class="warn">${item.note}</span>`;
+            }
+
+            html += `</div></div>`;
+        }
+    }
+
+    // Footer
+    html += `<div class="footer">
+        Motor Antigravity v2.0 — Optimización MILP (PuLP CBC) · Synapse ERP<br>
+        Este reporte fue generado automáticamente. Los valores proyectados son estimaciones basadas en la tendencia histórica del BCV de los últimos 30 días.
+    </div>`;
+
+    html += `</body></html>`;
+
+    const w = window.open('', '_blank', 'width=1100,height=800');
+    if (w) {
+        w.document.write(html);
+        w.document.close();
+    } else {
+        showToast('No se pudo abrir la ventana del reporte. Desbloquea los popups.', 'error');
+    }
+};
+
 
 // --- AUDITAR FECHAS INVERTIDAS ---
 window.auditoriaFechasList = [];
