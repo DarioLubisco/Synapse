@@ -5921,6 +5921,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (document.getElementById('cfgAntigravityMaxCredit')) {
                     document.getElementById('cfgAntigravityMaxCredit').value = window.globalRetConfig?.AntigravityMaxCredit || 0;
                 }
+                if (document.getElementById('cfgAntigravityMaxCreditMod')) {
+                    document.getElementById('cfgAntigravityMaxCreditMod').value = window.globalRetConfig?.AntigravityMaxCreditMod || 0;
+                }
+                if (document.getElementById('cfgAntigravityMaxCreditAgr')) {
+                    document.getElementById('cfgAntigravityMaxCreditAgr').value = window.globalRetConfig?.AntigravityMaxCreditAgr || 0;
+                }
+                if (document.getElementById('cfgAntigravityLoanDays')) {
+                    document.getElementById('cfgAntigravityLoanDays').value = window.globalRetConfig?.AntigravityLoanDays || 30;
+                }
+                if (document.getElementById('cfgAntigravityLoanRate')) {
+                    document.getElementById('cfgAntigravityLoanRate').value = window.globalRetConfig?.AntigravityLoanRate || 18;
+                }
                 loadMotivosConfig();
             } catch (e) {
                 console.error('Error fetching config', e);
@@ -6074,6 +6086,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const antigravityFlow = document.getElementById('cfgAntigravityFlow')?.value;
             const antigravityWacc = document.getElementById('cfgAntigravityWacc')?.value;
             const antigravityMaxCredit = document.getElementById('cfgAntigravityMaxCredit')?.value;
+            const antigravityMaxCreditMod = document.getElementById('cfgAntigravityMaxCreditMod')?.value;
+            const antigravityMaxCreditAgr = document.getElementById('cfgAntigravityMaxCreditAgr')?.value;
+            const antigravityLoanDays = document.getElementById('cfgAntigravityLoanDays')?.value;
+            const antigravityLoanRate = document.getElementById('cfgAntigravityLoanRate')?.value;
             
             if (islrSrc || toleranceVal || antigravityFlow || antigravityWacc || antigravityMaxCredit) {
                 const settingsPayload = {};
@@ -6082,6 +6098,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (antigravityFlow) settingsPayload.AntigravityFlow = antigravityFlow;
                 if (antigravityWacc) settingsPayload.AntigravityWacc = antigravityWacc;
                 if (antigravityMaxCredit) settingsPayload.AntigravityMaxCredit = antigravityMaxCredit;
+                if (antigravityMaxCreditMod) settingsPayload.AntigravityMaxCreditMod = antigravityMaxCreditMod;
+                if (antigravityMaxCreditAgr) settingsPayload.AntigravityMaxCreditAgr = antigravityMaxCreditAgr;
+                if (antigravityLoanDays) settingsPayload.AntigravityLoanDays = antigravityLoanDays;
+                if (antigravityLoanRate) settingsPayload.AntigravityLoanRate = antigravityLoanRate;
 
                 fetch('/api/procurement/settings', {
                     method: 'POST',
@@ -6093,6 +6113,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (antigravityFlow) window.globalRetConfig.AntigravityFlow = antigravityFlow;
                     if (antigravityWacc) window.globalRetConfig.AntigravityWacc = antigravityWacc;
                     if (antigravityMaxCredit) window.globalRetConfig.AntigravityMaxCredit = antigravityMaxCredit;
+                    if (antigravityMaxCreditMod) window.globalRetConfig.AntigravityMaxCreditMod = antigravityMaxCreditMod;
+                    if (antigravityMaxCreditAgr) window.globalRetConfig.AntigravityMaxCreditAgr = antigravityMaxCreditAgr;
+                    if (antigravityLoanDays) window.globalRetConfig.AntigravityLoanDays = antigravityLoanDays;
+                    if (antigravityLoanRate) window.globalRetConfig.AntigravityLoanRate = antigravityLoanRate;
                 });
             }
 
@@ -6766,91 +6790,140 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// ANTIGRAVITY ENGINE CLIENT LOGIC
+// ANTIGRAVITY ENGINE CLIENT LOGIC — MULTI-ESCENARIO
 // ==========================================
+
+/** Render rows into a tbody element from a schedule array */
+function _antigRenderRows(tbody, schedule) {
+    const usdF = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
+    const bsF  = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
+    if (!tbody) return;
+    if (!schedule || schedule.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-secondary);">No hay pagos pendientes para este escenario.</td></tr>';
+        return;
+    }
+    schedule.sort((a, b) => a.date_t - b.date_t || b.savings - a.savings);
+    tbody.innerHTML = schedule.map(item => {
+        const noteHtml = item.note ? `<span title="${item.note}">⚠️</span>` : '';
+        const pColor = item.priority === 'Alta' ? '#ef4444' : (item.priority === 'Media' ? '#f59e0b' : '#3b82f6');
+        const pBg    = item.priority === 'Alta' ? 'rgba(239,68,68,0.1)' : (item.priority === 'Media' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)');
+        return `<tr>
+            <td>${(item.date_str||'').substring(0,10)} ${noteHtml}</td>
+            <td style="color:var(--text-secondary)">${(item.due_date_str||'').substring(0,10)}</td>
+            <td>${item.id}</td>
+            <td>${item.supplier}</td>
+            <td><span class="status-badge" style="background:${pBg};color:${pColor}">${item.priority}</span></td>
+            <td class="amount" style="color:var(--text-secondary)">Bs ${bsF(item.orig_bs)}</td>
+            <td class="amount">Bs ${bsF(item.final_bs)}</td>
+            <td class="amount">$ ${usdF(item.usd_cost)}</td>
+            <td class="amount" style="color:var(--success);font-weight:bold">$ ${usdF(item.savings)}</td>
+        </tr>`;
+    }).join('');
+}
+
 window.runAntigravity = async function() {
-    const usdFormat = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
-    const bsFormat = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
+    const usdF = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format;
     try {
         const btn = document.getElementById('btnAntigravity');
         btn.innerHTML = '<i class="loader" style="width:16px;height:16px;border-color:var(--primary-accent);border-bottom-color:transparent;display:inline-block;vertical-align:middle;"></i> Procesando...';
         btn.disabled = true;
 
-        // Get saved config
-        let pctFlow = 0.90;
-        let wacc = 0.12;
-        let maxCredit = 0.0;
-        if (window.globalRetConfig) {
-            if (window.globalRetConfig.AntigravityFlow) pctFlow = parseFloat(window.globalRetConfig.AntigravityFlow) / 100.0;
-            if (window.globalRetConfig.AntigravityWacc) wacc = parseFloat(window.globalRetConfig.AntigravityWacc);
-            if (window.globalRetConfig.AntigravityMaxCredit) maxCredit = parseFloat(window.globalRetConfig.AntigravityMaxCredit);
-        }
+        // ── Leer configuración global ──
+        const cfg = window.globalRetConfig || {};
+        const pctFlow   = (parseFloat(cfg.AntigravityFlow)  || 90)  / 100.0;
+        const wacc      = parseFloat(cfg.AntigravityWacc)   || 0.12;
+        // Montos prestados — cada escenario es independiente
+        const creditCon = parseFloat(cfg.AntigravityMaxCredit)    || 0;
+        const creditMod = parseFloat(cfg.AntigravityMaxCreditMod)  || 0;
+        const creditAgr = parseFloat(cfg.AntigravityMaxCreditAgr)  || 0;
+        // Variables de costo financiero del préstamo
+        const loanDays  = parseFloat(cfg.AntigravityLoanDays) || 30;
+        const loanRate  = (parseFloat(cfg.AntigravityLoanRate) || 18) / 100; // tasa anual → decimal
 
-        // Get saved cashflow baseline configuration
+        // Costo financiero proporcional = principal × tasa_anual × (dias / 365)
+        const loanCostCon = creditCon * loanRate * (loanDays / 365);
+        const loanCostMod = creditMod * loanRate * (loanDays / 365);
+        const loanCostAgr = creditAgr * loanRate * (loanDays / 365);
+
+        // Parámetros de flujo de caja base
         const savedFcParams = JSON.parse(localStorage.getItem('cashflowParams') || '{}');
-        const cajaUsd = savedFcParams.cajaUsd || parseFloat(document.getElementById('paramCajaUsd')?.value) || 0;
-        const cajaBs = savedFcParams.cajaBs || parseFloat(document.getElementById('paramCajaBs')?.value) || 0;
-        let fechaCero = savedFcParams.fechaCero || document.getElementById('paramFechaCero')?.value;
+        const cajaUsd   = savedFcParams.cajaUsd   || parseFloat(document.getElementById('paramCajaUsd')?.value)  || 0;
+        const cajaBs    = savedFcParams.cajaBs    || parseFloat(document.getElementById('paramCajaBs')?.value)   || 0;
         const delayDays = savedFcParams.delayDays !== undefined ? savedFcParams.delayDays : 1;
-        
+        let fechaCero   = savedFcParams.fechaCero || document.getElementById('paramFechaCero')?.value;
         if (!fechaCero) {
             const tzoffset = (new Date()).getTimezoneOffset() * 60000;
             fechaCero = (new Date(Date.now() - tzoffset)).toISOString().split('T')[0];
         }
 
-        const res = await fetch('/api/antigravity/run', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                porcentaje_flujo: pctFlow,
-                caja_usd: cajaUsd,
-                caja_bs: cajaBs,
-                fecha_arranque: fechaCero,
-                delay_days: delayDays,
-                wacc: wacc,
-                max_credit: maxCredit
-            })
-        });
+        const basePayload = { porcentaje_flujo: pctFlow, caja_usd: cajaUsd, caja_bs: cajaBs,
+                              fecha_arranque: fechaCero, delay_days: delayDays, wacc };
 
-        if (!res.ok) throw new Error("Error en el motor Antigravity");
-        const data = await res.json();
+        // ── Llamadas paralelas a la API (un escenario por llamada) ──
+        const [resCon, resMod, resAgr] = await Promise.all([
+            fetch('/api/antigravity/run', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ ...basePayload, max_credit: creditCon }) }),
+            fetch('/api/antigravity/run', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ ...basePayload, max_credit: creditMod }) }),
+            fetch('/api/antigravity/run', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ ...basePayload, max_credit: creditAgr }) }),
+        ]);
+        if (!resCon.ok || !resMod.ok || !resAgr.ok) throw new Error('Error en el motor Antigravity');
+        const [dataCon, dataMod, dataAgr] = await Promise.all([resCon.json(), resMod.json(), resAgr.json()]);
 
-        // Populate Modal
-        document.getElementById('antigDevMensual').innerText = (data.metrics.r_dev_daily * 30 * 100).toFixed(2) + "%";
-        document.getElementById('antigAhorroUsd').innerText = "$ " + usdFormat(data.metrics.total_savings_usd || 0);
-        document.getElementById('antigGastoUsd').innerText = "$ " + usdFormat(data.metrics.total_cost_usd || 0);
-        document.getElementById('antigLimiteFlujo').innerText = (pctFlow * 100).toFixed(0) + "%";
+        // ── Métricas brutas ──
+        const savingsConBruto = dataCon.metrics?.total_savings_usd || 0;
+        const savingsModBruto = dataMod.metrics?.total_savings_usd || 0;
+        const savingsAgrBruto = dataAgr.metrics?.total_savings_usd || 0;
 
-        const tbody = document.getElementById('antigravityTableBody');
-        tbody.innerHTML = '';
-        if (data.schedule && data.schedule.length > 0) {
-            // Sort schedule by Date then by Savings descending
-            data.schedule.sort((a,b) => a.date_t - b.date_t || b.savings - a.savings);
-            
-            data.schedule.forEach(item => {
-                const tr = document.createElement('tr');
-                let noteHtml = item.note ? `<span title="${item.note}">⚠️</span>` : '';
-                tr.innerHTML = `
-                    <td>${item.date_str.substring(0,10)} ${noteHtml}</td>
-                    <td style="color:var(--text-secondary)">${(item.due_date_str || '').substring(0,10)}</td>
-                    <td>${item.id}</td>
-                    <td>${item.supplier}</td>
-                    <td><span class="status-badge" style="background: ${item.priority==='Alta'?'rgba(239, 68, 68, 0.1)':(item.priority==='Media'?'rgba(245, 158, 11, 0.1)':'rgba(59, 130, 246, 0.1)')}; color: ${item.priority==='Alta'?'#ef4444':(item.priority==='Media'?'#f59e0b':'#3b82f6')}">${item.priority}</span></td>
-                    <td class="amount" style="color:var(--text-secondary)">Bs ${bsFormat(item.orig_bs)}</td>
-                    <td class="amount">Bs ${bsFormat(item.final_bs)}</td>
-                    <td class="amount">$ ${usdFormat(item.usd_cost)}</td>
-                    <td class="amount" style="color:var(--success); font-weight:bold;">$ ${usdFormat(item.savings)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        } else {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay pagos pendientes para optimizar.</td></tr>';
-        }
+        // ── Ahorro Neto = Ahorro Bruto − Costo Financiero del Préstamo ──
+        const savingsConNeto = savingsConBruto - loanCostCon;
+        const savingsModNeto = savingsModBruto - loanCostMod;
+        const savingsAgrNeto = savingsAgrBruto - loanCostAgr;
 
+        // ── Rellenar Conservador (kpis del encabezado conservador) ──
+        document.getElementById('antigDevMensual').innerText = ((dataCon.metrics?.r_dev_daily || 0) * 30 * 100).toFixed(2) + '%';
+        document.getElementById('antigAhorroUsd').innerText  = '$ ' + usdF(savingsConBruto);
+        document.getElementById('antigGastoUsd').innerText   = '$ ' + usdF(dataCon.metrics?.total_cost_usd || 0);
+        document.getElementById('antigLimiteFlujo').innerText = (pctFlow * 100).toFixed(0) + '%';
+        _antigRenderRows(document.getElementById('antigravityTableBody'), dataCon.schedule);
+        const badge = document.getElementById('antigConservadorBadge');
+        if (badge) badge.textContent = `Prestado: $${usdF(creditCon)} · Ahorro neto: $${usdF(savingsConNeto)}`;
+
+        // ── Rellenar Moderado ──
+        document.getElementById('antigModCreditUsd').innerText        = '$ ' + usdF(creditMod);
+        document.getElementById('antigModAhorroUsd').innerText        = '$ ' + usdF(savingsModBruto);
+        document.getElementById('antigModCostoFinanciero').innerText  = '$ ' + usdF(loanCostMod);
+        document.getElementById('antigModAhorroNeto').innerText       = '$ ' + usdF(savingsModNeto);
+        _antigRenderRows(document.getElementById('antigravityTableBodyMod'), dataMod.schedule);
+        const badgeMod = document.getElementById('antigModeradoBadge');
+        if (badgeMod) badgeMod.textContent = `Prestado: $${usdF(creditMod)} · Costo: $${usdF(loanCostMod)} · Neto: $${usdF(savingsModNeto)}`;
+
+        // ── Rellenar Agresivo ──
+        document.getElementById('antigAgrCreditUsd').innerText        = '$ ' + usdF(creditAgr);
+        document.getElementById('antigAgrAhorroUsd').innerText        = '$ ' + usdF(savingsAgrBruto);
+        document.getElementById('antigAgrCostoFinanciero').innerText  = '$ ' + usdF(loanCostAgr);
+        document.getElementById('antigAgrAhorroNeto').innerText       = '$ ' + usdF(savingsAgrNeto);
+        _antigRenderRows(document.getElementById('antigravityTableBodyAgr'), dataAgr.schedule);
+        const badgeAgr = document.getElementById('antigAgesivoBadge');
+        if (badgeAgr) badgeAgr.textContent = `Prestado: $${usdF(creditAgr)} · Costo: $${usdF(loanCostAgr)} · Neto: $${usdF(savingsAgrNeto)}`;
+
+        // ── Rellenar comparativa rápida ──
+        document.getElementById('cmpConservadorCredit').innerText  = '$ ' + usdF(creditCon);
+        document.getElementById('cmpConservadorSavings').innerText = '$ ' + usdF(savingsConNeto);
+        document.getElementById('cmpModeradoCredit').innerText     = '$ ' + usdF(creditMod);
+        document.getElementById('cmpModeradoSavings').innerText    = '$ ' + usdF(savingsModNeto);
+        document.getElementById('cmpAgresivoCredit').innerText     = '$ ' + usdF(creditAgr);
+        document.getElementById('cmpAgresivoSavings').innerText    = '$ ' + usdF(savingsAgrNeto);
+
+        // Mostrar modal, siempre arrancando en Conservador
+        window.switchAntigravityScenario('conservador');
         forceShowModal(document.getElementById('antigravityModal'));
+        if (window.lucide) window.lucide.createIcons();
+
     } catch (err) {
         console.error(err);
-        showToast("Falla de ejecución Antigravity", "error");
+        showToast('Falla de ejecución Antigravity: ' + err.message, 'error');
     } finally {
         const btn = document.getElementById('btnAntigravity');
         btn.innerHTML = '<i data-lucide="zap"></i> Finanza dinamica';
@@ -6859,6 +6932,150 @@ window.runAntigravity = async function() {
     }
 };
 
+window.switchAntigravityScenario = function(scenario) {
+    // Ocultar todos los paneles
+    document.querySelectorAll('.antg-scenario-pane').forEach(p => p.style.display = 'none');
+    // Mostrar el seleccionado
+    const pane = document.getElementById(`pane-scenario-${scenario}`);
+    if (pane) pane.style.display = '';
+
+    // Highlight en botones de encabezado
+    document.querySelectorAll('.antg-scenario-btn').forEach(b => {
+        b.style.fontWeight = 'normal';
+        b.style.boxShadow  = 'none';
+    });
+    const activeBtn = document.getElementById(`btnScenario${scenario.charAt(0).toUpperCase() + scenario.slice(1)}`);
+    if (activeBtn) {
+        activeBtn.style.fontWeight = '700';
+        activeBtn.style.boxShadow  = '0 0 0 2px currentColor';
+    }
+
+    // Highlight en tarjetas de comparativa
+    document.querySelectorAll('#antigScenarioComparison .stat-card').forEach(c => c.style.opacity = '0.55');
+    const cmpCard = document.getElementById(`cmp${scenario.charAt(0).toUpperCase() + scenario.slice(1)}`);
+    if (cmpCard) cmpCard.style.opacity = '1';
+
+    if (window.lucide) window.lucide.createIcons();
+};
+
 window.closeAntigravityModal = function() {
     forceHideModal(document.getElementById('antigravityModal'));
 };
+
+
+// --- AUDITAR FECHAS INVERTIDAS ---
+window.auditoriaFechasList = [];
+
+window.abrirModalAuditarFechas = function() {
+    if (!window.currentData || window.currentData.length === 0) {
+        if(window.showToast) showToast("No hay datos cargados para analizar.", "warning");
+        return;
+    }
+
+    window.auditoriaFechasList = window.currentData.filter(item => {
+        if (!item.FechaE || !item.FechaI) return false;
+        const fe = new Date(item.FechaE);
+        const fi = new Date(item.FechaI);
+        return fe > fi;
+    });
+
+    if (window.auditoriaFechasList.length === 0) {
+        if(window.showToast) showToast("No se encontraron facturas con Fecha Emisión > Fecha Ingreso.", "success");
+        return;
+    }
+
+    renderAuditoriaFechasTable();
+    forceShowModal(document.getElementById('auditarFechasModal'));
+};
+
+window.closeModalAuditarFechas = function() {
+    forceHideModal(document.getElementById('auditarFechasModal'));
+};
+
+function auditarFormatDate(dateString) {
+    if (!dateString) return '-';
+    if (dateString.includes('T')) dateString = dateString.split('T')[0];
+    const parts = dateString.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return dateString;
+}
+
+function renderAuditoriaFechasTable() {
+    const tbody = document.getElementById('auditarFechasTbody');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    window.auditoriaFechasList.forEach((item, index) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border-color)';
+        
+        const montoStr = Number(item.MontoUsd || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+        
+        tr.innerHTML = `
+            <td style="padding: 0.5rem; text-align: center;">
+                <input type="checkbox" class="auditar-checkbox" data-index="${index}" style="width: 16px; height: 16px; cursor: pointer;">
+            </td>
+            <td style="padding: 0.5rem;">${item.Descrip || item.CodProv}</td>
+            <td style="padding: 0.5rem; font-weight: 600;">${item.NumeroD}</td>
+            <td style="padding: 0.5rem; text-align: center; color: var(--error);">${auditarFormatDate(item.FechaE)}</td>
+            <td style="padding: 0.5rem; text-align: center; color: var(--success);">${auditarFormatDate(item.FechaI)}</td>
+            <td style="padding: 0.5rem; text-align: right; font-weight: bold;">$ ${montoStr}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+window.auditarSeleccionarTodos = function() {
+    document.querySelectorAll('.auditar-checkbox').forEach(cb => cb.checked = true);
+};
+
+window.auditarSeleccionarNinguno = function() {
+    document.querySelectorAll('.auditar-checkbox').forEach(cb => cb.checked = false);
+};
+
+window.auditarInvertirSeleccion = function() {
+    document.querySelectorAll('.auditar-checkbox').forEach(cb => cb.checked = !cb.checked);
+};
+
+window.procesarAuditoriaFechas = async function() {
+    const checkboxes = document.querySelectorAll('.auditar-checkbox:checked');
+    if (checkboxes.length === 0) {
+        if(window.showToast) showToast("Selecciona al menos una factura para procesar.", "warning");
+        return;
+    }
+
+    const facturas = [];
+    checkboxes.forEach(cb => {
+        const item = window.auditoriaFechasList[cb.dataset.index];
+        facturas.push({
+            NumeroD: item.NumeroD,
+            CodProv: item.CodProv
+        });
+    });
+
+    if (!confirm(`¿Estás seguro de intercambiar FechaE y FechaI para ${facturas.length} facturas?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch('/api/cxp/admin/reparar-fechas-batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ facturas })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+            if(window.showToast) showToast(data.message || "Fechas corregidas con éxito", "success");
+            window.closeModalAuditarFechas();
+            const btnRefresh = document.getElementById('refreshBtn');
+            if(btnRefresh) btnRefresh.click();
+        } else {
+            if(window.showToast) showToast(data.detail || "Error al procesar fechas", "error");
+        }
+    } catch (err) {
+        console.error(err);
+        if(window.showToast) showToast("Error de conexión.", "error");
+    }
+};
+

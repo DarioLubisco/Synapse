@@ -4788,6 +4788,42 @@ def generar_pdf_islr(config: dict, retenciones: list) -> bytes:
     out = pdf.output(dest='S')
     return out.encode('latin-1') if isinstance(out, str) else bytes(out)
 
+class RepararFechasBatchRequest(BaseModel):
+    facturas: list[dict]
+
+@router.post("/api/cxp/admin/reparar-fechas-batch")
+async def reparar_fechas_batch(payload: RepararFechasBatchRequest):
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        
+        updated_count = 0
+        for f in payload.facturas:
+            num_d = f.get("NumeroD")
+            cod_prov = f.get("CodProv")
+            if not num_d or not cod_prov:
+                continue
+                
+            cursor.execute("""
+                UPDATE EnterpriseAdmin_AMC.dbo.SACOMP 
+                SET FechaE = FechaI, FechaI = FechaE 
+                WHERE NumeroD = ? AND CodProv = ? AND TipoCom = 'H';
+                
+                UPDATE EnterpriseAdmin_AMC.dbo.SAACXP 
+                SET FechaE = FechaI, FechaI = FechaE 
+                WHERE NumeroD = ? AND CodProv = ? AND TipoCxP = '10';
+            """, (num_d, cod_prov, num_d, cod_prov))
+            updated_count += 1
+            
+        conn.commit()
+        return {"message": f"Se intercambiaron las fechas de {updated_count} facturas exitosamente."}
+    except Exception as e:
+        if 'conn' in locals(): conn.rollback()
+        logging.error(f"Error en reparar_fechas_batch: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if 'conn' in locals(): conn.close()
+
 if __name__ == "__main__":
     import uvicorn # type: ignore
     uvicorn.run(app, host="0.0.0.0", port=8080)
