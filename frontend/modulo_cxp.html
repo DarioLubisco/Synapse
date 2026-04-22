@@ -309,6 +309,12 @@
                                 <i data-lucide="refresh-cw"></i>
                                 Actualizar
                             </button>
+                            <button id="auditarFechasBtn" class="btn btn-secondary"
+                                style="color: #f59e0b; border-color: rgba(245,158,11,0.4); height: 38px; display: flex; align-items: center; gap: 0.4rem;"
+                                onclick="window.abrirModalAuditarFechas()">
+                                <i data-lucide="alert-triangle"></i>
+                                Auditar Fechas
+                            </button>
                         </div>
                     </div>
 
@@ -2497,22 +2503,45 @@
                         </small>
                     </div>
                     <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;">
-                    <h4 style="margin: 0; color: #8b5cf6;">Motor Antigravity</h4>
+                    <h4 style="margin: 0; color: #8b5cf6;">⚡ Motor Antigravity — Escenarios de Préstamo</h4>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
                         <div class="input-group">
                             <label>Porcentaje Flujo (%)</label>
                             <input type="number" id="cfgAntigravityFlow" class="form-control" min="1" max="100" value="90">
-                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Porcentaje del saldo consolidado usar.</small>
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Porcentaje del saldo consolidado a usar.</small>
                         </div>
                         <div class="input-group">
-                            <label>WACC (Costo Cap. Anual %)</label>
+                            <label>WACC (Costo Capital Anual %)</label>
                             <input type="number" id="cfgAntigravityWacc" class="form-control" min="0" step="0.1" value="12">
-                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Interés penalidad por adelantar.</small>
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Penalidad por adelantar pagos.</small>
                         </div>
-                        <div class="input-group" style="grid-column: span 2;">
-                            <label>Línea de Crédito (Sobregiro USD Diario)</label>
+                        <div class="input-group">
+                            <label>📅 Plazo del Préstamo (días)</label>
+                            <input type="number" id="cfgAntigravityLoanDays" class="form-control" min="1" step="1" value="30">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Días de repago para calcular costo financiero por escenario.</small>
+                        </div>
+                        <div class="input-group">
+                            <label>📈 Tasa de Interés del Préstamo (% anual)</label>
+                            <input type="number" id="cfgAntigravityLoanRate" class="form-control" min="0" step="0.1" value="18">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Tasa anual del financiamiento externo. Aplica igual a los 3 escenarios.</small>
+                        </div>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-secondary);margin:0.75rem 0 0.25rem;">Monto prestado por escenario — cada uno es independiente:</p>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.75rem;">
+                        <div class="input-group" style="border-left:3px solid #10b981;padding-left:0.5rem;">
+                            <label style="color:#10b981;">🛡️ Conservador (USD)</label>
                             <input type="number" id="cfgAntigravityMaxCredit" class="form-control" min="0" step="10" value="0">
-                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Permite al optimizador "tomar prestado" si encuentra un descuento mayor al costo de penalidad. (0 = no permite eludir el flujo).</small>
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Sin apalancamiento o crédito mínimo.</small>
+                        </div>
+                        <div class="input-group" style="border-left:3px solid #f59e0b;padding-left:0.5rem;">
+                            <label style="color:#f59e0b;">⚡ Moderado (USD)</label>
+                            <input type="number" id="cfgAntigravityMaxCreditMod" class="form-control" min="0" step="10" value="0">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Crédito moderado con retorno positivo esperado.</small>
+                        </div>
+                        <div class="input-group" style="border-left:3px solid #ef4444;padding-left:0.5rem;">
+                            <label style="color:#ef4444;">🔥 Agresivo (USD)</label>
+                            <input type="number" id="cfgAntigravityMaxCreditAgr" class="form-control" min="0" step="10" value="0">
+                            <small style="color:var(--text-secondary);font-size:0.78rem;margin-top:0.25rem;">Máximo apalancamiento — mayor riesgo financiero.</small>
                         </div>
                     </div>
                     <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:1rem;margin-top:1rem;">
@@ -2790,77 +2819,217 @@
 
     </div>
 
-    <!-- Antigravity Optimizer Results Modal -->
+    <!-- Antigravity Optimizer Results Modal — Multi-Escenario -->
     <div id="antigravityModal" class="modal" style="z-index: 10050;">
         <div class="modal-content glassmorphism" style="max-width: 1848px; width: 95%;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
-                <h2 style="margin:0; color: #8b5cf6;"><i data-lucide="zap" style="width:20px;height:20px;vertical-align:middle;"></i> Motor Tesoreria</h2>
-                <button class="btn-icon" onclick="closeAntigravityModal()"><i data-lucide="x"></i></button>
-            </div>
-            
-            <div class="dashboard-stats" style="margin-bottom: 1.5rem; grid-template-columns: repeat(4, 1fr);">
-                <div class="stat-card glassmorphism">
-                    <div class="stat-icon-wrapper" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
-                        <i data-lucide="trending-down"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Volatilidad / Tendencia Diaria</h3>
-                        <p id="antigDevMensual" style="font-size: 1.2rem;">0.00%</p>
-                    </div>
+
+            <!-- ── ENCABEZADO ── -->
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem;">
+                <div style="display:flex;align-items:center;gap:0.75rem;">
+                    <h2 style="margin:0; color: #8b5cf6;"><i data-lucide="zap" style="width:20px;height:20px;vertical-align:middle;"></i> Motor Tesorería · Finanza Dinámica</h2>
                 </div>
-                <div class="stat-card glassmorphism">
-                    <div class="stat-icon-wrapper" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
-                        <i data-lucide="dollar-sign"></i>
+                <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;">
+                    <!-- Botones de escenario -->
+                    <div style="display:flex;align-items:center;gap:0.4rem;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:8px;padding:0.3rem 0.5rem;">
+                        <span style="font-size:0.78rem;color:var(--text-secondary);margin-right:0.3rem;">Escenario:</span>
+                        <button id="btnScenarioConservador" class="btn btn-sm antg-scenario-btn active-scenario"
+                            onclick="window.switchAntigravityScenario('conservador')"
+                            style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(16,185,129,0.15);color:#10b981;border-color:rgba(16,185,129,0.4);">
+                            <i data-lucide="shield" style="width:13px;height:13px;"></i> Conservador
+                        </button>
+                        <button id="btnScenarioModerado" class="btn btn-sm antg-scenario-btn"
+                            onclick="window.switchAntigravityScenario('moderado')"
+                            style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(245,158,11,0.12);color:#f59e0b;border-color:rgba(245,158,11,0.35);">
+                            <i data-lucide="zap" style="width:13px;height:13px;"></i> Moderado
+                        </button>
+                        <button id="btnScenarioAgresivo" class="btn btn-sm antg-scenario-btn"
+                            onclick="window.switchAntigravityScenario('agresivo')"
+                            style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(239,68,68,0.12);color:#ef4444;border-color:rgba(239,68,68,0.35);">
+                            <i data-lucide="flame" style="width:13px;height:13px;"></i> Agresivo
+                        </button>
                     </div>
-                    <div class="stat-info">
-                        <h3>Ahorro Real Proyectado (USD)</h3>
-                        <p id="antigAhorroUsd" style="font-size: 1.2rem; color: #10b981;">$ 0.00</p>
-                    </div>
-                </div>
-                <div class="stat-card glassmorphism">
-                    <div class="stat-icon-wrapper" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                        <i data-lucide="pie-chart"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Gasto Total Comprometido (USD)</h3>
-                        <p id="antigGastoUsd" style="font-size: 1.2rem;">$ 0.00</p>
-                    </div>
-                </div>
-                <div class="stat-card glassmorphism">
-                    <div class="stat-icon-wrapper" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
-                        <i data-lucide="percent"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h3>Límite de Liquidez</h3>
-                        <p id="antigLimiteFlujo" style="font-size: 1.2rem;">0%</p>
-                    </div>
+                    <!-- Botón filtro -->
+                    <button id="btnAntigFilterToggle" class="btn btn-sm" onclick="window.toggleAntigravityFilter()"
+                        title="Mostrar/ocultar pagos sin optimización de fecha"
+                        style="padding:0.25rem 0.7rem;font-size:0.8rem;background:rgba(139,92,246,0.08);color:#8b5cf6;border:1px solid rgba(139,92,246,0.3);border-radius:6px;">
+                        <i data-lucide="filter-x" style="width:13px;height:13px;"></i> Solo optimizados
+                    </button>
+                    <!-- Botón configuración -->
+                    <button class="btn btn-secondary" onclick="closeAntigravityModal();openRetConfigModal();"
+                        title="Parametrizar Motor Antigravity"
+                        style="padding:0.3rem 0.6rem;font-size:0.8rem;color:#8b5cf6;border-color:rgba(139,92,246,0.4);">
+                        <i data-lucide="settings-2" style="width:14px;height:14px;"></i> Configurar
+                    </button>
+                    <button class="btn-icon" onclick="closeAntigravityModal()"><i data-lucide="x"></i></button>
                 </div>
             </div>
 
-            <h3 style="margin-bottom: 0.5rem; font-size: 1rem;">Ruta Óptima Calculada <span style="font-size: 0.8rem; color: var(--text-secondary);">(Knapsack Constraints Applied)</span></h3>
-            <div class="table-responsive" style="max-height: 50vh; overflow-y: auto;">
-                <table class="data-table" style="margin: 0;">
-                    <thead style="position: sticky; top: 0; background: var(--bg-secondary); z-index: 10;">
-                        <tr>
-                            <th>Fecha a Pagar (Tx)</th>
-                            <th>Venc. Original</th>
-                            <th>Nro Documento</th>
-                            <th>Proveedor</th>
-                            <th>Prioridad</th>
-                            <th class="amount" style="color:var(--text-secondary)">Deuda Nominal (Bs)</th>
-                            <th class="amount">Pago Costo Eq. (Bs)</th>
-                            <th class="amount">Costo Gasto (USD)</th>
-                            <th class="amount" style="color:var(--success)">Ahorro Eq (USD)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="antigravityTableBody">
-                    </tbody>
-                </table>
+            <!-- ── COMPARATIVA RÁPIDA DE ESCENARIOS ── -->
+            <div id="antigScenarioComparison" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.2rem;">
+                <!-- Conservador -->
+                <div class="stat-card glassmorphism" id="cmpConservador" style="border-left:3px solid #10b981;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('conservador')">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
+                        <i data-lucide="shield" style="width:16px;height:16px;color:#10b981;"></i>
+                        <span style="font-weight:600;color:#10b981;font-size:0.85rem;">Conservador</span>
+                    </div>
+                    <div style="font-size:0.78rem;color:var(--text-secondary);">Prestado</div>
+                    <div id="cmpConservadorCredit" style="font-size:1rem;font-weight:700;">$ 0.00</div>
+                    <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.2rem;">Ahorro Neto</div>
+                    <div id="cmpConservadorSavings" style="font-size:1rem;font-weight:700;color:#10b981;">$ 0.00</div>
+                </div>
+                <!-- Moderado -->
+                <div class="stat-card glassmorphism" id="cmpModerado" style="border-left:3px solid #f59e0b;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('moderado')">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
+                        <i data-lucide="zap" style="width:16px;height:16px;color:#f59e0b;"></i>
+                        <span style="font-weight:600;color:#f59e0b;font-size:0.85rem;">Moderado</span>
+                    </div>
+                    <div style="font-size:0.78rem;color:var(--text-secondary);">Prestado</div>
+                    <div id="cmpModeradoCredit" style="font-size:1rem;font-weight:700;">$ 0.00</div>
+                    <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.2rem;">Ahorro Neto</div>
+                    <div id="cmpModeradoSavings" style="font-size:1rem;font-weight:700;color:#f59e0b;">$ 0.00</div>
+                </div>
+                <!-- Agresivo -->
+                <div class="stat-card glassmorphism" id="cmpAgresivo" style="border-left:3px solid #ef4444;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('agresivo')">
+                    <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
+                        <i data-lucide="flame" style="width:16px;height:16px;color:#ef4444;"></i>
+                        <span style="font-weight:600;color:#ef4444;font-size:0.85rem;">Agresivo</span>
+                    </div>
+                    <div style="font-size:0.78rem;color:var(--text-secondary);">Prestado</div>
+                    <div id="cmpAgresivoCredit" style="font-size:1rem;font-weight:700;">$ 0.00</div>
+                    <div style="font-size:0.78rem;color:var(--text-secondary);margin-top:0.2rem;">Ahorro Neto</div>
+                    <div id="cmpAgresivoSavings" style="font-size:1rem;font-weight:700;color:#ef4444;">$ 0.00</div>
+                </div>
             </div>
 
-            <div class="modal-actions" style="margin-top: 1.5rem; display: flex; justify-content: flex-end;">
-                <button type="button" class="btn btn-secondary" onclick="closeAntigravityModal()">Cerrar Informe Analítico</button>
+            <!-- ── PANELES DE ESCENARIO ── -->
+            <!-- Conservador -->
+            <div id="pane-scenario-conservador" class="antg-scenario-pane active-pane">
+                <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(139,92,246,0.1);color:#8b5cf6;"><i data-lucide="trending-down"></i></div>
+                        <div class="stat-info"><h3>Volatilidad Diaria</h3><p id="antigDevMensual" style="font-size:1.2rem;">0.00%</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="dollar-sign"></i></div>
+                        <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i data-lucide="pie-chart"></i></div>
+                        <div class="stat-info"><h3>Gasto Comprometido (USD)</h3><p id="antigGastoUsd" style="font-size:1.2rem;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i data-lucide="percent"></i></div>
+                        <div class="stat-info"><h3>Límite Liquidez</h3><p id="antigLimiteFlujo" style="font-size:1.2rem;">0%</p></div>
+                    </div>
+                </div>
+                <h3 style="margin-bottom:0.5rem;font-size:0.95rem;">
+                    🛡️ Ruta Óptima · Conservador
+                    <span id="antigConservadorBadge" style="font-size:0.78rem;color:#10b981;margin-left:0.5rem;font-weight:600;"></span>
+                </h3>
+                <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
+                    <table class="data-table" style="margin:0;">
+                        <thead style="position:sticky;top:0;background:var(--bg-secondary);z-index:10;">
+                            <tr>
+                                <th>Fecha Pago</th><th>Venc. Original</th><th>Nro Doc.</th><th>Proveedor</th><th>Prioridad</th>
+                                <th class="amount" style="color:var(--text-secondary)">Deuda (Bs)</th>
+                                <th class="amount">Pago Equiv. (Bs)</th>
+                                <th class="amount">Costo (USD)</th>
+                                <th class="amount" style="color:var(--success)">Ahorro (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="antigravityTableBody"></tbody>
+                    </table>
+                </div>
             </div>
+
+            <!-- Moderado -->
+            <div id="pane-scenario-moderado" class="antg-scenario-pane" style="display:none;">
+                <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
+                    <div class="stat-card glassmorphism" style="border-color:rgba(245,158,11,0.3);">
+                        <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i data-lucide="credit-card"></i></div>
+                        <div class="stat-info"><h3>Monto Prestado</h3><p id="antigModCreditUsd" style="font-size:1.2rem;color:#f59e0b;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="trending-up"></i></div>
+                        <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigModAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="landmark"></i></div>
+                        <div class="stat-info"><h3>Costo Financiero (USD)</h3><p id="antigModCostoFinanciero" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i data-lucide="wallet"></i></div>
+                        <div class="stat-info"><h3>Ahorro Neto (USD)</h3><p id="antigModAhorroNeto" style="font-size:1.2rem;color:#f59e0b;font-weight:bold;">$ 0.00</p></div>
+                    </div>
+                </div>
+                <h3 style="margin-bottom:0.5rem;font-size:0.95rem;">
+                    ⚡ Ruta Óptima · Moderado
+                    <span id="antigModeradoBadge" style="font-size:0.78rem;color:#f59e0b;margin-left:0.5rem;font-weight:600;"></span>
+                </h3>
+                <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
+                    <table class="data-table" style="margin:0;">
+                        <thead style="position:sticky;top:0;background:var(--bg-secondary);z-index:10;">
+                            <tr>
+                                <th>Fecha Pago</th><th>Venc. Original</th><th>Nro Doc.</th><th>Proveedor</th><th>Prioridad</th>
+                                <th class="amount" style="color:var(--text-secondary)">Deuda (Bs)</th>
+                                <th class="amount">Pago Equiv. (Bs)</th>
+                                <th class="amount">Costo (USD)</th>
+                                <th class="amount" style="color:var(--success)">Ahorro (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="antigravityTableBodyMod"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Agresivo -->
+            <div id="pane-scenario-agresivo" class="antg-scenario-pane" style="display:none;">
+                <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
+                    <div class="stat-card glassmorphism" style="border-color:rgba(239,68,68,0.3);">
+                        <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="credit-card"></i></div>
+                        <div class="stat-info"><h3>Monto Prestado</h3><p id="antigAgrCreditUsd" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="trending-up"></i></div>
+                        <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigAgrAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="landmark"></i></div>
+                        <div class="stat-info"><h3>Costo Financiero (USD)</h3><p id="antigAgrCostoFinanciero" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
+                    </div>
+                    <div class="stat-card glassmorphism">
+                        <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.2);color:#ef4444;"><i data-lucide="wallet"></i></div>
+                        <div class="stat-info"><h3>Ahorro Neto (USD)</h3><p id="antigAgrAhorroNeto" style="font-size:1.2rem;color:#ef4444;font-weight:bold;">$ 0.00</p></div>
+                    </div>
+                </div>
+                <h3 style="margin-bottom:0.5rem;font-size:0.95rem;">
+                    🔥 Ruta Óptima · Agresivo
+                    <span id="antigAgesivoBadge" style="font-size:0.78rem;color:#ef4444;margin-left:0.5rem;font-weight:600;"></span>
+                </h3>
+                <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
+                    <table class="data-table" style="margin:0;">
+                        <thead style="position:sticky;top:0;background:var(--bg-secondary);z-index:10;">
+                            <tr>
+                                <th>Fecha Pago</th><th>Venc. Original</th><th>Nro Doc.</th><th>Proveedor</th><th>Prioridad</th>
+                                <th class="amount" style="color:var(--text-secondary)">Deuda (Bs)</th>
+                                <th class="amount">Pago Equiv. (Bs)</th>
+                                <th class="amount">Costo (USD)</th>
+                                <th class="amount" style="color:var(--success)">Ahorro (USD)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="antigravityTableBodyAgr"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top:1.2rem;display:flex;justify-content:space-between;align-items:center;">
+                <span style="font-size:0.78rem;color:var(--text-secondary);">
+                    <i data-lucide="info" style="width:12px;height:12px;"></i>
+                    Cada escenario usa su propio monto prestado configurable
+                </span>
+                <button type="button" class="btn btn-secondary" onclick="closeAntigravityModal()">Cerrar Informe</button>
+            </div>
+
         </div>
     </div>
 
@@ -2879,9 +3048,56 @@
         </div>
     </div>
 
+    <!-- Auditar Fechas Modal -->
+    <div id="auditarFechasModal" class="modal" style="z-index: 10050;">
+        <div class="modal-content glass-panel" style="max-width: 1200px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+            <div class="modal-header">
+                <h2><i data-lucide="alert-triangle" style="color: var(--warning);"></i> Auditoría de Fechas Invertidas</h2>
+                <button class="btn-icon" onclick="window.closeModalAuditarFechas()"><i data-lucide="x"></i></button>
+            </div>
+            
+            <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 1rem;">
+                <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                    Se han detectado facturas donde la Fecha de Emisión es posterior a la Fecha de Ingreso.
+                </p>
+                
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                    <button class="btn btn-secondary" onclick="window.auditarSeleccionarTodos()">Seleccionar Todos</button>
+                    <button class="btn btn-secondary" onclick="window.auditarSeleccionarNinguno()">Ninguno</button>
+                    <button class="btn btn-secondary" onclick="window.auditarInvertirSeleccion()">Invertir Selección</button>
+                </div>
+
+                <div class="table-responsive" style="max-height: 50vh; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background-color: var(--bg-secondary); z-index: 1;">
+                            <tr>
+                                <th style="padding: 0.5rem; text-align: center; width: 40px;"></th>
+                                <th style="padding: 0.5rem; text-align: left;">Proveedor</th>
+                                <th style="padding: 0.5rem; text-align: left;">Factura</th>
+                                <th style="padding: 0.5rem; text-align: center;">Fecha E.</th>
+                                <th style="padding: 0.5rem; text-align: center;">Fecha I.</th>
+                                <th style="padding: 0.5rem; text-align: right;">Total $</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditarFechasTbody">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="modal-actions" style="padding: 1rem; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 1rem;">
+                <button class="btn btn-secondary" onclick="window.closeModalAuditarFechas()">Cancelar</button>
+                <button class="btn btn-primary" onclick="window.procesarAuditoriaFechas()" style="background-color: var(--warning); color: #fff; border: none;">
+                    <i data-lucide="refresh-cw"></i> Procesar e Invertir Fechas
+                </button>
+            </div>
+        </div>
+    </div>
+
     <datalist id="datalistProviders"></datalist>
 
-    <script src="js/app_cxp.js?v=20260422_1.70"></script>
+    <script src="js/app_cxp.js?v=50.02"></script>
     <script src="js/modules-report.js?v=49.63"></script>
     <script>
         lucide.createIcons();
