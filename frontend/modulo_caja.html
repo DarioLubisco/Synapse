@@ -1053,6 +1053,43 @@ if (!window.showToast) {
   };
 }
 
+// ── Control de Sesiones Múltiples (BroadcastChannel) ────────────────────────
+const cajaSessionChannel = new BroadcastChannel('caja_session_channel');
+const miIdSesion = Date.now().toString() + Math.random().toString(36).substring(2);
+
+cajaSessionChannel.onmessage = (event) => {
+  if (event.data.type === 'TAB_OPENED') {
+    // Si somos una pestaña activa (ya cargada), le decimos a la nueva que estamos aquí.
+    cajaSessionChannel.postMessage({ type: 'ALREADY_OPEN', fromId: miIdSesion });
+  } else if (event.data.type === 'ALREADY_OPEN') {
+    // Si acabamos de abrir la pestaña y ya hay otra abierta, bloqueamos esta.
+    blockMultipleSessionUI();
+  }
+};
+
+// Avisar que nos acabamos de abrir
+cajaSessionChannel.postMessage({ type: 'TAB_OPENED', fromId: miIdSesion });
+
+function blockMultipleSessionUI() {
+  // Limpiar cualquier autoguardado para evitar corromper la BD
+  if (typeof autosaveTimer !== 'undefined') {
+      clearTimeout(autosaveTimer);
+  }
+  document.body.innerHTML = `
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:var(--bg-body); color:var(--text-primary); font-family:'Inter',sans-serif; text-align:center; padding: 2rem;">
+      <i class="fas fa-exclamation-triangle" style="font-size:5rem; color:var(--danger); margin-bottom:1.5rem;"></i>
+      <h1 style="font-size:1.8rem; margin-bottom:1rem;">Sesión Múltiple Detectada</h1>
+      <p style="font-size:1rem; color:var(--text-secondary); max-width:500px; line-height:1.6;">
+        Ya tienes el módulo de <strong>Cuadre de Cajas</strong> abierto en otra pestaña o ventana.<br><br>
+        Por seguridad y para evitar la duplicidad de transacciones al guardar el borrador, el sistema ha bloqueado esta pestaña.
+      </p>
+      <button class="btn btn-primary" onclick="window.close()" style="margin-top:2rem; font-size:1rem; padding:0.8rem 2rem;">
+        Cerrar esta pestaña
+      </button>
+    </div>
+  `;
+}
+
 // ── State ────────────────────────────────────────────────────────────────────
 let isTicketsCollapsed = false;
 function toggleTicketsCollapse() {
@@ -1227,6 +1264,15 @@ function switchModule(mod, el) {
   document.getElementById(`module-${mod}`).classList.add('active');
   if(el) el.classList.add('active');
   
+  document.querySelectorAll('.btn-secondary').forEach(b => {
+      b.style.borderBottom = 'none';
+      b.style.color = '';
+  });
+  if(el) {
+      el.style.borderBottom = '2px solid var(--primary-accent)';
+      el.style.color = 'var(--text-primary)';
+  }
+  
   const titles = {
       'cuadre': 'Cuadre de Cajas',
       'cxp': 'Cuentas por Pagar',
@@ -1242,14 +1288,16 @@ function switchModule(mod, el) {
   } else if (mod === 'cuadre') {
       document.getElementById('module-subtitle').textContent = 'Selecciona vendedor y fecha para iniciar';
   } else if (mod === 'reportes') {
+      document.getElementById('module-title').textContent = 'Reportes Históricos';
       document.getElementById('module-subtitle').textContent = 'Consulta y auditoría de cierres finalizados y sellados.';
       
-      // Init dates for current month
+      // Init dates for current day
       const today = new Date();
-      if(!document.getElementById('rep-desde').value) {
-          const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-          document.getElementById('rep-desde').value = firstDay.toISOString().slice(0,10);
-          document.getElementById('rep-hasta').value = today.toISOString().slice(0,10);
+      if(!window.reportesInitialized) {
+          const todayStr = today.toISOString().slice(0,10);
+          document.getElementById('rep-desde').value = todayStr;
+          document.getElementById('rep-hasta').value = todayStr;
+          window.reportesInitialized = true;
       }
       
       // Clone vendors
@@ -1283,7 +1331,7 @@ async function iniciarCuadre() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
 
   try {
-    const res = await fetch(`/caja/sistema/totales?vendedor_codigo=${encodeURIComponent(state.vendedor)}&fecha=${state.fecha}`);
+    const res = await fetch(`/caja/sistema/totales?vendedor_codigo=${encodeURIComponent(state.vendedor)}&fecha=${state.fecha}&session_token=${miIdSesion}`);
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
 
@@ -1462,7 +1510,7 @@ function setDiff(id, val) {
 }
 
 // ── Ticket Management ─────────────────────────────────────────────────────────
-function agregarTicket() {
+async function agregarTicket() {
   const tipo  = document.getElementById('t-tipo').value;
   const pos   = document.getElementById('t-pos').value.trim();
   let ref     = document.getElementById('t-ref').value.trim();
@@ -1486,9 +1534,26 @@ function agregarTicket() {
     }
   }
 
+  // Deshabilitar botón temporalmente para evitar doble clic
+  const btn = document.querySelector('button[onclick="agregarTicket()"]');
+  if (btn) btn.disabled = true;
+
   addTicketToState(tipo, pos, ref, monto);
   renderTickets();
   recalculate();
+
+  // Guardado Síncrono a BD
+  const success = await guardarPrecierre(true);
+  
+  if (btn) btn.disabled = false;
+
+  if (!success) {
+      // Revertir en caso de fallo (ej. bloqueo por concurrencia)
+      state.tickets.pop();
+      renderTickets();
+      recalculate();
+      return;
+  }
 
   showToast('✅ Transacción guardada exitosamente.', 'success');
 
@@ -1545,10 +1610,33 @@ function renderTickets() {
   }
 }
 
-function removeTicket(i) {
+async function removeTicket(i) {
+  const ticketToRemove = state.tickets[i];
+  
+  // Guardamos una copia para revertir si falla
+  const backupTickets = [...state.tickets];
+  
+  // Deshabilitar botones de eliminar
+  const btns = document.querySelectorAll('.remove-btn');
+  btns.forEach(btn => btn.disabled = true);
+
+  // Remover del estado
   state.tickets.splice(i, 1);
   renderTickets();
   recalculate();
+
+  // Guardado Síncrono a BD
+  const success = await guardarPrecierre(true);
+  
+  if (!success) {
+      // Revertir en caso de fallo (ej. bloqueo por concurrencia)
+      state.tickets = backupTickets;
+      renderTickets();
+      recalculate();
+      return;
+  }
+  
+  showToast('✅ Transacción eliminada exitosamente.', 'info');
 }
 
 // ── Build Payload ─────────────────────────────────────────────────────────────
@@ -1585,7 +1673,8 @@ function buildPayload(estado) {
     manual_biopago: bio,
     manual_pago_movil: pagoMovil,
     manual_transferencia: transferencia,
-    estado
+    estado,
+    session_token: miIdSesion
   };
 }
 
@@ -1601,17 +1690,17 @@ function triggerAutosave() {
   const indicator = document.getElementById('autosave-indicator');
   if (indicator) {
     indicator.style.display = 'flex';
-    indicator.innerHTML = '<i class="fas fa-pen"></i> Guardando en 15s...';
+    indicator.innerHTML = '<i class="fas fa-pen"></i> Guardando en 10s...';
   }
 
   clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(() => {
     guardarPrecierre(true);
-  }, 15000);
+  }, 10000);
 }
 
 async function guardarPrecierre(isSilent = false) {
-  if (isSaving) return;
+  if (isSaving) return false;
   const payload = buildPayload('BORRADOR');
   isSaving = true;
 
@@ -1625,6 +1714,12 @@ async function guardarPrecierre(isSilent = false) {
     const res = await fetch('/caja/conciliar/guardar_borrador', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
+    
+    if (res.status === 409) {
+        blockMultipleSessionUI();
+        throw new Error("CONCURRENCY_ERROR: Sesión bloqueada por sobreescritura");
+    }
+    
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     if (data.cierre_id) state.cierreId = data.cierre_id;
@@ -1638,6 +1733,7 @@ async function guardarPrecierre(isSilent = false) {
       showToast('Precierre guardado — puedes cerrar la sesión y continuar al reabrir.', 'success');
       if (indicator) indicator.style.display = 'none';
     }
+    return true;
   } catch(e) { 
     if (isSilent) {
       if (indicator) {
@@ -1645,8 +1741,13 @@ async function guardarPrecierre(isSilent = false) {
         indicator.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i> Error autoguardado`;
       }
     } else {
-      showToast('Error guardando precierre: ' + e.message, 'danger'); 
+      if (e.message.includes('CONCURRENCY')) {
+          showToast('Sesión bloqueada por seguridad. Se detectó otra pestaña modificando el cierre.', 'danger');
+      } else {
+          showToast('Error guardando precierre: ' + e.message, 'danger'); 
+      }
     }
+    return false;
   } finally {
     isSaving = false;
   }
@@ -2032,13 +2133,30 @@ async function eliminarTransaccionCalc(id) {
         showToast('Debes estar autenticado para anular registros.', 'warning');
         return;
     }
-    if(!confirm(`¿Está seguro de ANULAR la transacción #${id} del registro?\n\nEsta acción NO se puede deshacer y sólo será permitida si eres Administrador.`)) return;
+    
+    // Validar si es admin antes de preguntar
+    if(!state.perfil.es_admin) {
+        showToast('Acceso Denegado: Sólo los administradores pueden anular transacciones.', 'danger');
+        return;
+    }
+
+    if(!confirm(`¿Está seguro de ANULAR la transacción #${id} del registro?\n\nEsta acción NO se puede deshacer.`)) return;
   
     try {
-      const res = await fetch(`/caja/calculadora/transaccion/${id}?cod_usua=${state.perfil.cod_usua}`, { 
+      const res = await fetch(`/caja/calculadora/transaccion/${id}?cod_usua=${encodeURIComponent(state.perfil.cod_usua)}`, { 
           method: 'DELETE' 
       });
-      if(!res.ok) throw new Error(await res.text());
+      
+      if(!res.ok) {
+          const errText = await res.text();
+          let errMsg = errText;
+          try {
+             const json = JSON.parse(errText);
+             if (json.detail) errMsg = json.detail;
+             else if (json.message) errMsg = json.message;
+          } catch(err) {}
+          throw new Error(errMsg);
+      }
       
       showToast('Transacción anulada con éxito', 'success');
       cargarReporteDolares(); 
@@ -2635,25 +2753,6 @@ async function ejecutarReparacionFechas() {
 
 </script>
 <script src="js/sidebar.js"></script>
-<script>
-  function switchModule(mod, btn) {
-    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
-    document.getElementById('module-' + mod).classList.add('active');
-    
-    document.querySelectorAll('.btn-secondary').forEach(b => {
-        b.style.borderBottom = 'none';
-        b.style.color = '';
-    });
-    if(btn) {
-        btn.style.borderBottom = '2px solid var(--primary-accent)';
-        btn.style.color = 'var(--text-primary)';
-    }
-
-    if (mod === 'cuadre') document.getElementById('module-title').textContent = 'Cuadre de Cajas';
-    if (mod === 'calculadora') document.getElementById('module-title').textContent = 'Calculadora Mixta';
-    if (mod === 'reportes') document.getElementById('module-title').textContent = 'Reportes Históricos';
-    if (mod === 'admin') document.getElementById('module-title').textContent = 'Panel de Administración';
-  }
 </script>
 </body>
 </html>

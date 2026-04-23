@@ -53,6 +53,7 @@ class ConciliarRequest(BaseModel):
     manual_biopago: float
     manual_pago_movil: float = 0.0
     manual_transferencia: float = 0.0
+    session_token: str | None = None
 
 class RepararFechasRequest(BaseModel):
     fecha_inicio: str
@@ -112,7 +113,7 @@ async def get_tasa_del_dia():
 
 # Endpoint to test /caja/sistema/totales
 @router.get("/caja/sistema/totales")
-async def get_totales(vendedor_codigo: str, fecha: str):
+async def get_totales(vendedor_codigo: str, fecha: str, session_token: str | None = None):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -171,7 +172,7 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         # 2. Check for an active Precierre (estado = 'BORRADOR')
         cursor.execute('''
             SELECT id, manual_efectivo_bs, manual_divisas, manual_euros, manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, ISNULL(manual_transferencia, 0)
-            FROM Custom.CajaCierre
+            FROM Custom.CajaCierre WITH (UPDLOCK, SERIALIZABLE)
             WHERE vendedor_codigo = ? AND CAST(fecha_ini AS DATE) = ? AND estado = 'BORRADOR'
         ''', (vendedor_codigo, fecha))
         
@@ -183,6 +184,12 @@ async def get_totales(vendedor_codigo: str, fecha: str):
         if borrador_row:
             has_precierre = True
             cierre_id = borrador_row[0]
+            
+            # Claim the session for the frontend that just loaded it
+            if session_token:
+                cursor.execute("UPDATE Custom.CajaCierre SET session_token = ? WHERE id = ?", (session_token, cierre_id))
+                conn.commit()
+                
             borrador_actual = {
                 "cierre_id": cierre_id,
                 "manual_efectivo_bs": float(borrador_row[1]),
@@ -227,23 +234,46 @@ async def finalizar_cuadre(payload: ConciliarRequest):
     return await _upsert_cierre(payload, estado="FINALIZADO")
 
 
+import logging
+logger = logging.getLogger(__name__)
+
 async def _upsert_cierre(payload: ConciliarRequest, estado: str):
     """Core upsert logic for both Precierre and Cierre Definitivo."""
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    with open(r"c:\Users\DARIO LUBISCO\.gemini\antigravity\scratch\caja_debug.log", "a") as f:
+        f.write(f"\n--- _upsert_cierre called ---\n")
+        f.write(f"Vendedor: {payload.vendedor_codigo}, Estado: {estado}\n")
+        f.write(f"Payload Token: {payload.session_token}\n")
+        
     try:
         # Check for an existing BORRADOR to update instead of creating a duplicate
         cursor.execute('''
-            SELECT id FROM Custom.CajaCierre
+            SELECT id, session_token FROM Custom.CajaCierre WITH (UPDLOCK, SERIALIZABLE)
             WHERE vendedor_codigo = ?
               AND CAST(fecha_ini AS DATE) = ?
               AND estado = 'BORRADOR'
         ''', (payload.vendedor_codigo, payload.fecha_ini))
         existing = cursor.fetchone()
         
+        with open(r"c:\Users\DARIO LUBISCO\.gemini\antigravity\scratch\caja_debug.log", "a") as f:
+            if existing:
+                f.write(f"Existing ID: {existing[0]}, Existing Token: {existing[1]}\n")
+            else:
+                f.write("No existing BORRADOR found.\n")
+                
         if existing:
             cierre_id = existing[0]
+            existing_token = existing[1]
+            
+            # Optimistic Locking / Multi-tab validation
+            if existing_token and payload.session_token and existing_token != payload.session_token:
+                with open(r"c:\Users\DARIO LUBISCO\.gemini\antigravity\scratch\caja_debug.log", "a") as f:
+                    f.write("-> CONCURRENCY ERROR: Tokens do not match!\n")
+                conn.rollback()
+                raise HTTPException(status_code=409, detail="CONCURRENCY_ERROR: Sesión múltiple detectada o borrador modificado en otra pestaña.")
+                
             # Update the header
             cursor.execute('''
                 UPDATE Custom.CajaCierre SET
@@ -256,11 +286,12 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                     manual_biopago     = ?,
                     manual_pago_movil  = ?,
                     manual_transferencia = ?,
-                    estado             = ?
+                    estado             = ?,
+                    session_token      = ?
                 WHERE id = ?
             ''', (payload.vendedor_nombre, payload.manual_efectivo_bs, payload.manual_divisas, payload.manual_euros,
                   payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, payload.manual_transferencia,
-                  estado, cierre_id))
+                  estado, payload.session_token, cierre_id))
             # Wipe detail tables before re-inserting
             cursor.execute("DELETE FROM Custom.CajaCierreEfectivo WHERE cierre_id = ?", (cierre_id,))
             cursor.execute("DELETE FROM Custom.CajaCierreDivisa    WHERE cierre_id = ?", (cierre_id,))
@@ -273,13 +304,13 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                 INSERT INTO Custom.CajaCierre
                     (vendedor_codigo, vendedor_nombre, fecha_ini, fecha_fin,
                      manual_efectivo_bs, manual_divisas, manual_euros,
-                     manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, manual_transferencia, estado)
+                     manual_tdd, manual_tdc, manual_biopago, manual_pago_movil, manual_transferencia, estado, session_token)
                 OUTPUT INSERTED.id
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (payload.vendedor_codigo, payload.vendedor_nombre,
                   payload.fecha_ini, payload.fecha_fin,
                   payload.manual_efectivo_bs, payload.manual_divisas, payload.manual_euros,
-                  payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, payload.manual_transferencia, estado))
+                  payload.manual_tdd, payload.manual_tdc, payload.manual_biopago, payload.manual_pago_movil, payload.manual_transferencia, estado, payload.session_token))
             row = cursor.fetchone()
             if not row:
                 raise Exception("No data returned from INSERT statement into CajaCierre")
@@ -658,7 +689,7 @@ async def eliminar_transaccion_dolares(transaccion_id: int, cod_usua: str):
         if not user_db or int(user_db[0] if user_db[0] is not None else 4) > 2:
             raise HTTPException(status_code=403, detail="Permisos insuficientes. Sólo administradores pueden anular transacciones.")
 
-        cursor.execute("UPDATE Custom.CajaTransaccionesDolares SET anulado = 1, observacion = ISNULL(observacion, '') + ' [ANULADO]' WHERE id = ?", (transaccion_id,))
+        cursor.execute("UPDATE Custom.CajaTransaccionesDolares SET anulado = 1, observacion = ISNULL(CAST(observacion AS VARCHAR(MAX)), '') + ' [ANULADO]' WHERE id = ?", (transaccion_id,))
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Transacción no encontrada")
         conn.commit()
