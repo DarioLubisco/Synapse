@@ -5278,24 +5278,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     </td>
                     <td style="text-align:center;">
                         <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;"><input type="checkbox" class="pm-pronto-pago"> Activo</label>
-                            <select class="form-control pm-desc" disabled style="width:80px;padding:0.1rem;font-size:0.75rem;">
+                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;"><input type="checkbox" class="pm-pronto-pago"> Activo</label>
+                            <select class="form-control pm-desc" disabled style="width:110px;padding:0.2rem 0.4rem;font-size:0.85rem;">
                                 <option value="0">0%</option>
                             </select>
-                            <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.7rem;"><input type="checkbox" class="pm-pp-deduce-iva" disabled> Ded. IVA</label>
+                            <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.75rem;"><input type="checkbox" class="pm-pp-deduce-iva" disabled> Ded. IVA</label>
                         </div>
                     </td>
                     <td style="text-align:center;">
                         <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;"><input type="checkbox" class="pm-desc-base-check"> Activo</label>
-                            <input type="text" class="form-control pm-desc-base-pct" readonly style="width:80px;padding:0.1rem;font-size:0.75rem;text-align:center;" value="0%">
-                            <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.7rem;"><input type="checkbox" class="pm-db-deduce-iva" disabled> Ded. IVA</label>
+                            <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.8rem;"><input type="checkbox" class="pm-desc-base-check"> Activo</label>
+                            <input type="text" class="form-control pm-desc-base-pct" readonly style="width:100px;padding:0.2rem 0.4rem;font-size:0.85rem;text-align:center;" value="0%">
+                            <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.75rem;"><input type="checkbox" class="pm-db-deduce-iva" disabled> Ded. IVA</label>
                         </div>
                     </td>
                     <td><input type="number" class="form-control pm-tasa" step="0.0001" readonly
-                        style="width:80px;padding:0.3rem;font-size:0.8rem;background:var(--bg-card);"></td>
+                        style="width:100px;padding:0.3rem;font-size:0.85rem;background:var(--bg-card);"></td>
                     <td>
-                        <select class="form-control pm-islr-concept" style="width:100px;padding:0.2rem 0.3rem;font-size:0.75rem;">
+                        <select class="form-control pm-islr-concept" style="width:110px;padding:0.2rem 0.3rem;font-size:0.8rem;">
                             <option value="0">Sin Ret. (0%)</option>
                             <option value="0.01">Bienes (1%)</option>
                             <option value="0.03">Servicios (3%)</option>
@@ -5303,7 +5303,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </select>
                     </td>
                     <td><input type="number" class="form-control pm-monto-bs" step="0.01" min="0" required
-                        style="width:110px;padding:0.3rem;font-size:0.8rem;"></td>
+                        style="width:130px;padding:0.3rem;font-size:0.9rem;font-weight:bold;"></td>
                     <td class="amount pm-monto-usd" style="font-weight:bold;color:var(--success);">0.00</td>
                     <td style="text-align:center;">
                         <button type="button" class="btn-icon pm-btn-edit-invoice" title="Editar Factura" data-rowkey="${rKey}" style="padding:0.15rem;">
@@ -5366,7 +5366,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             let opts = '<option value="0">0%</option>';
                             if (cxp.Descuentos && cxp.Descuentos.length > 0) {
                                 cxp.Descuentos.forEach((d, i) => {
-                                    opts += `<option value="${d.Porcentaje}">Tramo ${i+1}: ${d.Porcentaje.toFixed(2)}%</option>`;
+                                    opts += `<option value="${d.Porcentaje}">${d.Porcentaje.toFixed(2)}% (T-${i+1})</option>`;
                                 });
                             }
                             sel.innerHTML = opts;
@@ -5436,7 +5436,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (diffDays < 0) diffDays = 0;
 
                             json.data.Descuentos.forEach((d, i) => {
-                                opts += `<option value="${d.Porcentaje}">Tramo ${i+1}: ${d.Porcentaje.toFixed(2)}%</option>`;
+                                opts += `<option value="${d.Porcentaje}">${d.Porcentaje.toFixed(2)}% (T-${i+1})</option>`;
                             });
                             bestMatch = json.data.Descuentos.find(tier => diffDays >= tier.DiasDesde && diffDays <= tier.DiasHasta);
                         }
