@@ -490,6 +490,14 @@ tbody tr:hover {
   border-color: var(--primary-accent);
 }
 
+.form-control:disabled {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  opacity: 0.85;
+  cursor: not-allowed;
+  border-color: var(--border-subtle);
+}
+
 .btn-primary {
   background-color: var(--primary-accent);
   color: white;
