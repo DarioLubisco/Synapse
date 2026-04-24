@@ -105,6 +105,83 @@
     .bloque-sistema .bloque-icon { background: rgba(59, 130, 246, 0.2); }
     .bloque-manual  .bloque-icon { background: rgba(16, 185, 129, 0.2); }
     .bloque-diferencias .bloque-icon { background: rgba(245, 158, 11, 0.2); }
+
+    /* ── MODAL REPORTE CONSOLIDADO ──────────────────────────────────── */
+    #modal-reporte-consolidado { z-index: 10000; }
+    #modal-reporte-consolidado .modal-content {
+      max-width: 860px; width: 95%; padding: 0;
+      border-radius: 16px; overflow: hidden; max-height: 92vh;
+      display: flex; flex-direction: column;
+    }
+    .rci-header {
+      background: linear-gradient(135deg, rgba(79,70,229,0.15), rgba(168,85,247,0.1));
+      padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-subtle);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .rci-header h2 { margin: 0; font-size: 1.15rem; display: flex; align-items: center; gap: 0.6rem; }
+    .rci-tabs {
+      display: flex; gap: 0; border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg-secondary); flex-shrink: 0; overflow-x: auto;
+    }
+    .rci-tab {
+      padding: 0.75rem 1.1rem; font-size: 0.8rem; font-weight: 600;
+      border: none; background: transparent; color: var(--text-muted);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem;
+    }
+    .rci-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+    .rci-tab.active { color: var(--primary-accent); border-bottom-color: var(--primary-accent); }
+    .rci-body { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; }
+    .rci-panel { display: none; }
+    .rci-panel.active { display: block; }
+    .rci-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+    .rci-kpi {
+      background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+      border-radius: 10px; padding: 0.85rem 1rem; text-align: center;
+    }
+    .rci-kpi .lbl { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 0.35rem; }
+    .rci-kpi .val { font-size: 1.1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+    .rci-comparativa { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .rci-comparativa th { padding: 0.5rem 0.75rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
+    .rci-comparativa td { padding: 0.55rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .rci-comparativa tr:hover td { background: rgba(255,255,255,0.02); }
+    .rci-comparativa .num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .rci-comparativa .total-row td { font-weight: 800; border-top: 2px solid var(--border-subtle); background: rgba(255,255,255,0.03); }
+    .semaforo { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+    .sem-ok { background: #10b981; }
+    .sem-warn { background: #f59e0b; }
+    .sem-bad { background: #ef4444; }
+    .rci-footer {
+      display: flex; gap: 0.75rem; justify-content: flex-end; align-items: center;
+      padding: 1rem 1.5rem; border-top: 1px solid var(--border-subtle); flex-shrink: 0;
+      background: var(--bg-secondary);
+    }
+    .rci-print-opts { display: flex; gap: 0.5rem; align-items: center; }
+    .rci-section-title {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin: 1rem 0 0.5rem; padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .denom-print-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem; }
+    .denom-print-item {
+      background: var(--bg-secondary); border: 1px solid var(--border-subtle);
+      border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.82rem;
+      display: flex; justify-content: space-between;
+    }
+    .firma-box {
+      margin-top: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+    }
+    .firma-item { text-align: center; }
+    .firma-linea { border-top: 1px solid var(--border-subtle); margin-top: 2.5rem; padding-top: 0.4rem; font-size: 0.8rem; color: var(--text-muted); }
+    .diff-pos { color: #10b981; }
+    .diff-neg { color: #ef4444; }
+    .diff-zero { color: var(--text-muted); }
+
+    /* ── ESTILOS DE IMPRESIÓN ──────────────────────────────────────── */
+    @media print {
+      body > *:not(#print-frame-wrapper) { display: none !important; }
+      #print-frame-wrapper { display: block !important; position: fixed; inset: 0; z-index: 99999; }
+    }
   </style>
 
 </head>
@@ -445,6 +522,9 @@
               <div class="action-bar">
                 <button class="btn btn-warning" onclick="guardarPrecierre()">
                   <i class="fas fa-save"></i> Guardar Precierre
+                </button>
+                <button class="btn btn-secondary" onclick="abrirReporteCierre()" title="Ver reporte consolidado con opción de impresión">
+                  <i class="fas fa-print"></i> Reporte
                 </button>
                 <button class="btn btn-danger" id="btn-finalizar" onclick="confirmarCierreFinal()">
                   <i class="fas fa-lock"></i> Cierre Definitivo
@@ -1040,6 +1120,110 @@
       <button class="btn btn-warning" id="btn-ejecutar-reparacion" onclick="ejecutarReparacionFechas()">
         <i class="fas fa-play"></i> Ejecutar Reparación
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal Reporte de Cierre Consolidado ── -->
+<div class="modal" id="modal-reporte-consolidado">
+  <div class="modal-content glassmorphism">
+    <div class="rci-header">
+      <h2><i class="fas fa-clipboard-check" style="color:var(--primary-accent);"></i> Reporte de Cierre Consolidado
+        <span id="rci-badge-vend" style="font-size:0.8rem;color:var(--text-muted);font-weight:400;"></span>
+      </h2>
+      <button class="btn-icon" onclick="document.getElementById('modal-reporte-consolidado').classList.remove('active')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="rci-tabs">
+      <button class="rci-tab active" onclick="rciSwitchTab('resumen',this)"><i class="fas fa-tachometer-alt"></i> Resumen</button>
+      <button class="rci-tab" onclick="rciSwitchTab('sistema',this)"><i class="fas fa-server"></i> Sistema</button>
+      <button class="rci-tab" onclick="rciSwitchTab('manual',this)"><i class="fas fa-hand-holding-usd"></i> Conteo</button>
+      <button class="rci-tab" onclick="rciSwitchTab('bancos',this)"><i class="fas fa-mobile-alt"></i> PM / Bancos</button>
+      <button class="rci-tab" onclick="rciSwitchTab('imprimir',this)"><i class="fas fa-print"></i> Imprimir</button>
+    </div>
+    <div class="rci-body">
+      <!-- TAB: Resumen -->
+      <div class="rci-panel active" id="rci-tab-resumen">
+        <div class="rci-kpi-grid" id="rci-kpis"></div>
+        <p class="rci-section-title"><i class="fas fa-table"></i> Comparativa Sistema vs. Conteo</p>
+        <table class="rci-comparativa">
+          <thead><tr><th>Categoría</th><th class="num">Sistema (Saint)</th><th class="num">Manual</th><th class="num">Diferencia</th><th style="text-align:center;">Estado</th></tr></thead>
+          <tbody id="rci-tbody-comparativa"></tbody>
+          <tfoot><tr class="total-row"><td>TOTAL</td><td class="num" id="rci-tot-sis"></td><td class="num" id="rci-tot-man"></td><td class="num" id="rci-tot-diff"></td><td></td></tr></tfoot>
+        </table>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.75rem;text-align:right;">
+          <i class="fas fa-coins"></i> Tasa BCV: Bs. <span id="rci-tasa-display">—</span> = $1.00
+        </p>
+      </div>
+      <!-- TAB: Sistema -->
+      <div class="rci-panel" id="rci-tab-sistema">
+        <p class="rci-section-title"><i class="fas fa-server"></i> Totales registrados en Saint (SAIPAVTA)</p>
+        <table class="rci-comparativa">
+          <thead><tr><th>Método de Pago</th><th class="num">Monto Sistema</th></tr></thead>
+          <tbody id="rci-tbody-sistema"></tbody>
+        </table>
+      </div>
+      <!-- TAB: Conteo Físico -->
+      <div class="rci-panel" id="rci-tab-manual">
+        <p class="rci-section-title"><i class="fas fa-money-bill-wave"></i> Efectivo Bs — Denominaciones</p>
+        <div class="denom-print-grid" id="rci-denoms-bs"></div>
+        <p class="rci-section-title" style="margin-top:1rem;"><i class="fas fa-dollar-sign"></i> Efectivo USD</p>
+        <div class="denom-print-grid" id="rci-denoms-usd"></div>
+        <p class="rci-section-title" style="margin-top:1rem;"><i class="fas fa-receipt"></i> Tickets POS</p>
+        <table class="rci-comparativa">
+          <thead><tr><th>Tipo</th><th>Terminal/Banco</th><th>Referencia</th><th class="num">Monto</th></tr></thead>
+          <tbody id="rci-tbody-tickets"></tbody>
+        </table>
+      </div>
+      <!-- TAB: Bancos -->
+      <div class="rci-panel" id="rci-tab-bancos">
+        <p class="rci-section-title"><i class="fas fa-mobile-alt"></i> Distribución PM + Transferencias</p>
+        <table class="rci-comparativa">
+          <thead><tr><th>Banco / Terminal</th><th>Tipo</th><th class="num">Subtotal</th><th class="num">% del PM</th></tr></thead>
+          <tbody id="rci-tbody-bancos"></tbody>
+        </table>
+      </div>
+      <!-- TAB: Imprimir -->
+      <div class="rci-panel" id="rci-tab-imprimir">
+        <p style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:1.25rem;">Selecciona el tipo de documento a imprimir:</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+          <div style="background:rgba(79,70,229,0.07);border:1px solid rgba(79,70,229,0.3);border-radius:12px;padding:1.25rem;">
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem;">
+              <div style="width:36px;height:36px;background:rgba(79,70,229,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-signature" style="color:#6366f1;"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:0.95rem;">Resumen Ejecutivo</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">1 página · Para firmar</div>
+              </div>
+            </div>
+            <ul style="font-size:0.82rem;color:var(--text-secondary);padding-left:1.2rem;margin-bottom:1rem;line-height:1.8;">
+              <li>KPIs + tabla comparativa</li><li>Diferencia global</li><li><strong>Firma: Cajero + Supervisor</strong></li>
+            </ul>
+            <button class="btn btn-primary" style="width:100%;" onclick="imprimirReporte('resumen')"><i class="fas fa-print"></i> Imprimir Resumen</button>
+          </div>
+          <div style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:1.25rem;">
+            <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.75rem;">
+              <div style="width:36px;height:36px;background:rgba(16,185,129,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-search-dollar" style="color:#10b981;"></i>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:0.95rem;">Auditoría Completa</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">Varias páginas · Para archivo</div>
+              </div>
+            </div>
+            <ul style="font-size:0.82rem;color:var(--text-secondary);padding-left:1.2rem;margin-bottom:1rem;line-height:1.8;">
+              <li>Resumen + denominaciones</li><li>Todos los tickets POS</li><li>Desglose por banco</li><li><strong>Firma: Cajero + Supervisor</strong></li>
+            </ul>
+            <button class="btn btn-success" style="width:100%;background:linear-gradient(135deg,#059669,#10b981);" onclick="imprimirReporte('auditoria')"><i class="fas fa-print"></i> Imprimir Auditoría</button>
+          </div>
+        </div>
+        <p style="margin-top:1rem;font-size:0.78rem;color:var(--text-muted);text-align:center;"><i class="fas fa-info-circle"></i> Se abrirá el diálogo de impresión del navegador.</p>
+      </div>
+    </div><!-- /rci-body -->
+    <div class="rci-footer">
+      <span id="rci-timestamp" style="font-size:0.78rem;color:var(--text-muted);margin-right:auto;"></span>
+      <button class="btn btn-secondary" onclick="document.getElementById('modal-reporte-consolidado').classList.remove('active')"><i class="fas fa-times"></i> Cerrar</button>
+      <button class="btn btn-primary" onclick="rciSwitchTab('imprimir', document.querySelectorAll('.rci-tab')[4])"><i class="fas fa-print"></i> Ir a Imprimir</button>
     </div>
   </div>
 </div>
@@ -2867,6 +3051,189 @@ async function ejecutarReparacionFechas() {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-play"></i> Ejecutar Reparación';
   }
+}
+
+// ── REPORTE DE CIERRE CONSOLIDADO ────────────────────────────────────────────
+function abrirReporteCierre() {
+  if (!state.vendedor) { showToast('Inicia un cuadre primero.', 'warning'); return; }
+  document.getElementById('rci-badge-vend').textContent = ` — ${state.vendedorNombre||state.vendedor} · ${state.fecha}`;
+  document.getElementById('rci-tasa-display').textContent = state.tasaDolar.toLocaleString('es-VE',{minimumFractionDigits:2});
+  document.getElementById('rci-timestamp').textContent = 'Generado: '+new Date().toLocaleString('es-VE',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'});
+
+  const manBs    = BS_DENOMS.reduce((s,d)=>s+(parseInt(document.getElementById(`denom-bs-${d}`)?.value)||0)*d,0);
+  const manUsd   = USD_DENOMS.reduce((s,d)=>s+(parseInt(document.getElementById(`denom-usd-${d}`)?.value)||0)*d,0);
+  const manDisp  = state.tickets.filter(t=>['TDD','TDC','BIOPAGO'].includes(t.tipo)).reduce((s,t)=>s+t.monto,0);
+  const manBancos= state.tickets.filter(t=>['PAGO_MOVIL','TRANSFERENCIA'].includes(t.tipo)).reduce((s,t)=>s+t.monto,0);
+  const manTotal = manBs+manDisp+manBancos;
+  const sisTotal = state.sysEfectivo+(state.sysDispositivos||0)+(state.sysBancos||0);
+  const diffTotal= manTotal-sisTotal;
+  const fmtN = n=>parseFloat(n||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmtDiff= d=>`<span class="${d>0?'diff-pos':d<0?'diff-neg':'diff-zero'}">${d>=0?'+':''}${fmtN(d)}</span>`;
+  const sem = d=>{const a=Math.abs(d);return a<1?'<span class="semaforo sem-ok"></span>':a<100?'<span class="semaforo sem-warn"></span>':'<span class="semaforo sem-bad"></span>';};
+
+  // KPIs
+  document.getElementById('rci-kpis').innerHTML=[
+    {lbl:'Total Sistema',val:fmt(sisTotal),color:'#60a5fa'},
+    {lbl:'Total Manual', val:fmt(manTotal),color:'#34d399'},
+    {lbl:'Diferencia',   val:(diffTotal>=0?'+':'')+fmt(diffTotal),color:diffTotal===0?'#9ca3af':diffTotal>0?'#34d399':'#f87171'},
+    {lbl:'USD en Caja',  val:'$ '+manUsd.toFixed(2),color:'#fbbf24'},
+    {lbl:'# Tickets',    val:state.tickets.length,color:'#a78bfa'},
+  ].map(k=>`<div class="rci-kpi"><div class="lbl">${k.lbl}</div><div class="val" style="color:${k.color}">${k.val}</div></div>`).join('');
+
+  // Comparativa
+  const rows=[
+    ['Efectivo Bs.',state.sysEfectivo,manBs],
+    ['Tarjetas/Biopago',state.sysDispositivos||0,manDisp],
+    ['Pago Móvil/Transf.',state.sysBancos||0,manBancos],
+  ];
+  document.getElementById('rci-tbody-comparativa').innerHTML=rows.map(([c,s,m])=>
+    `<tr><td>${c}</td><td class="num">${fmtN(s)}</td><td class="num">${fmtN(m)}</td><td class="num">${fmtDiff(m-s)}</td><td style="text-align:center">${sem(m-s)}</td></tr>`
+  ).join('');
+  document.getElementById('rci-tot-sis').textContent=fmtN(sisTotal);
+  document.getElementById('rci-tot-man').textContent=fmtN(manTotal);
+  document.getElementById('rci-tot-diff').innerHTML=fmtDiff(diffTotal);
+
+  // Tab Sistema
+  document.getElementById('rci-tbody-sistema').innerHTML=[
+    ['Bolivares Efectivo',state.sysEfectivo],
+    ['Tarjetas + Biopago',state.sysDispositivos||0],
+    ['Pago Móvil / Transf.',state.sysBancos||0],
+    ['Dólares Sistema',state.sysDivisasSis||0],
+  ].map(([n,v])=>`<tr><td>${n}</td><td class="num">${fmtN(v)}</td></tr>`).join('');
+
+  // Denominaciones
+  document.getElementById('rci-denoms-bs').innerHTML=BS_DENOMS.map(d=>{
+    const q=parseInt(document.getElementById(`denom-bs-${d}`)?.value)||0;
+    return`<div class="denom-print-item"><span>Bs.${d}</span><span>${q?`<b>${q}</b>→${fmtN(q*d)}`:'—'}</span></div>`;
+  }).join('');
+  document.getElementById('rci-denoms-usd').innerHTML=USD_DENOMS.map(d=>{
+    const q=parseInt(document.getElementById(`denom-usd-${d}`)?.value)||0;
+    return`<div class="denom-print-item"><span>$${d}</span><span>${q?`<b>${q}</b>→$${(q*d).toFixed(2)}`:'—'}</span></div>`;
+  }).join('');
+
+  // Tickets
+  document.getElementById('rci-tbody-tickets').innerHTML=state.tickets.length===0
+    ?'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem;">Sin tickets</td></tr>'
+    :state.tickets.map(t=>`<tr><td>${t.tipo}</td><td>${t.punto_de_venta}</td><td style="font-size:0.8rem;font-family:monospace">${t.referencia}</td><td class="num">${fmtN(t.monto)}</td></tr>`).join('');
+
+  // Bancos
+  const bMap={};
+  state.tickets.filter(t=>['PAGO_MOVIL','TRANSFERENCIA'].includes(t.tipo)).forEach(t=>{
+    const k=t.punto_de_venta||'Otros';
+    if(!bMap[k])bMap[k]={tipo:t.tipo,total:0};
+    bMap[k].total+=t.monto;
+  });
+  const pmTot=Object.values(bMap).reduce((s,v)=>s+v.total,0);
+  document.getElementById('rci-tbody-bancos').innerHTML=Object.keys(bMap).length===0
+    ?'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:1rem;">Sin registros PM</td></tr>'
+    :Object.entries(bMap).sort((a,b)=>b[1].total-a[1].total).map(([b,i])=>
+      `<tr><td>${b}</td><td><span style="font-size:0.75rem;background:rgba(168,85,247,0.15);color:#a855f7;padding:2px 8px;border-radius:999px;">${i.tipo}</span></td><td class="num">${fmtN(i.total)}</td><td class="num">${pmTot>0?((i.total/pmTot)*100).toFixed(1)+'%':'0%'}</td></tr>`
+    ).join('');
+
+  rciSwitchTab('resumen',document.querySelector('.rci-tab'));
+  document.getElementById('modal-reporte-consolidado').classList.add('active');
+}
+
+function rciSwitchTab(tabId,el){
+  document.querySelectorAll('.rci-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.rci-tab').forEach(t=>t.classList.remove('active'));
+  const panel=document.getElementById(`rci-tab-${tabId}`);
+  if(panel)panel.classList.add('active');
+  if(el)el.classList.add('active');
+}
+
+function imprimirReporte(tipo){
+  const vend=`${state.vendedorNombre||state.vendedor} (${state.vendedor})`;
+  const fecha=state.fecha;
+  const tasa=state.tasaDolar.toLocaleString('es-VE',{minimumFractionDigits:2});
+  const ahora=new Date().toLocaleString('es-VE',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit',year:'numeric'});
+  const fmtN=n=>parseFloat(n||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const manBs=BS_DENOMS.reduce((s,d)=>s+(parseInt(document.getElementById(`denom-bs-${d}`)?.value)||0)*d,0);
+  const manUsd=USD_DENOMS.reduce((s,d)=>s+(parseInt(document.getElementById(`denom-usd-${d}`)?.value)||0)*d,0);
+  const manDisp=state.tickets.filter(t=>['TDD','TDC','BIOPAGO'].includes(t.tipo)).reduce((s,t)=>s+t.monto,0);
+  const manBancos=state.tickets.filter(t=>['PAGO_MOVIL','TRANSFERENCIA'].includes(t.tipo)).reduce((s,t)=>s+t.monto,0);
+  const manTotal=manBs+manDisp+manBancos;
+  const sisTotal=state.sysEfectivo+(state.sysDispositivos||0)+(state.sysBancos||0);
+  const diffTotal=manTotal-sisTotal;
+  const dc=diffTotal>0?'#059669':diffTotal<0?'#dc2626':'#6b7280';
+  const ds=diffTotal>=0?'+':'';
+
+  const firmas=`<div style="margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:60px;page-break-inside:avoid;">
+    <div style="text-align:center;"><div style="border-top:1.5px solid #374151;margin-top:50px;padding-top:8px;">
+      <div style="font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;">Cajero Responsable</div>
+      <div style="font-size:12px;margin-top:4px;">${state.vendedorNombre||state.vendedor}</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:2px;">C.I.: _______________________</div>
+    </div></div>
+    <div style="text-align:center;"><div style="border-top:1.5px solid #374151;margin-top:50px;padding-top:8px;">
+      <div style="font-size:11px;color:#6b7280;font-weight:600;text-transform:uppercase;">Supervisor / Administrador</div>
+      <div style="font-size:12px;margin-top:4px;">______________________________</div>
+      <div style="font-size:10px;color:#9ca3af;margin-top:2px;">C.I.: _______________________</div>
+    </div></div>
+  </div>`;
+
+  const tablaRes=`<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+    <thead><tr style="background:#f3f4f6;">
+      <th style="padding:6px 10px;text-align:left;border:1px solid #e5e7eb;">Categoría</th>
+      <th style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">Sistema</th>
+      <th style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">Manual</th>
+      <th style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">Diferencia</th>
+    </tr></thead>
+    <tbody>${[
+      ['Efectivo Bs.',state.sysEfectivo,manBs],
+      ['Tarjetas+Biopago',state.sysDispositivos||0,manDisp],
+      ['Pago Móvil/Transf.',state.sysBancos||0,manBancos],
+    ].map(([c,s,m])=>{const d=m-s;const cl=d>0?'#059669':d<0?'#dc2626':'#374151';
+      return`<tr><td style="padding:6px 10px;border:1px solid #e5e7eb;">${c}</td><td style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">${fmtN(s)}</td><td style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;">${fmtN(m)}</td><td style="padding:6px 10px;text-align:right;border:1px solid #e5e7eb;color:${cl};font-weight:700;">${d>=0?'+':''}${fmtN(d)}</td></tr>`;
+    }).join('')}</tbody>
+    <tfoot><tr style="background:#f9fafb;font-weight:800;">
+      <td style="padding:8px 10px;border:1px solid #d1d5db;">TOTAL</td>
+      <td style="padding:8px 10px;text-align:right;border:1px solid #d1d5db;">${fmtN(sisTotal)}</td>
+      <td style="padding:8px 10px;text-align:right;border:1px solid #d1d5db;">${fmtN(manTotal)}</td>
+      <td style="padding:8px 10px;text-align:right;border:1px solid #d1d5db;color:${dc};font-size:14px;">${ds}${fmtN(diffTotal)}</td>
+    </tr></tfoot>
+  </table>`;
+
+  const headerComun=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #1e3a8a;">
+    <div><h1 style="margin:0;font-size:20px;font-weight:800;color:#1e3a8a;">${tipo==='resumen'?'REPORTE DE CIERRE DE CAJA':'AUDITORÍA COMPLETA DE CIERRE'}</h1>
+    <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">Portal Financiero AMC · ${vend}</p></div>
+    <div style="text-align:right;font-size:11px;color:#6b7280;">
+      <div>Fecha: <b>${fecha}</b></div><div>${ahora}</div><div>Tasa BCV: Bs. ${tasa}</div>
+    </div>
+  </div>`;
+
+  let body=`<div style="font-family:'Segoe UI',Arial,sans-serif;color:#111827;max-width:740px;margin:0 auto;padding:32px 24px;">
+    ${headerComun}
+    <h2 style="font-size:13px;font-weight:700;color:#1e3a8a;text-transform:uppercase;margin:0 0 8px;">${tipo==='resumen'?'':'1. '}Resumen Comparativo</h2>
+    ${tablaRes}`;
+
+  if(tipo==='auditoria'){
+    const dbsRows=BS_DENOMS.map(d=>{const q=parseInt(document.getElementById(`denom-bs-${d}`)?.value)||0;return q?`<tr><td style="padding:4px 8px;border:1px solid #e5e7eb;">Bs.${d}</td><td style="text-align:center;padding:4px 8px;border:1px solid #e5e7eb;">${q}</td><td style="text-align:right;padding:4px 8px;border:1px solid #e5e7eb;">${fmtN(q*d)}</td></tr>`:''}).join('');
+    const dusdRows=USD_DENOMS.map(d=>{const q=parseInt(document.getElementById(`denom-usd-${d}`)?.value)||0;return q?`<tr><td style="padding:4px 8px;border:1px solid #e5e7eb;">$${d}</td><td style="text-align:center;padding:4px 8px;border:1px solid #e5e7eb;">${q}</td><td style="text-align:right;padding:4px 8px;border:1px solid #e5e7eb;">$${(q*d).toFixed(2)}</td></tr>`:''}).join('');
+    const tHead='<thead><tr style="background:#f3f4f6;"><th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb;">Denominación</th><th style="padding:5px 8px;text-align:center;border:1px solid #e5e7eb;">Cantidad</th><th style="padding:5px 8px;text-align:right;border:1px solid #e5e7eb;">Subtotal</th></tr></thead>';
+    body+=`<h2 style="font-size:13px;font-weight:700;color:#1e3a8a;text-transform:uppercase;margin:16px 0 8px;">2. Efectivo Bs — Denominaciones</h2>
+      ${dbsRows?`<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">${tHead}<tbody>${dbsRows}</tbody><tfoot><tr style="font-weight:800;background:#f9fafb;"><td colspan="2" style="padding:6px 8px;border:1px solid #e5e7eb;">TOTAL</td><td style="text-align:right;padding:6px 8px;border:1px solid #e5e7eb;">${fmtN(manBs)}</td></tr></tfoot></table>`:'<p style="color:#9ca3af;font-size:12px;">Sin efectivo Bs.</p>'}
+      <h2 style="font-size:13px;font-weight:700;color:#1e3a8a;text-transform:uppercase;margin:16px 0 8px;">3. Efectivo USD — Denominaciones</h2>
+      ${dusdRows?`<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">${tHead}<tbody>${dusdRows}</tbody><tfoot><tr style="font-weight:800;background:#f9fafb;"><td colspan="2" style="padding:6px 8px;border:1px solid #e5e7eb;">TOTAL</td><td style="text-align:right;padding:6px 8px;border:1px solid #e5e7eb;">$${manUsd.toFixed(2)}</td></tr></tfoot></table>`:'<p style="color:#9ca3af;font-size:12px;">Sin divisas.</p>'}
+      <h2 style="font-size:13px;font-weight:700;color:#1e3a8a;text-transform:uppercase;margin:16px 0 8px;">4. Tickets POS / Electrónicos</h2>
+      ${state.tickets.length===0?'<p style="color:#9ca3af;font-size:12px;">Sin tickets.</p>'
+        :`<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:12px;">
+          <thead><tr style="background:#f3f4f6;"><th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb;">Tipo</th><th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb;">Terminal</th><th style="padding:5px 8px;text-align:left;border:1px solid #e5e7eb;">Ref.</th><th style="padding:5px 8px;text-align:right;border:1px solid #e5e7eb;">Monto Bs.</th></tr></thead>
+          <tbody>${state.tickets.map(t=>`<tr><td style="padding:4px 8px;border:1px solid #f3f4f6;">${t.tipo}</td><td style="padding:4px 8px;border:1px solid #f3f4f6;">${t.punto_de_venta}</td><td style="padding:4px 8px;border:1px solid #f3f4f6;font-family:monospace;font-size:10px;">${t.referencia}</td><td style="text-align:right;padding:4px 8px;border:1px solid #f3f4f6;font-weight:600;">${fmtN(t.monto)}</td></tr>`).join('')}</tbody>
+          <tfoot><tr style="font-weight:800;background:#f9fafb;"><td colspan="3" style="padding:6px 8px;border:1px solid #e5e7eb;">SUBTOTAL TICKETS</td><td style="text-align:right;padding:6px 8px;border:1px solid #e5e7eb;">${fmtN(state.tickets.reduce((s,t)=>s+t.monto,0))}</td></tr></tfoot>
+        </table>`}`;
+  }
+
+  body+=`${firmas}
+    <div style="margin-top:24px;padding-top:12px;border-top:1px dashed #d1d5db;font-size:10px;color:#9ca3af;text-align:center;">
+      Generado por Synapse · ${ahora} · Tasa BCV: Bs.${tasa}
+    </div></div>`;
+
+  const win=window.open('','_blank','width=900,height=700');
+  if(!win){showToast('Permite ventanas emergentes para imprimir.','warning');return;}
+  win.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Cierre ${fecha} - ${vend}</title>
+    <style>@media print{body{margin:0;}@page{margin:15mm;}thead{display:table-header-group;}tr{page-break-inside:avoid;}}</style>
+  </head><body>${body}<script>window.onload=()=>{window.print();}<\/script></body></html>`);
+  win.document.close();
 }
 
 </script>
