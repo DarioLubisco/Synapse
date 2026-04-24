@@ -3507,10 +3507,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateInput = document.getElementById('abFechaPago');
         if (!dateInput || !abTipoDescuento) return;
         
-        const pagoDate = new Date(getDateValue(dateInput));
-        // SE CUENTA DESDE LA LLEGADA DE LA FACTURA (FECHA I) 
-        const baseDateStr = d.FechaI || d.FechaE;
-        const baseDate = new Date(baseDateStr);
+        const pagoDateStr = getDateValue(dateInput) || new Date().toISOString().split('T')[0];
+        const partsP = pagoDateStr.split('T')[0].split('-');
+        const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
+
+        const baseDateStr = d.BaseDiasCredito === 'EMISION' ? d.FechaE : (d.FechaI || d.FechaE);
+        const partsB = baseDateStr.split('T')[0].split('-');
+        const baseDate = new Date(partsB[0], partsB[1] - 1, partsB[2]);
         
         pagoDate.setHours(0,0,0,0);
         baseDate.setHours(0,0,0,0);
@@ -3548,8 +3551,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const checkIndexationStatus = () => {
         if (!currentCxpStatus || !getDateValue(abFechaPago)) return;
-        const pagoDate = new Date(getDateValue(abFechaPago));
-        const niDate = new Date(currentCxpStatus.FechaNI_Calculada);
+        const pagoDateStr = getDateValue(abFechaPago);
+        const partsP = pagoDateStr.split('T')[0].split('-');
+        const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
+
+        const partsNI = currentCxpStatus.FechaNI_Calculada.split('T')[0].split('-');
+        const niDate = new Date(partsNI[0], partsNI[1] - 1, partsNI[2]);
 
         // Remove time portion for accurate day comparison
         pagoDate.setHours(0, 0, 0, 0);
@@ -3566,7 +3573,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (abDescBaseAplica && currentCxpStatus.DescuentoBase_Condicion === 'VENCIMIENTO') {
             const descBasePct = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
             if (descBasePct > 0) {
-                const vDate = new Date(currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada);
+                const vDateStr = currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada;
+                const partsV = vDateStr.split('T')[0].split('-');
+                const vDate = new Date(partsV[0], partsV[1] - 1, partsV[2]);
                 vDate.setHours(0,0,0,0);
                 abDescBaseAplica.checked = (pagoDate <= vDate);
             }
@@ -4906,12 +4915,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // RE-EVALUATE DYNAMIC CHECKS ON DATE CHANGE:
                 if (cxp) {
-                    const pagoDate = new Date(fecha);
+                    const partsP = fecha.split('T')[0].split('-');
+                    const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
                     pagoDate.setHours(0,0,0,0);
 
                     // 1. Indexation
                     if (cxp.FechaNI_Calculada) {
-                        const niDate = new Date(cxp.FechaNI_Calculada);
+                        const partsNI = cxp.FechaNI_Calculada.split('T')[0].split('-');
+                        const niDate = new Date(partsNI[0], partsNI[1] - 1, partsNI[2]);
                         niDate.setHours(0,0,0,0);
                         row.querySelector('.pm-indexado').checked = pagoDate > niDate;
                         if(row.querySelector('.pm-indexado-iva')) {
@@ -4924,7 +4935,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cbDB && cxp.DescuentoBase_Condicion === 'VENCIMIENTO') {
                         const descBasePct = parseFloat(cxp.DescuentoBase_Pct) || 0;
                         if (descBasePct > 0) {
-                            const vDate = new Date(cxp.FechaVSaint || cxp.FechaV_Calculada);
+                            const vDateStr = cxp.FechaVSaint || cxp.FechaV_Calculada;
+                            const partsV = vDateStr.split('T')[0].split('-');
+                            const vDate = new Date(partsV[0], partsV[1] - 1, partsV[2]);
                             vDate.setHours(0,0,0,0);
                             const appliesDescBase = (pagoDate <= vDate);
                             cbDB.checked = appliesDescBase;
@@ -5016,33 +5029,75 @@ document.addEventListener('DOMContentLoaded', () => {
             const exactUsdFormatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
             dynModal.querySelector('#dynMtoTotalUsd' )&&(dynModal.querySelector('#dynMtoTotalUsd' ).textContent = '$' + exactUsdFormatter.format(fin.origTotalUsd));
             dynModal.querySelector('#dynSubtotalUsd' )&&(dynModal.querySelector('#dynSubtotalUsd' ).textContent = '$' + exactUsdFormatter.format(fin.subtotalUsd));
+            
+            dynModal.querySelector('#dynMtoTotalBs' )&&(dynModal.querySelector('#dynMtoTotalBs' ).textContent = formatBs(fin.origTotalUsd * fin.currentTasa));
+            dynModal.querySelector('#dynSubtotalBs' )&&(dynModal.querySelector('#dynSubtotalBs' ).textContent = formatBs(fin.subtotalUsd * fin.currentTasa));
 
             if (pctDesc > 0 || pmGetDescBase(cxp, row) > 0) {
                 const dbox = dynModal.querySelector('#dynDescuentoBox');
-                if (dbox && pctDesc > 0) {
-                    dbox.style.display = 'flex';
+                const dboxBs = dynModal.querySelector('#dynDescuentoBoxBs');
+                if (pctDesc > 0) {
+                    if(dbox) dbox.style.display = 'flex';
+                    if(dboxBs) dboxBs.style.display = 'flex';
+                    
                     const pctE = dynModal.querySelector('#dynPctDesc');
+                    const pctEBs = dynModal.querySelector('#dynPctDescBs');
                     if (pctE) pctE.textContent = pctDesc;
-                } else if (dbox) { dbox.style.display = 'none'; }
+                    if (pctEBs) pctEBs.textContent = pctDesc;
+                    
+                    const amE = dynModal.querySelector('#dynMontoDescUsd');
+                    const amEBs = dynModal.querySelector('#dynMontoDescBs');
+                    if (amE) amE.textContent = '-' + usdFormatter(fin.descPPUsdMonto);
+                    if (amEBs) amEBs.textContent = '-' + formatBs(fin.descPPUsdMonto * fin.currentTasa);
+                } else {
+                    if(dbox) dbox.style.display = 'none';
+                    if(dboxBs) dboxBs.style.display = 'none';
+                }
                 
                 const dbbox = dynModal.querySelector('#dynDescBaseBox');
-                if (dbbox && pmGetDescBase(cxp, row) > 0) {
-                    dbbox.style.display = 'flex';
+                const dbboxBs = dynModal.querySelector('#dynDescBaseBoxBs');
+                if (pmGetDescBase(cxp, row) > 0) {
+                    if(dbbox) dbbox.style.display = 'flex';
+                    if(dbboxBs) dbboxBs.style.display = 'flex';
+                    
                     const pctBe = dynModal.querySelector('#dynPctDescBase');
+                    const pctBeBs = dynModal.querySelector('#dynPctDescBaseBs');
                     if (pctBe) pctBe.textContent = pmGetDescBase(cxp, row);
+                    if (pctBeBs) pctBeBs.textContent = pmGetDescBase(cxp, row);
+                    
                     const amBe = dynModal.querySelector('#dynMontoDescBaseUsd');
+                    const amBeBs = dynModal.querySelector('#dynMontoDescBaseBs');
                     if (amBe) amBe.textContent = '-' + usdFormatter(fin.descBaseUsdMonto);
-                } else if (dbbox) { dbbox.style.display = 'none'; }
-                
-                const amE = dynModal.querySelector('#dynMontoDescUsd');
-                if (amE) amE.textContent = '-' + usdFormatter(fin.descPPUsdMonto);
+                    if (amBeBs) amBeBs.textContent = '-' + formatBs(fin.descBaseUsdMonto * fin.currentTasa);
+                } else {
+                    if(dbbox) dbbox.style.display = 'none';
+                    if(dbboxBs) dbboxBs.style.display = 'none';
+                }
             } else {
                 const dbox = dynModal.querySelector('#dynDescuentoBox');
                 if (dbox) dbox.style.display = 'none';
+                const dboxBs = dynModal.querySelector('#dynDescuentoBoxBs');
+                if (dboxBs) dboxBs.style.display = 'none';
+                
                 const dbbox = dynModal.querySelector('#dynDescBaseBox');
                 if (dbbox) dbbox.style.display = 'none';
+                const dbboxBs = dynModal.querySelector('#dynDescBaseBoxBs');
+                if (dbboxBs) dbboxBs.style.display = 'none';
             }
-            dynModal.querySelector('#dynDesctoFletesBox')&&(dynModal.querySelector('#dynDesctoFletesBox').innerHTML = '');
+            // Conditionally show Fletes/Desctos USD
+            let desctoFletesHtml = '';
+            if (fin.fletesUsd > 0) desctoFletesHtml += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(+) Fletes:</span> <span>${usdFormatter(fin.fletesUsd)}</span></div>`;
+            if (fin.d1Usd > 0) desctoFletesHtml += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 1:</span> <span style="color:var(--danger);">${usdFormatter(fin.d1Usd)}</span></div>`;
+            if (fin.d2Usd > 0) desctoFletesHtml += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 2:</span> <span style="color:var(--danger);">${usdFormatter(fin.d2Usd)}</span></div>`;
+            if (dynModal.querySelector('#dynDesctoFletesBox')) dynModal.querySelector('#dynDesctoFletesBox').innerHTML = desctoFletesHtml;
+
+            // Conditionally show Fletes/Desctos Bs
+            let desctoFletesHtmlBs = '';
+            if (fin.fletesUsd > 0) desctoFletesHtmlBs += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(+) Fletes:</span> <span>${formatBs(fin.fletesUsd * fin.currentTasa)}</span></div>`;
+            if (fin.d1Usd > 0) desctoFletesHtmlBs += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 1:</span> <span style="color:var(--danger);">${formatBs(fin.d1Usd * fin.currentTasa)}</span></div>`;
+            if (fin.d2Usd > 0) desctoFletesHtmlBs += `<div style="display:flex;justify-content:space-between; margin-bottom: 2px;"><span>(-) Descto 2:</span> <span style="color:var(--danger);">${formatBs(fin.d2Usd * fin.currentTasa)}</span></div>`;
+            if (dynModal.querySelector('#dynDesctoFletesBoxBs')) dynModal.querySelector('#dynDesctoFletesBoxBs').innerHTML = desctoFletesHtmlBs;
+            
             dynModal.querySelector('#dynIvaUsd')&&(dynModal.querySelector('#dynIvaUsd').textContent = usdFormatter(fin.ivaUsd));
 
             dynModal.classList.add('active');
@@ -5415,8 +5470,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         let appliesInitially = true;
                         
                         if (json.data.DescuentoBase_Condicion === 'VENCIMIENTO') {
-                            let pd = new Date();
-                            let vd = new Date(json.data.FechaVSaint || json.data.FechaV_Calculada);
+                            const pmFechaInput = row.querySelector('.pm-fecha');
+                            const pagoDateStrDB = pmFechaInput ? pmFechaInput.value : new Date().toISOString().split('T')[0];
+                            const partsP = pagoDateStrDB.split('T')[0].split('-');
+                            let pd = new Date(partsP[0], partsP[1] - 1, partsP[2]);
+
+                            const vDateStrDB = json.data.FechaVSaint || json.data.FechaV_Calculada;
+                            const partsV = vDateStrDB.split('T')[0].split('-');
+                            let vd = new Date(partsV[0], partsV[1] - 1, partsV[2]);
+
                             pd.setHours(0,0,0,0); vd.setHours(0,0,0,0);
                             if (pd > vd) appliesInitially = false;
                         }
@@ -5434,9 +5496,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     if (json.data) {
-                        const pagoDateStr = row.querySelector('.pm-fecha')?.value;
-                        const pagoDate = pagoDateStr ? new Date(pagoDateStr) : new Date();
-                        const niDate   = new Date(json.data.FechaNI_Calculada);
+                        const pagoDateStrRaw = row.querySelector('.pm-fecha')?.value || new Date().toISOString().split('T')[0];
+                        const partsP2 = pagoDateStrRaw.split('T')[0].split('-');
+                        const pagoDate = new Date(partsP2[0], partsP2[1] - 1, partsP2[2]);
+
+                        const partsNI = json.data.FechaNI_Calculada.split('T')[0].split('-');
+                        const niDate = new Date(partsNI[0], partsNI[1] - 1, partsNI[2]);
                         pagoDate.setHours(0,0,0,0);
                         niDate.setHours(0,0,0,0);
                         row.querySelector('.pm-indexado').checked = pagoDate > niDate;
