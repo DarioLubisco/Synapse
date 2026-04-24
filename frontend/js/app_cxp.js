@@ -325,17 +325,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const currentTasa = (aplicaIndex && tasaDia > 0) ? tasaDia : historicalTasa;
 
-        const rawTotalPrd = parseFloat(cxp.TotalPrd) || 0;
-        const rawDescto   = (parseFloat(cxp.Descto1) || 0) + (parseFloat(cxp.Descto2) || 0);
-        // If TotalPrd exists, use it minus original discounts as the real base. Fallback to TGravable.
-        const netBaseBs   = (rawTotalPrd > 0) ? (rawTotalPrd - rawDescto) : (parseFloat(cxp.TGravable) || 0);
-        
-        const tGravableUsd = roundUSD(netBaseBs / historicalTasa);
+        const tGravableUsd = roundUSD((parseFloat(cxp.TGravable) || 0) / historicalTasa);
         const exentoOrigBs = Math.max(0, (parseFloat(cxp.Monto) || 0) - (parseFloat(cxp.TGravable) || 0) - (parseFloat(cxp.MtoTax) || 0));
-        const exentoUsd    = roundUSD(exentoOrigBs / historicalTasa);
+        const exentoUsd = roundUSD(exentoOrigBs / historicalTasa);
 
-        let baseBs   = roundFixed(tGravableUsd * currentTasa);
-        let exentoBs = roundFixed(exentoUsd * currentTasa);
+        let baseBs, exentoBs;
+
+        if (aplicaIndex) {
+            baseBs   = roundFixed(tGravableUsd * currentTasa);
+            exentoBs = roundFixed(exentoUsd * currentTasa);
+        } else {
+            baseBs   = roundFixed(parseFloat(cxp.TGravable) || 0);
+            exentoBs = roundFixed(exentoOrigBs);
+        }
         
         let baseBsLegalParaIva = baseBs;
         let exentoBsLegalParaIva = exentoBs;
@@ -346,16 +348,13 @@ document.addEventListener('DOMContentLoaded', () => {
         let fDescuentoIva = 1.0;
         
         if (pctPP > 0 || pctBase > 0) {
-            // Additive logic: 10% + 5% = 15% discount
-            const totalPct = pctPP + pctBase;
-            fDescuento = Math.max(0, 1.0 - (totalPct / 100.0));
-            
+            fDescuento = (1.0 - (pctBase / 100.0)) * (1.0 - (pctPP / 100.0));
             baseBs   = roundFixed(baseBs * fDescuento);
             exentoBs = roundFixed(exentoBs * fDescuento);
             
-            const factIvaBase = (deduceIvaBase !== false) ? (pctBase / 100.0) : 0;
-            const factIvaPP   = (deduceIvaPP !== false) ? (pctPP / 100.0) : 0;
-            fDescuentoIva = Math.max(0, 1.0 - (factIvaBase + factIvaPP));
+            const factIvaBase = (deduceIvaBase !== false) ? (1.0 - (pctBase / 100.0)) : 1.0;
+            const factIvaPP = (deduceIvaPP !== false) ? (1.0 - (pctPP / 100.0)) : 1.0;
+            fDescuentoIva = factIvaBase * factIvaPP;
             
             baseBsLegalParaIva = roundFixed(baseBsLegalParaIva * fDescuentoIva);
             exentoBsLegalParaIva = roundFixed(exentoBsLegalParaIva * fDescuentoIva);
@@ -449,16 +448,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const equivUsd = currentTasa > 0 ? (finalBs / currentTasa) : 0;
             
-        const origTotalUsd = (cxp.MontoMEx > 0) ? parseFloat(cxp.MontoMEx) : ((parseFloat(cxp.Monto) || 0) / historicalTasa);
-            
         let descUsdMonto = 0;
         let descBaseUsdMonto = 0;
         let descPPUsdMonto = 0;
         if(fDescuento < 1.0) {
-           descUsdMonto = roundUSD(origTotalUsd * (1.0 - fDescuento));
-           descBaseUsdMonto = roundUSD(origTotalUsd * (pctBase / 100.0));
-           descPPUsdMonto = roundUSD((origTotalUsd - descBaseUsdMonto) * (pctPP / 100.0));
+           descUsdMonto = roundUSD(mtoTotalUsd * (1.0 - fDescuento));
+           descBaseUsdMonto = roundUSD(mtoTotalUsd * (pctBase / 100.0));
+           descPPUsdMonto = roundUSD((mtoTotalUsd - descBaseUsdMonto) * (pctPP / 100.0));
         }
+
+        const origTotalUsd = (cxp.MontoMEx > 0) ? parseFloat(cxp.MontoMEx) : ((parseFloat(cxp.Monto) || 0) / historicalTasa);
 
         return {
             historicalTasa,
@@ -3508,13 +3507,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateInput = document.getElementById('abFechaPago');
         if (!dateInput || !abTipoDescuento) return;
         
-        const pagoDateStr = getDateValue(dateInput) || new Date().toISOString().split('T')[0];
-        const partsP = pagoDateStr.split('T')[0].split('-');
-        const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
-
-        const baseDateStr = d.BaseDiasCredito === 'EMISION' ? d.FechaE : (d.FechaI || d.FechaE);
-        const partsB = baseDateStr.split('T')[0].split('-');
-        const baseDate = new Date(partsB[0], partsB[1] - 1, partsB[2]);
+        const pagoDate = new Date(getDateValue(dateInput));
+        // SE CUENTA DESDE LA LLEGADA DE LA FACTURA (FECHA I) 
+        const baseDateStr = d.FechaI || d.FechaE;
+        const baseDate = new Date(baseDateStr);
         
         pagoDate.setHours(0,0,0,0);
         baseDate.setHours(0,0,0,0);
@@ -3552,12 +3548,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const checkIndexationStatus = () => {
         if (!currentCxpStatus || !getDateValue(abFechaPago)) return;
-        const pagoDateStr = getDateValue(abFechaPago);
-        const partsP = pagoDateStr.split('T')[0].split('-');
-        const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
-
-        const partsNI = currentCxpStatus.FechaNI_Calculada.split('T')[0].split('-');
-        const niDate = new Date(partsNI[0], partsNI[1] - 1, partsNI[2]);
+        const pagoDate = new Date(getDateValue(abFechaPago));
+        const niDate = new Date(currentCxpStatus.FechaNI_Calculada);
 
         // Remove time portion for accurate day comparison
         pagoDate.setHours(0, 0, 0, 0);
@@ -3574,9 +3566,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (abDescBaseAplica && currentCxpStatus.DescuentoBase_Condicion === 'VENCIMIENTO') {
             const descBasePct = parseFloat(currentCxpStatus.DescuentoBase_Pct) || 0;
             if (descBasePct > 0) {
-                const vDateStr = currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada;
-                const partsV = vDateStr.split('T')[0].split('-');
-                const vDate = new Date(partsV[0], partsV[1] - 1, partsV[2]);
+                const vDate = new Date(currentCxpStatus.FechaVSaint || currentCxpStatus.FechaV_Calculada);
                 vDate.setHours(0,0,0,0);
                 abDescBaseAplica.checked = (pagoDate <= vDate);
             }
@@ -4669,10 +4659,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cb = row.querySelector('.pm-desc-base-check');
                 if (cb && !cb.checked) return 0;
                 const input = row.querySelector('.pm-desc-base-pct');
-                if (input && input.value) {
-                    const val = parseFloat(input.value.toString().replace('%','')) || 0;
-                    if (val > 0) return val;
-                }
+                if (input && parseFloat(input.value) > 0) return parseFloat(input.value);
             }
             if (!Number(cxp.DescuentoBase_Pct)) return 0;
             if (cxp.DescuentoBase_Condicion === 'INDEPENDIENTE') {
@@ -4919,14 +4906,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // RE-EVALUATE DYNAMIC CHECKS ON DATE CHANGE:
                 if (cxp) {
-                    const partsP = fecha.split('T')[0].split('-');
-                    const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
+                    const pagoDate = new Date(fecha);
                     pagoDate.setHours(0,0,0,0);
 
                     // 1. Indexation
                     if (cxp.FechaNI_Calculada) {
-                        const partsNI = cxp.FechaNI_Calculada.split('T')[0].split('-');
-                        const niDate = new Date(partsNI[0], partsNI[1] - 1, partsNI[2]);
+                        const niDate = new Date(cxp.FechaNI_Calculada);
                         niDate.setHours(0,0,0,0);
                         row.querySelector('.pm-indexado').checked = pagoDate > niDate;
                         if(row.querySelector('.pm-indexado-iva')) {
@@ -4939,9 +4924,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (cbDB && cxp.DescuentoBase_Condicion === 'VENCIMIENTO') {
                         const descBasePct = parseFloat(cxp.DescuentoBase_Pct) || 0;
                         if (descBasePct > 0) {
-                            const vDateStr = cxp.FechaVSaint || cxp.FechaV_Calculada;
-                            const partsV = vDateStr.split('T')[0].split('-');
-                            const vDate = new Date(partsV[0], partsV[1] - 1, partsV[2]);
+                            const vDate = new Date(cxp.FechaVSaint || cxp.FechaV_Calculada);
                             vDate.setHours(0,0,0,0);
                             const appliesDescBase = (pagoDate <= vDate);
                             cbDB.checked = appliesDescBase;
@@ -4959,8 +4942,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 3. Pronto Pago Tiers
                     if (cxp.Descuentos && cxp.Descuentos.length > 0) {
                         const baseDateStr = cxp.BaseDiasCredito === 'EMISION' ? cxp.FechaE : (cxp.FechaI || cxp.FechaE);
-                        const partsB = baseDateStr.split('T')[0].split('-');
-                        const baseDate = new Date(partsB[0], partsB[1] - 1, partsB[2]);
+                        const baseDate = new Date(baseDateStr);
                         baseDate.setHours(0,0,0,0);
                         let diffDays = Math.floor((pagoDate - baseDate) / (1000 * 60 * 60 * 24));
                         if (diffDays < 0) diffDays = 0;
@@ -5090,7 +5072,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const exentoBs = parseFloat(row.querySelector('.pm-exento-bs')?.textContent.replace(/[^0-9.-]+/g,"")) || 0;
                 const retIvaBs = parseFloat(row.querySelector('.pm-retiva-bs')?.textContent.replace(/[^0-9.-]+/g,"")) || 0;
                 const retIslrBs = parseFloat(row.querySelector('.pm-retislr-bs')?.textContent.replace(/[^0-9.-]+/g,"")) || 0;
-                const ivaAPagarBs = parseFloat(row.querySelector('.pm-iva-apagar-bs')?.textContent.replace(/[^0-9.-]+/g,"")) || 0;
+                const ivaAPagarBs = roundFixed(ivaBs - retIvaBs);
                 const totalBs = parseFloat(row.querySelector('.pm-monto-bs')?.value) || 0;
 
                 totals.base += baseBs;
@@ -5251,7 +5233,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td style="text-align:center;">
                         <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
                             <label style="display:flex;align-items:center;gap:0.3rem;font-size:0.75rem;"><input type="checkbox" class="pm-desc-base-check"> Activo</label>
-                            <input type="text" class="form-control pm-desc-base-pct" readonly style="width:80px;padding:0.1rem;font-size:0.75rem;text-align:center;" value="...">
+                            <input type="text" class="form-control pm-desc-base-pct" readonly style="width:80px;padding:0.1rem;font-size:0.75rem;text-align:center;" value="0%">
                             <label style="display:flex;align-items:center;gap:0.2rem;font-size:0.7rem;"><input type="checkbox" class="pm-db-deduce-iva" disabled> Ded. IVA</label>
                         </div>
                     </td>
@@ -5389,15 +5371,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         let bestMatch = null;
                         
                         if (json.data.Descuentos && json.data.Descuentos.length > 0) {
-                            const pmFechaInput = row.querySelector('.pm-fecha');
-                            const pagoDateStr = pmFechaInput ? pmFechaInput.value : new Date().toISOString().split('T')[0];
-                            const partsP = pagoDateStr.split('T')[0].split('-');
-                            const pagoDate = new Date(partsP[0], partsP[1] - 1, partsP[2]);
-
+                            const pagoDate = new Date();
                             const baseDateStr = json.data.BaseDiasCredito === 'EMISION' ? json.data.FechaE : (json.data.FechaI || json.data.FechaE);
-                            const partsB = baseDateStr.split('T')[0].split('-');
-                            const baseDate = new Date(partsB[0], partsB[1] - 1, partsB[2]);
-                            
+                            const baseDate = new Date(baseDateStr);
                             pagoDate.setHours(0,0,0,0);
                             baseDate.setHours(0,0,0,0);
                             
@@ -5434,20 +5410,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pctTxtDB = row.querySelector('.pm-desc-base-pct');
                     const dedDB = row.querySelector('.pm-db-deduce-iva');
                     
-                    if (cbDB && json.data) {
-                        let dbPct = Number(json.data.DescuentoBase_Pct) || 0;
-                        let appliesInitially = dbPct > 0;
+                    if (cbDB && json.data && Number(json.data.DescuentoBase_Pct) > 0) {
+                        let dbPct = Number(json.data.DescuentoBase_Pct);
+                        let appliesInitially = true;
                         
-                        if (appliesInitially && json.data.DescuentoBase_Condicion === 'VENCIMIENTO') {
-                            const pmFechaInput = row.querySelector('.pm-fecha');
-                            const pagoDateStrDB = pmFechaInput ? pmFechaInput.value : new Date().toISOString().split('T')[0];
-                            const partsP = pagoDateStrDB.split('T')[0].split('-');
-                            let pd = new Date(partsP[0], partsP[1] - 1, partsP[2]);
-
-                            const vDateStrDB = json.data.FechaVSaint || json.data.FechaV_Calculada;
-                            const partsV = vDateStrDB.split('T')[0].split('-');
-                            let vd = new Date(partsV[0], partsV[1] - 1, partsV[2]);
-
+                        if (json.data.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                            let pd = new Date();
+                            let vd = new Date(json.data.FechaVSaint || json.data.FechaV_Calculada);
                             pd.setHours(0,0,0,0); vd.setHours(0,0,0,0);
                             if (pd > vd) appliesInitially = false;
                         }
@@ -5465,13 +5434,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     }
                     if (json.data) {
-                        const pagoDateStrRaw = row.querySelector('.pm-fecha')?.value || new Date().toISOString().split('T')[0];
-                        const partsP2 = pagoDateStrRaw.split('T')[0].split('-');
-                        const pagoDate = new Date(partsP2[0], partsP2[1] - 1, partsP2[2]);
-
-                        const partsNI = json.data.FechaNI_Calculada.split('T')[0].split('-');
-                        const niDate = new Date(partsNI[0], partsNI[1] - 1, partsNI[2]);
-
+                        const pagoDateStr = row.querySelector('.pm-fecha')?.value;
+                        const pagoDate = pagoDateStr ? new Date(pagoDateStr) : new Date();
+                        const niDate   = new Date(json.data.FechaNI_Calculada);
                         pagoDate.setHours(0,0,0,0);
                         niDate.setHours(0,0,0,0);
                         row.querySelector('.pm-indexado').checked = pagoDate > niDate;
