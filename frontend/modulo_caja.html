@@ -169,20 +169,28 @@
 
       <!-- Filter Bar -->
       <div class="section-card planning-action-bar" style="border-left:4px solid var(--primary-accent);">
-        <div class="planning-controls">
-          <div class="input-group">
-            <label for="inp-vendedor"><i class="fas fa-user"></i> Vendedor</label>
-            <select id="inp-vendedor" class="form-control" style="width:200px;">
-                <option value="">Seleccione...</option>
-            </select>
-          </div>
-          <div class="input-group">
-            <label for="inp-fecha"><i class="fas fa-calendar-day"></i> Fecha</label>
-            <input type="date" id="inp-fecha" class="form-control" style="width:160px;"/>
-          </div>
-          <button class="btn btn-primary" id="btn-iniciar" onclick="iniciarCuadre()">
-            <i class="fas fa-play-circle"></i> Iniciar Cuadre
-          </button>
+        <div class="filter-controls" style="display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;">
+            <div class="filter-group">
+                <label for="inp-vendedor">Vendedor:</label>
+                <select id="inp-vendedor" class="form-control">
+                    <option value="">Seleccione...</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="inp-fecha">Fecha:</label>
+                <input type="date" id="inp-fecha" class="form-control">
+            </div>
+            <button class="btn btn-primary" id="btn-iniciar" onclick="iniciarCuadre()">
+                <i class="fas fa-play-circle"></i> Iniciar Cuadre
+            </button>
+            
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem; background: var(--bg-secondary); padding: 0.4rem 0.8rem; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
+                <i class="fas fa-desktop" style="color: var(--text-muted); font-size: 0.9rem;"></i>
+                <span id="terminal-name-display" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);"></span>
+                <button class="btn-icon" onclick="cambiarNombreEquipo()" title="Cambiar nombre de esta terminal" style="margin-left: 0.3rem; padding: 0.2rem; font-size: 0.8rem; cursor: pointer; border: none; background: transparent; color: var(--primary-accent);">
+                    <i class="fas fa-edit"></i>
+                </button>
+            </div>
         </div>
       </div>
 
@@ -1055,39 +1063,128 @@ if (!window.showToast) {
 
 // ── Control de Sesiones Múltiples (BroadcastChannel) ────────────────────────
 const cajaSessionChannel = new BroadcastChannel('caja_session_channel');
-const miIdSesion = Date.now().toString() + Math.random().toString(36).substring(2);
+
+// Identificación del equipo (se guarda en el navegador)
+let nombreEquipo = localStorage.getItem('caja_device_name');
+if (!nombreEquipo) {
+    nombreEquipo = "PC-" + Math.random().toString(36).substring(2, 7).toUpperCase();
+    localStorage.setItem('caja_device_name', nombreEquipo);
+}
+// El token ahora incluye el nombre del equipo para mostrarlo en bloqueos: "NOMBRE|ID"
+const miIdSesion = `${nombreEquipo}|${Date.now()}${Math.random().toString(36).substring(2, 5)}`;
 
 cajaSessionChannel.onmessage = (event) => {
   if (event.data.type === 'TAB_OPENED') {
-    // Si somos una pestaña activa (ya cargada), le decimos a la nueva que estamos aquí.
+    // Notificar a la nueva pestaña que ya estamos abiertos
     cajaSessionChannel.postMessage({ type: 'ALREADY_OPEN', fromId: miIdSesion });
   } else if (event.data.type === 'ALREADY_OPEN') {
-    // Si acabamos de abrir la pestaña y ya hay otra abierta, bloqueamos esta.
-    blockMultipleSessionUI();
+    // Hay otra pestaña del mismo browser → solo avisar con toast, no bloquear la página.
+    // El backend rechazará con 409 si intentan editar el mismo BORRADOR.
+    showToast('⚠️ Ya tienes este portal abierto en otra pestaña. El Cuadre de Caja solo puede editarse desde una sesión a la vez.', 'warning');
   }
 };
 
 // Avisar que nos acabamos de abrir
 cajaSessionChannel.postMessage({ type: 'TAB_OPENED', fromId: miIdSesion });
 
-function blockMultipleSessionUI() {
-  // Limpiar cualquier autoguardado para evitar corromper la BD
-  if (typeof autosaveTimer !== 'undefined') {
-      clearTimeout(autosaveTimer);
+/**
+ * Bloquea SOLO la sección de Cuadre de Caja con un banner informativo.
+ * @param {string} ownerName - Nombre del equipo/sesión que tiene el bloqueo.
+ */
+function lockCuadreSectionUI(ownerName = "otro dispositivo") {
+  // Detener autoguardado
+  if (typeof autosaveTimer !== 'undefined') clearTimeout(autosaveTimer);
+
+  // Ocultar workspace activo si estaba visible
+  const ws = document.getElementById('cuadre-workspace');
+  if (ws) ws.style.display = 'none';
+
+  // Si ya hay un banner, actualizar el nombre si es necesario
+  const existing = document.getElementById('cuadre-lock-banner');
+  if (existing) {
+      const p = existing.querySelector('.owner-text');
+      if (p) p.innerHTML = `Este cuadre está siendo editado por: <strong>${ownerName}</strong>`;
+      return;
   }
-  document.body.innerHTML = `
-    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:var(--bg-body); color:var(--text-primary); font-family:'Inter',sans-serif; text-align:center; padding: 2rem;">
-      <i class="fas fa-exclamation-triangle" style="font-size:5rem; color:var(--danger); margin-bottom:1.5rem;"></i>
-      <h1 style="font-size:1.8rem; margin-bottom:1rem;">Sesión Múltiple Detectada</h1>
-      <p style="font-size:1rem; color:var(--text-secondary); max-width:500px; line-height:1.6;">
-        Ya tienes el módulo de <strong>Cuadre de Cajas</strong> abierto en otra pestaña o ventana.<br><br>
-        Por seguridad y para evitar la duplicidad de transacciones al guardar el borrador, el sistema ha bloqueado esta pestaña.
+
+  const cuadreModule = document.getElementById('module-cuadre');
+  if (!cuadreModule) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'cuadre-lock-banner';
+  banner.innerHTML = `
+    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;
+                padding:3rem 2rem; background:rgba(239,68,68,0.08); border:1px solid var(--danger);
+                border-radius:var(--radius-lg); margin:1.5rem 0; text-align:center;">
+      <i class="fas fa-lock" style="font-size:3rem; color:var(--danger); margin-bottom:1.25rem;"></i>
+      <h2 style="font-size:1.4rem; margin-bottom:0.75rem; color:var(--text-primary);">Cuadre en Uso</h2>
+      <p class="owner-text" style="color:var(--text-secondary); max-width:500px; line-height:1.7; margin-bottom:1.5rem;">
+        Este cuadre está siendo editado por: <strong>${ownerName}</strong>
       </p>
-      <button class="btn btn-primary" onclick="window.close()" style="margin-top:2rem; font-size:1rem; padding:0.8rem 2rem;">
-        Cerrar esta pestaña
-      </button>
+      <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom:1.5rem;">
+        Los demás módulos siguen disponibles con normalidad.
+      </p>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap; justify-content:center;">
+        <button class="btn btn-secondary" onclick="reintentarCuadre()">
+          <i class="fas fa-sync-alt"></i> Verificar
+        </button>
+        <button class="btn btn-warning" onclick="forzarSesion()"
+                title="Desconecta al otro usuario y toma el control de este cuadre">
+          <i class="fas fa-user-lock"></i> Forzar Entrada
+        </button>
+      </div>
     </div>
   `;
+  cuadreModule.prepend(banner);
+
+  // Deshabilitar el botón de iniciar
+  const btnIniciar = document.getElementById('btn-iniciar');
+  if (btnIniciar) {
+    btnIniciar.disabled = true;
+    btnIniciar.innerHTML = '<i class="fas fa-lock"></i> Sesión Ocupada';
+  }
+}
+
+/**
+ * Elimina el banner de bloqueo y reactiva el botón de Iniciar Cuadre.
+ */
+function reintentarCuadre() {
+  const banner = document.getElementById('cuadre-lock-banner');
+  if (banner) banner.remove();
+  const btnIniciar = document.getElementById('btn-iniciar');
+  if (btnIniciar) {
+    btnIniciar.disabled = false;
+    btnIniciar.innerHTML = '<i class="fas fa-play-circle"></i> Iniciar Cuadre';
+  }
+}
+
+/**
+ * Toma forzada de sesión: pide confirmación y llama iniciarCuadre(force=true).
+ * El backend sobreescribe el token — el otro browser recibirá 409 en su próximo guardado.
+ */
+async function forzarSesion() {
+  const ok = confirm(
+    '⚠️ Tomar Sesión\n\n' +
+    'Esto desconectará al otro usuario del Cuadre de Caja.\n' +
+    'Cualquier cambio que no hayan guardado se perderá.\n\n' +
+    '¿Deseas tomar el control de esta sesión?'
+  );
+  if (!ok) return;
+  reintentarCuadre(); // limpiar banner y rehabilitar botón
+  await iniciarCuadre(true); // forzar carga
+}
+
+/**
+ * Permite al usuario cambiar el nombre amigable de su equipo/terminal.
+ */
+function cambiarNombreEquipo() {
+  const actual = localStorage.getItem('caja_device_name') || "Sin Nombre";
+  const nuevo = prompt("Ingresa el nombre para identificar esta terminal (ej: Caja-1, Laptop-Dario):", actual);
+  if (nuevo && nuevo.trim() !== "" && nuevo !== actual) {
+      localStorage.setItem('caja_device_name', nuevo.trim());
+      alert("Nombre actualizado. Se recargará la página para aplicar el cambio.");
+      location.reload();
+  }
 }
 
 // ── State ────────────────────────────────────────────────────────────────────
@@ -1317,7 +1414,7 @@ function switchModule(mod, el) {
 }
 
 // ── Iniciar Cuadre ────────────────────────────────────────────────────────────
-async function iniciarCuadre() {
+async function iniciarCuadre(force = false) {
   const selVend = document.getElementById('inp-vendedor');
   state.vendedor = selVend.value.trim();
   state.vendedorNombre = selVend.options[selVend.selectedIndex]?.text.split('(')[0].trim() || '';
@@ -1331,58 +1428,74 @@ async function iniciarCuadre() {
   btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cargando...';
 
   try {
-    const res = await fetch(`/caja/sistema/totales?vendedor_codigo=${encodeURIComponent(state.vendedor)}&fecha=${state.fecha}&session_token=${miIdSesion}`);
+    const forceParam = force ? '&force=true' : '';
+    const url = `/caja/sistema/totales?vendedor_codigo=${encodeURIComponent(state.vendedor)}&fecha=${state.fecha}&session_token=${miIdSesion}${forceParam}`;
+    console.log(`[IniciarCuadre] force=${force} → ${url}`);
+
+    const res = await fetch(url);
+    console.log(`[IniciarCuadre] HTTP ${res.status}`);
+
+    if (res.status === 409) {
+      const errText = await res.text();
+      console.warn('[IniciarCuadre] 409:', errText);
+      const match = errText.match(/por (.*)\./);
+      lockCuadreSectionUI(match ? match[1] : 'otro dispositivo');
+      return;
+    }
+
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
+    console.log('[IniciarCuadre] Data:', JSON.stringify({session_stolen: data.session_stolen, has_precierre: data.has_precierre}));
 
-    state.sysEfectivo   = data.totales_sistema.totefectivo_bs;
-    state.sysTarjeta    = data.totales_sistema.tottarjeta;
+    state.sysEfectivo     = data.totales_sistema.totefectivo_bs;
+    state.sysTarjeta      = data.totales_sistema.tottarjeta;
     state.sysDispositivos = data.totales_sistema.totdispositivos ?? 0;
     state.sysBancos       = data.totales_sistema.totbancos       ?? 0;
     state.sysDivisasSis   = data.totales_sistema.totdivisas      ?? 0;
     state.sysDevoluciones = data.totales_sistema.devoluciones    || [];
 
-    // Show system totals
-    document.getElementById('sys-efectivo').textContent     = fmt(state.sysEfectivo);
-    document.getElementById('sys-dispositivos').textContent = fmt(state.sysDispositivos);
-    document.getElementById('sys-bancos').textContent       = fmt(state.sysBancos);
-    document.getElementById('sys-divisas-sis').textContent  = fmt(state.sysDivisasSis).replace('Bs. ','');
-    
-    // Fetch dolares from Calculadora Mixta
+    // Actualizar DOM con null-checks defensivos
+    const setEl = (id, val) => { const e = document.getElementById(id); if(e) e.textContent = val; };
+    setEl('sys-efectivo',          fmt(state.sysEfectivo));
+    setEl('sys-dispositivos',      fmt(state.sysDispositivos));
+    setEl('sys-bancos',            fmt(state.sysBancos));
+    setEl('sys-divisas-sis',       fmt(state.sysDivisasSis).replace('Bs. ',''));
+    setEl('res-sys-ef',            fmt(state.sysEfectivo));
+    setEl('res-sys-dispositivos',  fmt(state.sysDispositivos));
+    setEl('res-sys-bancos',        fmt(state.sysBancos));
+    setEl('res-sys-divisas-sis',   fmt(state.sysDivisasSis).replace('Bs. ',''));
+
     fetch(`/caja/calculadora/reporte?fecha=${state.fecha}&vendedor_codigo=${encodeURIComponent(state.vendedor)}`)
       .then(r => r.json())
-      .then(d => {
-         if (d.status === 'success' && d.summary) {
-             document.getElementById('sys-dolares').textContent = `$ ${d.summary.total_efectivo_usd.toFixed(2)}`;
-         }
-      })
-      .catch(err => console.error('Error loading dolares', err));
+      .then(d => { if (d.status === 'success' && d.summary) setEl('sys-dolares', `$ ${d.summary.total_efectivo_usd.toFixed(2)}`); })
+      .catch(err => console.error('Error dolares:', err));
 
-    // Reflect in summary (desglosado)
-    document.getElementById('res-sys-ef').textContent           = fmt(state.sysEfectivo);
-    document.getElementById('res-sys-dispositivos').textContent = fmt(state.sysDispositivos);
-    document.getElementById('res-sys-bancos').textContent       = fmt(state.sysBancos);
-    document.getElementById('res-sys-divisas-sis').textContent  = fmt(state.sysDivisasSis).replace('Bs. ','');
+    // Compatibilidad con flag legado (el backend ya no lo envía, pero por seguridad)
+    if (data.session_stolen) {
+      console.warn('[IniciarCuadre] session_stolen → bloqueando');
+      lockCuadreSectionUI();
+      return;
+    }
 
-    // Load precierre if exists
     if (data.has_precierre && data.borrador_actual) {
-      document.getElementById('precierre-banner').style.display = 'flex';
+      const pb = document.getElementById('precierre-banner');
+      if (pb) pb.style.display = 'flex';
       state.cierreId = data.borrador_actual.cierre_id;
       cargarBorrador(data.borrador_actual);
     }
 
+    console.log('[IniciarCuadre] Mostrando workspace...');
     document.getElementById('cuadre-workspace').style.display = 'block';
-    document.getElementById('module-subtitle').textContent =
-      `Vendedor: ${state.vendedor} — ${state.fecha}`;
+    setEl('module-subtitle', `Vendedor: ${state.vendedor} — ${state.fecha}`);
     recalculate();
 
-    // ── Mostrar + cargar Bandeja Pago Móvil ─────────────────────────────────
     const pmWrapper = document.getElementById('pm-bandeja-wrapper');
     if (pmWrapper) pmWrapper.style.display = 'block';
     cargarBandejaPM();
-    // Auto-abrir si hay registros (se procesa asíncronamente en cargarBandejaPM)
+    console.log('[IniciarCuadre] ✅ OK');
 
   } catch(e) {
+    console.error('[IniciarCuadre] ERROR:', e);
     alert('Error al cargar totales: ' + e.message);
   } finally {
     btn.disabled = false;
@@ -1716,11 +1829,12 @@ async function guardarPrecierre(isSilent = false) {
     });
     
     if (res.status === 409) {
-        // ⚠️ Sesión múltiple detectada: bloquear inmediatamente y salir.
-        // blockMultipleSessionUI() reemplaza todo el DOM, por lo que no se
-        // puede escribir en 'indicator' después — por eso hacemos return aquí.
-        blockMultipleSessionUI();
-        return false; // No llegar al catch: el DOM ya fue destruido
+        // ⚠️ Sesión múltiple: bloquear solo la sección Cuadre
+        const errText = await res.text();
+        const match = errText.match(/por (.*)\./);
+        const owner = match ? match[1] : "otro dispositivo";
+        lockCuadreSectionUI(owner);
+        return false;
     }
     
     if (!res.ok) throw new Error(await res.text());
@@ -1773,7 +1887,10 @@ async function ejecutarCierreFinal() {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
     if (res.status === 409) {
-        blockMultipleSessionUI();
+        const errText = await res.text();
+        const match = errText.match(/por (.*)\./);
+        const owner = match ? match[1] : "otro dispositivo";
+        lockCuadreSectionUI(owner);
         return;
     }
     if (!res.ok) throw new Error(await res.text());
@@ -2677,14 +2794,12 @@ async function capturarSeleccionadosPM() {
 
 // Hook: mostrar la bandeja automáticamente al iniciar cuadre
 const _originalIniciarCuadre = iniciarCuadre;
-iniciarCuadre = async function() {
-    await _originalIniciarCuadre();
-    console.log("Hook Iniciar Cuadre Ejecutado - Abriendo Bandeja PM");
-    const pmWrapper = document.getElementById('pm-bandeja-wrapper');
-    if (pmWrapper) pmWrapper.style.display = 'block';
-    if (typeof cargarBandejaPM === 'function') {
-        cargarBandejaPM();
-    }
+iniciarCuadre = async function(...args) {
+    // Pasar todos los argumentos (incluyendo force=true cuando aplique)
+    await _originalIniciarCuadre(...args);
+    // Nota: cargarBandejaPM ya se llama dentro de _originalIniciarCuadre,
+    // pero dejamos el log para confirmar el hook.
+    console.log("Hook Iniciar Cuadre - force=", args[0] ?? false);
 };
 
 // ── Reparación de Fechas Saint ───────────────────────────────────────────────
