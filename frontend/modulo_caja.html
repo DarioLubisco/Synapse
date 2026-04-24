@@ -1716,8 +1716,11 @@ async function guardarPrecierre(isSilent = false) {
     });
     
     if (res.status === 409) {
+        // ⚠️ Sesión múltiple detectada: bloquear inmediatamente y salir.
+        // blockMultipleSessionUI() reemplaza todo el DOM, por lo que no se
+        // puede escribir en 'indicator' después — por eso hacemos return aquí.
         blockMultipleSessionUI();
-        throw new Error("CONCURRENCY_ERROR: Sesión bloqueada por sobreescritura");
+        return false; // No llegar al catch: el DOM ya fue destruido
     }
     
     if (!res.ok) throw new Error(await res.text());
@@ -1741,11 +1744,7 @@ async function guardarPrecierre(isSilent = false) {
         indicator.innerHTML = `<i class="fas fa-exclamation-triangle" style="color: var(--danger);"></i> Error autoguardado`;
       }
     } else {
-      if (e.message.includes('CONCURRENCY')) {
-          showToast('Sesión bloqueada por seguridad. Se detectó otra pestaña modificando el cierre.', 'danger');
-      } else {
-          showToast('Error guardando precierre: ' + e.message, 'danger'); 
-      }
+      showToast('Error guardando precierre: ' + e.message, 'danger');
     }
     return false;
   } finally {
@@ -1773,6 +1772,10 @@ async function ejecutarCierreFinal() {
     const res = await fetch('/caja/conciliar/finalizar', {
       method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
+    if (res.status === 409) {
+        blockMultipleSessionUI();
+        return;
+    }
     if (!res.ok) throw new Error(await res.text());
     const data = await res.json();
     showToast(`✅ Turno cerrado exitosamente. ID de Cierre: ${data.cierre_id}`, 'success');
