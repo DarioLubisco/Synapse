@@ -64,5 +64,9 @@ frontend_dir = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.isdir(frontend_dir):
     app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
+@app.get("/debug/paths")
+async def debug_paths():
+    return {"cwd": os.getcwd(), "file": __file__, "frontend_dir": frontend_dir}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
