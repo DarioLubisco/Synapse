@@ -516,6 +516,10 @@
                   <span class="summary-label" style="color:var(--danger);"><i class="fas fa-undo fa-sm"></i> Devoluciones (Netas)</span>
                   <span class="summary-value" id="res-sys-devoluciones" style="color:var(--danger);">- Bs. 0.00</span>
                 </div>
+                <div class="summary-row" id="res-sys-descuento-row" style="border-top: 1px dashed var(--border-subtle); margin-top: 0.25rem; padding-top: 0.25rem;">
+                  <span class="summary-label" style="color:var(--warning);"><i class="fas fa-tag fa-sm"></i> Descuento Base</span>
+                  <span class="summary-value" id="res-sys-descuento">Bs. 0.00</span>
+                </div>
               </div>
 
               <!-- BLOQUE MANUAL -->
@@ -1072,6 +1076,7 @@
                 <th>Vendedor</th>
                 <th style="text-align:center;">Estado Cierre</th>
                 <th style="text-align:right;">Efectivo (Sis.)</th>
+                <th style="text-align:right; color:var(--warning);">Desc. Base</th>
                 <th style="text-align:right;">POS (Sis.)</th>
                 <th style="text-align:right;">Efectivo (Man.)</th>
                 <th style="text-align:right;">POS (Man.)</th>
@@ -1131,6 +1136,7 @@
           <tr>
             <th>Vendedor</th>
             <th>Efec. Sistema</th>
+            <th style="color:var(--warning);">Desc. Base</th>
             <th>POS Sistema</th>
             <th>Efec. Manual</th>
             <th>POS Manual</th>
@@ -1502,6 +1508,7 @@ const state = {
   // Totales sistema (desde SAIPAVTA + SAFACT)
   sysEfectivo: 0, sysTarjeta: 0, sysCheque: 0,
   sysTDD: 0, sysTDC: 0, sysPagoMovil: 0, sysBiopago: 0,
+  sysDescuento: 0,
   // Tickets manuales y POS
   tickets: [],
   puntosVenta: [],
@@ -1751,6 +1758,7 @@ async function iniciarCuadre(force = false) {
     state.sysDispositivos = data.totales_sistema.totdispositivos ?? 0;
     state.sysBancos       = data.totales_sistema.totbancos       ?? 0;
     state.sysDivisasSis   = data.totales_sistema.totdivisas      ?? 0;
+    state.sysDescuento    = data.totales_sistema.totdescuento     ?? 0;
     state.sysDevoluciones = data.totales_sistema.devoluciones    || [];
 
     // Actualizar DOM con null-checks defensivos
@@ -1763,6 +1771,7 @@ async function iniciarCuadre(force = false) {
     setEl('res-sys-dispositivos',  fmt(state.sysDispositivos));
     setEl('res-sys-bancos',        fmt(state.sysBancos));
     setEl('res-sys-divisas-sis',   fmt(state.sysDivisasSis).replace('Bs. ',''));
+    setEl('res-sys-descuento',     fmt(state.sysDescuento));
 
     fetch(`/caja/calculadora/reporte?fecha=${state.fecha}&vendedor_codigo=${encodeURIComponent(state.vendedor)}`)
       .then(r => r.json())
@@ -2924,6 +2933,7 @@ function renderCierreDiario({ fecha, data, resumen: r }) {
                 </div>
                 <div class="vend-card-rows">
                   <div class="vend-card-row"><span class="lbl">Efec. Sistema</span><span class="val">${fmtN(v.tot_efectivo_sis)}</span></div>
+                  <div class="vend-card-row" style="color:var(--warning);"><span class="lbl">Desc. Base</span><span class="val">${fmtN(v.tot_descuento)}</span></div>
                   <div class="vend-card-row"><span class="lbl">POS Sistema</span><span class="val">${fmtN(v.tot_tarjeta_sis)}</span></div>
                   <div class="vend-card-row"><span class="lbl">Efec. Manual</span><span class="val">${fmtN(v.manual_efectivo_bs)}</span></div>
                   <div class="vend-card-row"><span class="lbl">POS Manual</span><span class="val">${fmtN(v.manual_total_pos)}</span></div>
@@ -2939,7 +2949,7 @@ function renderCierreDiario({ fecha, data, resumen: r }) {
     }
 
     // ── Tabla resumen columnas
-    let tSisEf=0, tSisPos=0, tManEf=0, tManPos=0, tManTot=0, tDif=0;
+    let tSisEf=0, tSisPos=0, tManEf=0, tManPos=0, tManTot=0, tDif=0, tDesc=0;
     const tbody = document.getElementById('cdd-totals-tbody');
     tbody.innerHTML = data.map(v => {
         const totalSis = v.tot_efectivo_sis + v.tot_tarjeta_sis;
@@ -2947,11 +2957,13 @@ function renderCierreDiario({ fecha, data, resumen: r }) {
         const dif = totalMan - totalSis;
         tSisEf += v.tot_efectivo_sis; tSisPos += v.tot_tarjeta_sis;
         tManEf += v.manual_efectivo_bs; tManPos += v.manual_total_pos;
+        tDesc += (v.tot_descuento || 0);
         tManTot += totalMan; tDif += dif;
         const dc = dif > 0 ? '#22c55e' : dif < 0 ? '#ef4444' : 'inherit';
         return `<tr>
             <td>${v.nombre} <small style="color:var(--text-muted)">${v.cod_vend}</small></td>
             <td>${fmtN(v.tot_efectivo_sis)}</td>
+            <td style="color:var(--warning);">${fmtN(v.tot_descuento)}</td>
             <td>${fmtN(v.tot_tarjeta_sis)}</td>
             <td>${fmtN(v.manual_efectivo_bs)}</td>
             <td>${fmtN(v.manual_total_pos)}</td>
@@ -2964,7 +2976,9 @@ function renderCierreDiario({ fecha, data, resumen: r }) {
     document.getElementById('cdd-totals-tfoot').innerHTML = `
         <tr>
             <td>TOTAL DÍA</td>
-            <td>${fmtN(tSisEf)}</td><td>${fmtN(tSisPos)}</td>
+            <td>${fmtN(tSisEf)}</td>
+            <td style="color:var(--warning);">${fmtN(tDesc)}</td>
+            <td>${fmtN(tSisPos)}</td>
             <td>${fmtN(tManEf)}</td><td>${fmtN(tManPos)}</td>
             <td>${fmtN(tManTot)}</td>
             <td style="color:${tdc};font-size:1rem;">${tDif>=0?'+':''}${fmtN(tDif)}</td>
@@ -2988,6 +3002,7 @@ function imprimirCierreDiario() {
             <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;">${estadoLabel}</td>
             <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:right;">${v.nro_facturas}</td>
             <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:right;">${fmtN(v.tot_efectivo_sis)}</td>
+            <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:right;color:#d97706;">${fmtN(v.tot_descuento)}</td>
             <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:right;">${fmtN(v.tot_tarjeta_sis)}</td>
             <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:right;">${fmtN(v.manual_efectivo_bs)}</td>
             <td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:right;">${fmtN(v.manual_total_pos)}</td>
@@ -3031,6 +3046,7 @@ function imprimirCierreDiario() {
             <th style="padding:7px 8px;text-align:center;">Estado</th>
             <th style="padding:7px 8px;text-align:right;"># Fact.</th>
             <th style="padding:7px 8px;text-align:right;">Efec.Sis.</th>
+            <th style="padding:7px 8px;text-align:right;color:#fbbf24;">Desc.Base</th>
             <th style="padding:7px 8px;text-align:right;">POS Sis.</th>
             <th style="padding:7px 8px;text-align:right;">Efec.Man.</th>
             <th style="padding:7px 8px;text-align:right;">POS Man.</th>
@@ -3135,6 +3151,7 @@ async function cargarResumenDiarioAdmin() {
                 <td><strong>${v.nombre}</strong><small style="display:block; color:var(--text-muted);">${v.cod_vend}</small></td>
                 <td style="text-align:center;">${badge}</td>
                 <td class="amount" style="text-align:right;">${fmt(v.tot_efectivo_sis)}</td>
+                <td class="amount" style="text-align:right; color:var(--warning); font-weight:bold;">${fmt(v.tot_descuento)}</td>
                 <td class="amount" style="text-align:right;">${fmt(v.tot_tarjeta_sis)}</td>
                 <td class="amount" style="text-align:right;">${fmt(v.manual_efectivo_bs)}</td>
                 <td class="amount" style="text-align:right;">${fmt(v.manual_total_pos)}</td>
