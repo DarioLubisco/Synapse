@@ -120,14 +120,17 @@ async def get_totales(vendedor_codigo: str, fecha: str, session_token: str | Non
     try:
         # 1. Base Efectivo (CancelE) ajustado por TipoFac
         cursor.execute("""
-            SELECT ISNULL(SUM(CASE WHEN TipoFac = 'C' THEN -CancelE ELSE CancelE END), 0)
+            SELECT 
+                ISNULL(SUM(CASE WHEN TipoFac = 'C' THEN -CancelE ELSE CancelE END), 0),
+                ISNULL(SUM(CASE WHEN TipoFac = 'C' THEN -(Descto1 + Descto2) ELSE (Descto1 + Descto2) END), 0)
             FROM dbo.SAFACT
             WHERE CodVend = ? AND CAST(FechaE AS DATE) = ? AND TipoFac IN ('A', 'C')
         """, (vendedor_codigo, fecha))
         row_fact = cursor.fetchone()
         base_efectivo = float(row_fact[0] if row_fact else 0.0)
+        tot_descuento = float(row_fact[1] if row_fact else 0.0)
 
-        # 2. Desglose diní¡mico usando SAIPAVTA puro con multiplicador de signo
+        # 2. Desglose dinámico usando SAIPAVTA puro con multiplicador de signo
         cursor.execute("""
             SELECT 
                 ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND i.CodTarj NOT IN ('006', '021') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotDispositivos,
@@ -166,6 +169,7 @@ async def get_totales(vendedor_codigo: str, fecha: str, session_token: str | Non
             "totdispositivos": tot_dispositivos,
             "totbancos":       tot_bancos,
             "tototros":        tot_otros,
+            "totdescuento":    tot_descuento,
             "devoluciones":    devoluciones
         }
 
@@ -535,8 +539,9 @@ async def get_resumen_diario(fecha: str):
                 SELECT 
                     f.CodVend,
                     COUNT(f.NumeroD) AS nro_facturas,
-                    SUM(ISNULL(f.CancelE, 0)) AS base_efectivo,
-                    SUM(ISNULL(f.CancelT, 0)) AS base_tarjeta
+                    SUM(ISNULL(CASE WHEN f.TipoFac='C' THEN -f.CancelE ELSE f.CancelE END, 0)) AS base_efectivo,
+                    SUM(ISNULL(CASE WHEN f.TipoFac='C' THEN -f.CancelT ELSE f.CancelT END, 0)) AS base_tarjeta,
+                    SUM(ISNULL(CASE WHEN f.TipoFac='C' THEN -(f.Descto1 + f.Descto2) ELSE (f.Descto1 + f.Descto2) END, 0)) AS tot_descuento
                 FROM dbo.SAFACT f
                 WHERE CAST(f.FechaE AS DATE) = ?
                   AND f.TipoFac IN ('A', 'C')
@@ -558,7 +563,8 @@ async def get_resumen_diario(fecha: str):
                 v.Descrip AS nombre,
                 t.base_efectivo + ISNULL(e.efec_tarj, 0) AS tot_efectivo_sis,
                 t.base_tarjeta - ISNULL(e.efec_tarj, 0) AS tot_tarjeta_sis,
-                t.nro_facturas
+                t.nro_facturas,
+                t.tot_descuento
             FROM TotalesFactura t
             JOIN dbo.SAVEND v ON t.CodVend = v.CodVend
             LEFT JOIN EfecEnTarj e ON t.CodVend = e.CodVend
@@ -572,6 +578,7 @@ async def get_resumen_diario(fecha: str):
                 "tot_efectivo_sis": float(r[2]),
                 "tot_tarjeta_sis": float(r[3]),
                 "nro_facturas": int(r[4]),
+                "tot_descuento": float(r[5]),
                 "estado_cierre": "PENDIENTE",
                 "cierre_id": None,
                 "manual_efectivo_bs": 0.0,
@@ -893,14 +900,19 @@ async def generar_pdf_cierre(cierre_id: int):
         }
 
         # Complementar con SAFACT (Efectivo base)
+        # 3. Datos del sistema (Saint) - Resumen para el PDF
         cursor.execute("""
-            SELECT SUM(ISNULL(CASE WHEN TipoFac = 'C' THEN -CancelE ELSE CancelE END, 0)), COUNT(NumeroD)
+            SELECT 
+                SUM(ISNULL(CASE WHEN TipoFac = 'C' THEN -CancelE ELSE CancelE END, 0)), 
+                COUNT(NumeroD),
+                SUM(ISNULL(CASE WHEN TipoFac = 'C' THEN -(Descto1 + Descto2) ELSE (Descto1 + Descto2) END, 0))
             FROM dbo.SAFACT 
             WHERE CodVend = ? AND CAST(FechaE AS DATE) = ? AND TipoFac IN ('A','C')
         """, (cierre["cod_vend"], cierre["fecha"]))
         fact_row = cursor.fetchone()
         sys_vals["ef_bs_base"] = float(fact_row[0] if fact_row[0] else 0)
         nro_facturas = int(fact_row[1] if fact_row[1] else 0)
+        tot_descuento = float(fact_row[2] if fact_row[2] else 0)
 
         # Totales agrupados para el comparativo
         sis_ef_bs_total = sys_vals["ef_bs_base"] + sys_vals["ef_bs_tarj"]
@@ -1074,6 +1086,11 @@ async def generar_pdf_cierre(cierre_id: int):
          Paragraph(diff_str(diff_banc), ParagraphStyle("dd2",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_banc),alignment=TA_RIGHT))],
         [sub_p("  -> Pago Móvil"), sub_r(fmt(sys_vals["pm"])), sub_r(fmt(man_pm)), Paragraph("", right)],
         [sub_p("  -> Transferencia"), sub_r(fmt(sys_vals["transferencia"])), sub_r(fmt(man_trans)), Paragraph("", right)],
+        # -- DESCUENTO BASE --
+        [Paragraph("<b>DESCUENTO BASE (SAINT)</b>", ParagraphStyle("gr9",fontSize=9,fontName="Helvetica-Bold",textColor=GOLD)),
+         Paragraph(fmt(tot_descuento), ParagraphStyle("gr10",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT,textColor=GOLD)),
+         Paragraph("-", ParagraphStyle("gr11",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph("", right)],
         # -- TOTAL --
         [Paragraph("<b>TOTAL GENERAL</b>", ParagraphStyle("tb",fontSize=9,fontName="Helvetica-Bold")),
          Paragraph(fmt(sis_efectivo+sis_tarjeta), ParagraphStyle("tr",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
