@@ -4277,7 +4277,7 @@ function renderPivot() {
     const label    = `${vNom} — ${fecha}`;
     // escape single quotes in label/codVend
     const safeLabel   = label.replace(/'/g, "\\'");
-    const safeVend    = codVend.replace(/'/g, "\\'");
+    const safeVend    = String(codVend).replace(/'/g, "\\'");
     return `'${fecha}','${safeVend}','${safeLabel}'`;
   }
 
