@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="css/style.css"/>
   <style>
     #toast-container {
@@ -183,6 +184,53 @@
       #print-frame-wrapper { display: block !important; position: fixed; inset: 0; z-index: 99999; }
     }
 
+    /* ── REPORTE VENTAS (rv-*) ─────────────────────────────────────── */
+    .rv-kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+    .rv-kpi {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1rem 1.1rem;
+      position: relative;
+      overflow: hidden;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .rv-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+    .rv-kpi-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; margin-bottom: 0.75rem; flex-shrink: 0;
+    }
+    .rv-kpi-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); margin-bottom: .3rem; }
+    .rv-kpi-value { font-size: 1.3rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+    .rv-kpi-sub   { font-size: 0.72rem; color: var(--text-muted); margin-top: .35rem; }
+    .rv-kpi-badge {
+      display: inline-block; padding: 2px 8px; border-radius: 999px;
+      font-size: 0.68rem; font-weight: 700; margin-top: .4rem;
+    }
+    .rv-bar-row { display: flex; align-items: center; gap: .6rem; margin-bottom: .55rem; font-size: .82rem; }
+    .rv-bar-label { width: 110px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+    .rv-bar-track { flex: 1; background: rgba(255,255,255,.06); border-radius: 999px; height: 8px; overflow: hidden; }
+    .rv-bar-fill  { height: 100%; border-radius: 999px; transition: width .4s ease; }
+    .rv-bar-val   { width: 72px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; font-size: .78rem; }
+    /* Pivot table */
+    .rv-pivot-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .rv-pivot-table th { padding: .45rem .7rem; background: rgba(255,255,255,.05); border: 1px solid var(--border-subtle); font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); text-align: right; white-space: nowrap; }
+    .rv-pivot-table th:first-child { text-align: left; }
+    .rv-pivot-table td { padding: .45rem .7rem; border: 1px solid rgba(255,255,255,.04); text-align: right; font-variant-numeric: tabular-nums; transition: background .15s; }
+    .rv-pivot-table td:first-child { text-align: left; font-weight: 600; white-space: nowrap; }
+    .rv-pivot-table tr:hover td { filter: brightness(1.12); }
+    .rv-pivot-total-row td { font-weight: 800; background: rgba(255,255,255,.05) !important; border-top: 2px solid var(--border-subtle); }
+    .rv-pivot-total-col { font-weight: 700; background: rgba(255,255,255,.03) !important; }
+    .rv-pct-sub { display: block; font-size: .68rem; color: var(--text-muted); margin-top: 1px; }
+    .rv-quick-btn.active { background: var(--primary-accent) !important; color: #fff !important; border-color: var(--primary-accent) !important; }
+    .rv-donut-mode.active { background: rgba(16,185,129,.2) !important; color: #10b981 !important; border-color: #10b981 !important; }
+
     /* ── REPORTE CONSOLIDADO DIARIO ────────────────────────────────── */
     #modal-cierre-diario .modal-content {
       max-width: 1100px; width: 96%; padding: 2rem; max-height: 92vh; overflow-y: auto;
@@ -295,6 +343,7 @@
       <button class="btn btn-secondary active-tab" onclick="switchModule('cuadre', this)" id="nav-cuadre" style="border:none; border-radius:0; padding-bottom:0.75rem; border-bottom: 2px solid var(--primary-accent); background:transparent;"><i class="fas fa-cash-register"></i> Cuadre de Cajas</button>
       <button class="btn btn-secondary" onclick="switchModule('calculadora', this)" id="nav-calc" style="border:none; border-radius:0; padding-bottom:0.75rem; background:transparent;"><i class="fas fa-calculator"></i> Calculadora Mixta</button>
       <button class="btn btn-secondary" onclick="switchModule('reportes', this)" id="nav-rep" style="border:none; border-radius:0; padding-bottom:0.75rem; background:transparent;"><i class="fas fa-chart-bar"></i> Reportes</button>
+      <button class="btn btn-secondary" onclick="switchModule('reporte-venta', this)" id="nav-rv" style="border:none; border-radius:0; padding-bottom:0.75rem; background:transparent; color:#10b981;"><i class="fas fa-chart-line"></i> Reporte Venta</button>
       <button class="btn btn-secondary" onclick="switchModule('admin', this)" id="nav-admin" style="display:none; border:none; border-radius:0; padding-bottom:0.75rem; background:transparent; color:var(--warning);"><i class="fas fa-shield-alt"></i> Panel Admin</button>
     </div>
 
@@ -1021,7 +1070,180 @@
       </div>
     </section>
 
+    <!-- ── MODULE: Reporte de Venta ─────────────────────────────────── -->
+    <section class="view-section" id="module-reporte-venta">
+
+      <!-- Filter Bar -->
+      <div class="section-card planning-action-bar" style="border-left:4px solid #10b981;">
+        <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
+          <!-- Quick range buttons -->
+          <div style="display:flex; gap:.3rem; align-items:center;">
+            <span style="font-size:.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-right:.2rem;">Rango</span>
+            <button class="btn btn-secondary rv-quick-btn" id="rv-q-hoy"    onclick="rvSetRange('hoy')"    style="padding:.28rem .7rem; font-size:.78rem;">Hoy</button>
+            <button class="btn btn-secondary rv-quick-btn" id="rv-q-semana" onclick="rvSetRange('semana')" style="padding:.28rem .7rem; font-size:.78rem;">Semana</button>
+            <button class="btn btn-secondary rv-quick-btn" id="rv-q-mes"    onclick="rvSetRange('mes')"    style="padding:.28rem .7rem; font-size:.78rem;">Mes</button>
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label style="font-size:.7rem;"><i class="fas fa-calendar-day"></i> Desde</label>
+            <input type="date" id="rv-desde" class="form-control" style="width:145px;" onchange="rvClearQuick()"/>
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label style="font-size:.7rem;"><i class="fas fa-calendar-check"></i> Hasta</label>
+            <input type="date" id="rv-hasta" class="form-control" style="width:145px;" onchange="rvClearQuick()"/>
+          </div>
+          <div class="input-group" style="margin:0;">
+            <label style="font-size:.7rem;"><i class="fas fa-user-tag"></i> Vendedor</label>
+            <select id="rv-vendedor" class="form-control" style="width:200px; font-size:.82rem;">
+              <option value="">TODOS</option>
+            </select>
+          </div>
+          <label style="display:flex; align-items:center; gap:.4rem; font-size:.8rem; color:var(--text-secondary); cursor:pointer; user-select:none; margin-left:.25rem;">
+            <input type="checkbox" id="rv-incluir-nc" checked style="accent-color:#a78bfa; width:15px; height:15px;"/>
+            Incluir NC
+          </label>
+          <button class="btn btn-primary" onclick="cargarReporteVentas()" id="btn-rv-consultar" style="margin-left:auto; padding:.4rem 1.1rem;">
+            <i class="fas fa-chart-line"></i> Consultar
+          </button>
+          <button class="btn btn-secondary" onclick="rvExportCSV()" title="Exportar CSV" style="padding:.4rem .7rem;" id="btn-rv-csv" disabled>
+            <i class="fas fa-file-csv"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div id="rv-empty" style="text-align:center; padding:4.5rem 2rem; color:var(--text-muted);">
+        <i class="fas fa-chart-line" style="font-size:3rem; margin-bottom:1rem; opacity:.25; display:block;"></i>
+        <p style="font-size:.95rem;">Selecciona un rango y pulsa <strong>Consultar</strong></p>
+        <p style="font-size:.82rem; margin-top:.35rem; opacity:.7;">Presupuesto · Ventas · Descuentos · Pivot</p>
+      </div>
+
+      <!-- Loading spinner -->
+      <div id="rv-loading" style="display:none; text-align:center; padding:3rem;">
+        <i class="fas fa-spinner fa-spin" style="font-size:2rem; color:var(--primary-accent);"></i>
+        <p style="margin-top:.75rem; color:var(--text-muted); font-size:.88rem;">Cargando reporte...</p>
+      </div>
+
+      <!-- Main content -->
+      <div id="rv-content" style="display:none;">
+
+        <!-- ── KPI Strip ── -->
+        <div class="rv-kpi-strip" id="rv-kpi-strip"></div>
+
+        <!-- ── Charts Row ── -->
+        <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:1rem; margin-bottom:1.25rem; overflow:hidden;">
+
+          <!-- Barras por Vendedor -->
+          <div class="section-card" style="padding:1.1rem 1.25rem; overflow:hidden; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.85rem;">
+              <h4 style="margin:0; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted);">
+                <i class="fas fa-users"></i> Venta por Vendedor
+              </h4>
+              <select id="rv-chart-metric" class="form-control" style="width:130px; font-size:.75rem; padding:.2rem .5rem;" onchange="renderVendedorBars()">
+                <option value="venta_neta">Venta Neta</option>
+                <option value="venta_bruta">Venta Bruta</option>
+                <option value="descuento_total">Descuento</option>
+                <option value="pct_descuento">% Descuento</option>
+              </select>
+            </div>
+            <div id="rv-vendedor-bars"></div>
+          </div>
+
+          <!-- Donut descuentos -->
+          <div class="section-card" style="padding:1.1rem 1.25rem; overflow:hidden; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.85rem;">
+              <h4 style="margin:0; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted);">
+                <i class="fas fa-tags"></i> Distribución Descuentos
+              </h4>
+              <div style="display:flex; gap:.2rem;">
+                <button class="btn btn-secondary rv-donut-mode active" id="rv-dm-tipo" onclick="rvSwitchDonut('tipo')" style="padding:.2rem .55rem; font-size:.7rem;">Por Tipo</button>
+                <button class="btn btn-secondary rv-donut-mode" id="rv-dm-vend" onclick="rvSwitchDonut('vendedor')" style="padding:.2rem .55rem; font-size:.7rem;">Por Vendedor</button>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:1.25rem;">
+              <div style="position:relative; width:140px; height:140px; flex-shrink:0;">
+                <canvas id="rv-donut-canvas" width="140" height="140"></canvas>
+                <div id="rv-donut-center" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+                  <span style="font-size:.6rem; color:var(--text-muted); text-transform:uppercase;">Total</span>
+                  <span id="rv-donut-total" style="font-size:.85rem; font-weight:800;">Bs. 0</span>
+                </div>
+              </div>
+              <div id="rv-donut-legend" style="font-size:.8rem; flex:1;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Pivot Grid ── -->
+        <div class="section-card" style="padding:1rem 1.25rem;">
+          <div style="display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:1rem; padding-bottom:.75rem; border-bottom:1px solid var(--border-subtle);">
+            <span style="font-size:.75rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted);">
+              <i class="fas fa-table"></i> Pivot Grid
+            </span>
+            <div class="input-group" style="margin:0;">
+              <label style="font-size:.68rem;">Filas</label>
+              <select id="rv-pivot-rows" class="form-control" style="width:120px; font-size:.8rem;" onchange="renderPivot()">
+                <option value="vendedor">Vendedor</option>
+                <option value="fecha">Fecha</option>
+              </select>
+            </div>
+            <div class="input-group" style="margin:0;">
+              <label style="font-size:.68rem;">Columnas</label>
+              <select id="rv-pivot-cols" class="form-control" style="width:120px; font-size:.8rem;" onchange="renderPivot()">
+                <option value="fecha">Fecha</option>
+                <option value="vendedor">Vendedor</option>
+              </select>
+            </div>
+            <div class="input-group" style="margin:0;">
+              <label style="font-size:.68rem;">Métrica</label>
+              <select id="rv-pivot-metric" class="form-control" style="width:145px; font-size:.8rem;" onchange="renderPivot()">
+                <option value="venta_neta">Venta Neta</option>
+                <option value="venta_bruta">Venta Bruta</option>
+                <option value="descuento_total">Descuento Total</option>
+                <option value="pct_descuento">% Descuento</option>
+                <option value="nro_facturas">Nro. Facturas</option>
+              </select>
+            </div>
+            <label style="display:flex; align-items:center; gap:.4rem; font-size:.78rem; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="rv-heatmap" checked onchange="renderPivot()" style="accent-color:#6366f1;"/>
+              Heatmap
+            </label>
+            <label style="display:flex; align-items:center; gap:.4rem; font-size:.78rem; color:var(--text-secondary); cursor:pointer;">
+              <input type="checkbox" id="rv-show-pct" onchange="renderPivot()" style="accent-color:#10b981;"/>
+              Mostrar %
+            </label>
+            <span id="rv-pivot-info" style="margin-left:auto; font-size:.72rem; color:var(--text-muted);"></span>
+          </div>
+          <div class="table-responsive" id="rv-pivot-wrap" style="max-height:420px; overflow:auto;">
+            <!-- pivot inyectado aquí -->
+          </div>
+        </div>
+
+        <!-- ── Reporte Devoluciones (NC) ── -->
+        <div class="section-card" style="padding:1rem 1.25rem; border-left:4px solid #ef4444;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:.85rem;">
+            <h4 style="margin:0; font-size:.78rem; text-transform:uppercase; letter-spacing:.06em; color:#ef4444;">
+              <i class="fas fa-undo-alt"></i> Notas de Crédito / Devoluciones
+            </h4>
+            <span id="rv-nc-badge" style="display:none; background:rgba(239,68,68,.15); color:#ef4444; padding:.2rem .6rem; border-radius:999px; font-size:.72rem; font-weight:700;">
+              0 NC
+            </span>
+          </div>
+          <div id="rv-nc-empty" style="text-align:center; padding:1.5rem; color:var(--text-muted); font-size:.85rem;">
+            <i class="fas fa-check-circle" style="color:#10b981; margin-right:.3rem;"></i> Sin notas de crédito en el período
+          </div>
+          <div id="rv-nc-table-wrap" class="table-responsive" style="display:none; max-height:300px; overflow:auto;">
+            <!-- tabla inyectada -->
+          </div>
+          <p style="font-size:.68rem; color:var(--text-muted); margin-top:.6rem; font-style:italic;">
+            <i class="fas fa-info-circle"></i> Cada NC debe presentarse con la factura física devuelta durante el cierre de caja.
+          </p>
+        </div>
+
+      </div><!-- /rv-content -->
+    </section>
+
     <!-- ── MODULE: Panel Admin ── -->
+
+
     <section class="view-section" id="module-admin">
 
       <!-- KPIs globales -->
@@ -1597,6 +1819,13 @@ async function loadInitialData() {
                 sCRV.add(new Option(`${v.nombre} (${v.codigo})`, v.codigo));
             });
         }
+
+        // Poblar rv-vendedor para Reporte de Ventas
+        const rvVendSel = document.getElementById('rv-vendedor');
+        if (rvVendSel) {
+            rvVendSel.innerHTML = '<option value="">TODOS</option>';
+            state.vendedores.forEach(v => rvVendSel.add(new Option(`${v.nombre} (${v.codigo})`, v.codigo)));
+        }
         
         const userLbl2 = document.getElementById('current-user-label');
         if(userLbl2) userLbl2.textContent = 'Identifícate con tu código Saint';
@@ -1681,6 +1910,7 @@ function switchModule(mod, el) {
       'cxp': 'Cuentas por Pagar',
       'calculadora': 'Calculadora Mixta',
       'reportes': 'Reportes Históricos',
+      'reporte-venta': 'Reporte de Ventas — Análisis & Pivot',
       'admin': 'Panel Administrador — Cierre Diario Global'
   };
   document.getElementById('module-title').textContent = titles[mod] || 'Portal AMC';
@@ -1690,6 +1920,9 @@ function switchModule(mod, el) {
       cargarReporteDolares();
   } else if (mod === 'cuadre') {
       document.getElementById('module-subtitle').textContent = 'Selecciona vendedor y fecha para iniciar';
+  } else if (mod === 'reporte-venta') {
+      document.getElementById('module-subtitle').textContent = 'Venta bruta, descuentos y neta — pivot dinámico por vendedor y fecha.';
+      rvInitDates();
   } else if (mod === 'reportes') {
       document.getElementById('module-title').textContent = 'Reportes Históricos';
       document.getElementById('module-subtitle').textContent = 'Consulta y auditoría de cierres finalizados y sellados.';
@@ -3686,7 +3919,448 @@ function imprimirReporte(tipo){
 }
 
 </script>
-<script src="js/sidebar.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════════════
+//  REPORTE DE VENTAS — Módulo rv-*
+// ════════════════════════════════════════════════════════════════════
+window._rvData      = null;   // cached API response
+window._rvDonutChart= null;   // Chart.js instance
+
+/* ── helpers de formato ─────────────────────────────────────────── */
+function rvFmtBs(n)  { return 'Bs. ' + parseFloat(n||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function rvFmtNum(n) { return parseFloat(n||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function rvFmtPct(n) { return parseFloat(n||0).toFixed(2) + '%'; }
+function rvToday()   { return new Date().toISOString().slice(0,10); }
+
+/* ── Inicializar fechas al entrar al módulo ─────────────────────── */
+function rvInitDates() {
+  const desde = document.getElementById('rv-desde');
+  const hasta  = document.getElementById('rv-hasta');
+  if (desde && !desde.value) {
+    const hoy = rvToday();
+    desde.value = hoy;
+    hasta.value  = hoy;
+    document.getElementById('rv-q-hoy').classList.add('active');
+  }
+  // poblar vendedores si state los tiene
+  const sel = document.getElementById('rv-vendedor');
+  if (sel && sel.options.length <= 1 && window.state && state.vendedores.length) {
+    state.vendedores.forEach(v => sel.add(new Option(`${v.nombre} (${v.codigo})`, v.codigo)));
+  }
+}
+
+/* ── Botones de rango rápido ────────────────────────────────────── */
+function rvSetRange(range) {
+  const hoy = new Date();
+  let desde, hasta = rvToday();
+  if (range === 'hoy') {
+    desde = rvToday();
+  } else if (range === 'semana') {
+    const d = new Date(hoy);
+    d.setDate(d.getDate() - d.getDay() + 1); // lunes
+    desde = d.toISOString().slice(0,10);
+  } else if (range === 'mes') {
+    desde = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,'0')}-01`;
+  }
+  document.getElementById('rv-desde').value = desde;
+  document.getElementById('rv-hasta').value  = hasta;
+  rvClearQuick();
+  document.getElementById(`rv-q-${range}`).classList.add('active');
+  cargarReporteVentas();
+}
+
+function rvClearQuick() {
+  document.querySelectorAll('.rv-quick-btn').forEach(b => b.classList.remove('active'));
+}
+
+/* ── Carga principal ────────────────────────────────────────────── */
+async function cargarReporteVentas() {
+  const desde    = document.getElementById('rv-desde').value;
+  const hasta    = document.getElementById('rv-hasta').value;
+  const vendedor = document.getElementById('rv-vendedor').value;
+  const inclNC   = document.getElementById('rv-incluir-nc').checked;
+
+  if (!desde || !hasta) { showToast('Selecciona un rango de fechas', 'warning'); return; }
+  if (desde > hasta)    { showToast('La fecha Desde debe ser ≤ Hasta', 'warning'); return; }
+
+  document.getElementById('rv-empty').style.display    = 'none';
+  document.getElementById('rv-loading').style.display  = 'block';
+  document.getElementById('rv-content').style.display  = 'none';
+  document.getElementById('btn-rv-consultar').disabled = true;
+
+  try {
+    let url = `/caja/reportes/ventas?fecha_desde=${desde}&fecha_hasta=${hasta}&incluir_nc=${inclNC}`;
+    if (vendedor) url += `&vendedor_codigo=${encodeURIComponent(vendedor)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.status !== 'success') throw new Error(data.detail || 'Error del servidor');
+
+    window._rvData = data;
+    renderKPIsRV(data.kpis);
+    renderVendedorBars();
+    renderDonutDescuentos(data.kpis);
+    renderPivot();
+    cargarDevoluciones(desde, hasta, vendedor);
+
+    document.getElementById('rv-content').style.display  = 'block';
+    document.getElementById('btn-rv-csv').disabled = false;
+    document.getElementById('rv-pivot-info').textContent =
+      `${data.detalles.length} combinaciones · ${desde === hasta ? desde : desde + ' → ' + hasta}`;
+  } catch(e) {
+    showToast('Error al cargar reporte: ' + e.message, 'error');
+    document.getElementById('rv-empty').style.display = 'block';
+  } finally {
+    document.getElementById('rv-loading').style.display  = 'none';
+    document.getElementById('btn-rv-consultar').disabled = false;
+  }
+}
+
+/* ── KPI Strip ──────────────────────────────────────────────────── */
+function renderKPIsRV(k) {
+  const pctColor = k.pct_descuento > 10 ? '#ef4444' : k.pct_descuento > 6 ? '#f59e0b' : '#10b981';
+  const cards = [
+    {
+      icon: 'fa-money-bill-wave', color: '#3b82f6', bg: 'rgba(59,130,246,.12)',
+      label: 'Venta Bruta',
+      value: rvFmtBs(k.venta_bruta),
+      sub: `${k.nro_ventas} fact. · ${k.nro_nc} NC`
+    },
+    {
+      icon: 'fa-tags', color: '#f59e0b', bg: 'rgba(245,158,11,.12)',
+      label: 'Descuento Total',
+      value: rvFmtBs(k.descuento_total),
+      sub: `Dto1: ${rvFmtBs(k.descto1)} · Dto2: ${rvFmtBs(k.descto2)}`
+    },
+    {
+      icon: 'fa-chart-line', color: '#10b981', bg: 'rgba(16,185,129,.12)',
+      label: 'Venta Neta',
+      value: rvFmtBs(k.venta_neta),
+      sub: `Ticket prom: ${rvFmtBs(k.ticket_promedio)}`
+    },
+    {
+      icon: 'fa-percent', color: pctColor, bg: `${pctColor}22`,
+      label: '% Descuento Prom.',
+      value: rvFmtPct(k.pct_descuento),
+      sub: k.pct_descuento > 10 ? '⚠ Alto' : k.pct_descuento > 6 ? 'Moderado' : 'Óptimo'
+    },
+    {
+      icon: 'fa-receipt', color: '#a78bfa', bg: 'rgba(167,139,250,.12)',
+      label: 'Facturas / NC',
+      value: k.nro_ventas,
+      sub: `${k.nro_nc} notas de crédito`
+    }
+  ];
+
+  document.getElementById('rv-kpi-strip').innerHTML = cards.map(c => `
+    <div class="rv-kpi">
+      <div class="rv-kpi-icon" style="background:${c.bg}; color:${c.color};">
+        <i class="fas ${c.icon}"></i>
+      </div>
+      <div class="rv-kpi-label">${c.label}</div>
+      <div class="rv-kpi-value" style="color:${c.color};">${c.value}</div>
+      <div class="rv-kpi-sub">${c.sub}</div>
+    </div>
+  `).join('');
+}
+
+/* ── Barras horizontales por Vendedor ───────────────────────────── */
+function renderVendedorBars() {
+  if (!window._rvData) return;
+  const metric = document.getElementById('rv-chart-metric').value;
+  const isPct  = metric === 'pct_descuento';
+
+  // Agrupar por vendedor
+  const map = {};
+  window._rvData.detalles.forEach(d => {
+    if (!map[d.vendedor]) map[d.vendedor] = 0;
+    map[d.vendedor] += parseFloat(d[metric] || 0);
+  });
+  const sorted = Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0,10);
+  const maxVal = sorted[0]?.[1] || 1;
+  const COLORS  = ['#3b82f6','#10b981','#f59e0b','#a78bfa','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899','#8b5cf6'];
+
+  const bars = sorted.map(([name, val], i) => {
+    const pct = (val / maxVal * 100).toFixed(1);
+    const disp = isPct ? rvFmtPct(val) : rvFmtBs(val);
+    return `
+      <div class="rv-bar-row">
+        <span class="rv-bar-label" title="${name}">${name.split(' ')[0]}</span>
+        <div class="rv-bar-track">
+          <div class="rv-bar-fill" style="width:${pct}%; background:${COLORS[i%COLORS.length]};"></div>
+        </div>
+        <span class="rv-bar-val">${disp}</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('rv-vendedor-bars').innerHTML = bars || '<p style="color:var(--text-muted);font-size:.82rem;">Sin datos</p>';
+}
+
+/* ── Donut Chart (Chart.js) — dual mode ─────────────────────────── */
+window._rvDonutMode = 'tipo'; // 'tipo' | 'vendedor'
+
+function rvSwitchDonut(mode) {
+  window._rvDonutMode = mode;
+  document.querySelectorAll('.rv-donut-mode').forEach(b => b.classList.remove('active'));
+  document.getElementById(`rv-dm-${mode === 'tipo' ? 'tipo' : 'vend'}`).classList.add('active');
+  if (window._rvData) renderDonutDescuentos(window._rvData.kpis);
+}
+
+function renderDonutDescuentos(k) {
+  const canvas = document.getElementById('rv-donut-canvas');
+  if (!canvas) return;
+  if (window._rvDonutChart) { window._rvDonutChart.destroy(); window._rvDonutChart = null; }
+
+  const COLORS = ['#3b82f6','#a78bfa','#10b981','#f59e0b','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899','#8b5cf6'];
+  let labels = [], values = [], colors = [], total = 0;
+
+  if (window._rvDonutMode === 'tipo') {
+    // --- Modo: Por Tipo de Descuento ---
+    const dto1 = k.descto1 || 0;
+    const dto2 = k.descto2 || 0;
+    total = k.descuento_total || 0;
+    labels = ['Dto. Cabecera 1', 'Dto. Cabecera 2'];
+    values = [dto1, dto2];
+    colors = ['#3b82f6', '#a78bfa'];
+  } else {
+    // --- Modo: Por Vendedor ---
+    const vendMap = {};
+    (window._rvData?.detalles || []).forEach(d => {
+      if (!vendMap[d.vendedor]) vendMap[d.vendedor] = 0;
+      vendMap[d.vendedor] += parseFloat(d.descuento_total || 0);
+    });
+    const sorted = Object.entries(vendMap).filter(([,v]) => v > 0).sort((a,b) => b[1]-a[1]).slice(0,8);
+    sorted.forEach(([name, val], i) => {
+      labels.push(name.split(' ')[0]);
+      values.push(val);
+      colors.push(COLORS[i % COLORS.length]);
+    });
+    total = values.reduce((s,v) => s+v, 0);
+  }
+
+  if (total <= 0) {
+    document.getElementById('rv-donut-legend').innerHTML = '<p style="color:var(--text-muted);font-size:.8rem;">Sin descuentos</p>';
+    document.getElementById('rv-donut-total').textContent = '0';
+    return;
+  }
+
+  window._rvDonutChart = new Chart(canvas, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }]
+    },
+    options: {
+      cutout: '68%',
+      responsive: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ` ${rvFmtBs(ctx.raw)} (${(ctx.raw/total*100).toFixed(1)}%)` }
+      }},
+      animation: { animateRotate: true, duration: 600 }
+    }
+  });
+
+  document.getElementById('rv-donut-total').textContent = rvFmtBs(total).replace('Bs. ','');
+  document.getElementById('rv-donut-legend').innerHTML = labels.map((lbl, i) => `
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem;">
+      <span style="width:10px;height:10px;border-radius:3px;background:${colors[i]};flex-shrink:0;"></span>
+      <span style="color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:90px;" title="${lbl}">${lbl}</span>
+      <span style="margin-left:auto;font-weight:700;font-size:.78rem;">${rvFmtBs(values[i])}</span>
+    </div>
+    <div style="font-size:.66rem;color:var(--text-muted);margin:-0.2rem 0 .35rem 1.25rem;">${(values[i]/total*100).toFixed(1)}%</div>
+  `).join('');
+}
+
+/* ── Pivot Grid ─────────────────────────────────────────────────── */
+function renderPivot() {
+  if (!window._rvData) return;
+  const detalles  = window._rvData.detalles;
+  const rowField  = document.getElementById('rv-pivot-rows').value;    // 'vendedor'|'fecha'
+  const colField  = document.getElementById('rv-pivot-cols').value;    // 'fecha'|'vendedor'
+  const metric    = document.getElementById('rv-pivot-metric').value;
+  const useHeat   = document.getElementById('rv-heatmap').checked;
+  const showPct   = document.getElementById('rv-show-pct').checked;
+  const isPct     = metric === 'pct_descuento';
+  const isCount   = metric === 'nro_facturas';
+
+  const rowKey = (d) => rowField === 'vendedor' ? d.vendedor : d.fecha;
+  const colKey = (d) => colField === 'fecha'    ? d.fecha    : d.vendedor;
+
+  // unique sorted labels
+  const rowVals = [...new Set(detalles.map(rowKey))].sort();
+  const colVals = [...new Set(detalles.map(colKey))].sort();
+
+  // aggregate: sum (except % → weighted avg)
+  const cell   = {};  // cell[rk][ck] = {sum, count, bruta_sum}
+  const rowTot = {};
+  const colTot = {};
+
+  rowVals.forEach(r => { cell[r] = {}; colVals.forEach(c => { cell[r][c] = {sum:0,cnt:0,bruta:0}; }); rowTot[r] = {sum:0,cnt:0,bruta:0}; });
+  colVals.forEach(c => { colTot[c] = {sum:0,cnt:0,bruta:0}; });
+  let grandSum=0, grandCnt=0, grandBruta=0;
+
+  detalles.forEach(d => {
+    const rk = rowKey(d); const ck = colKey(d);
+    const v  = parseFloat(d[metric] || 0);
+    const br = parseFloat(d['venta_bruta'] || 0);
+    cell[rk][ck].sum   += v;
+    cell[rk][ck].cnt   += 1;
+    cell[rk][ck].bruta += br;
+    rowTot[rk].sum     += v; rowTot[rk].cnt++; rowTot[rk].bruta += br;
+    colTot[ck].sum     += v; colTot[ck].cnt++; colTot[ck].bruta += br;
+    grandSum += v; grandCnt++; grandBruta += br;
+  });
+
+  // For pct_descuento: use sum of discounts / bruta * 100 instead of plain sum
+  const resolveCell = (o) => isPct
+    ? (o.bruta ? o.sum / o.bruta * 100 : 0)
+    : (isCount ? Math.round(o.sum) : o.sum);
+
+  // collect all cell values for heatmap scale
+  const allVals = [];
+  rowVals.forEach(r => colVals.forEach(c => { if (detalles.find(d=>rowKey(d)===r&&colKey(d)===c)) allVals.push(resolveCell(cell[r][c])); }));
+  const minV = Math.min(...allVals); const maxV = Math.max(...allVals)||1;
+
+  function heatBg(v) {
+    if (!useHeat || maxV === minV) return '';
+    const t = (v - minV) / (maxV - minV);
+    const r = Math.round(59  + t*(239-59));
+    const g = Math.round(130 + t*(68-130));
+    const b = Math.round(246 + t*(68-246));
+    return `background:rgba(${r},${g},${b},${(0.08 + t*0.22).toFixed(2)}) !important;`;
+  }
+
+  function fmtCell(v) {
+    if (isPct)    return rvFmtPct(v);
+    if (isCount)  return Math.round(v);
+    return rvFmtBs(v);
+  }
+  function fmtPctSub(v, tot) {
+    if (!showPct || !tot || isPct) return '';
+    return `<span class="rv-pct-sub">${(v/tot*100).toFixed(1)}%</span>`;
+  }
+
+  // shorten date label
+  const fmtColLabel = (c) => colField === 'fecha' ? c.slice(5) : c.split(' ')[0];
+  const fmtRowLabel = (r) => rowField === 'fecha'  ? r.slice(5) : r;
+
+  let html = `<table class="rv-pivot-table">
+    <thead><tr>
+      <th style="text-align:left;">${rowField === 'vendedor' ? 'Vendedor' : 'Fecha'}</th>
+      ${colVals.map(c=>`<th>${fmtColLabel(c)}</th>`).join('')}
+      <th style="color:var(--warning);">TOTAL</th>
+    </tr></thead><tbody>`;
+
+  rowVals.forEach(rk => {
+    const rt = resolveCell(rowTot[rk]);
+    html += `<tr><td>${fmtRowLabel(rk)}</td>`;
+    colVals.forEach(ck => {
+      const hasData = detalles.some(d=>rowKey(d)===rk&&colKey(d)===ck);
+      if (!hasData) { html += `<td style="color:var(--text-muted); opacity:.35;">—</td>`; return; }
+      const v = resolveCell(cell[rk][ck]);
+      html += `<td style="${heatBg(v)}">${fmtCell(v)}${fmtPctSub(v,rt)}</td>`;
+    });
+    html += `<td class="rv-pivot-total-col">${fmtCell(rt)}</td></tr>`;
+  });
+
+  // Footer totals row
+  const gt = resolveCell({sum:grandSum,cnt:grandCnt,bruta:grandBruta});
+  html += `</tbody><tfoot><tr class="rv-pivot-total-row">
+    <td>TOTAL</td>
+    ${colVals.map(ck=>{ const v=resolveCell(colTot[ck]); return `<td>${fmtCell(v)}</td>`; }).join('')}
+    <td class="rv-pivot-total-col">${fmtCell(gt)}</td>
+  </tr></tfoot></table>`;
+
+  document.getElementById('rv-pivot-wrap').innerHTML = html;
+}
+
+/* ── Exportar CSV ───────────────────────────────────────────────── */
+function rvExportCSV() {
+  if (!window._rvData) return;
+  const cols = ['fecha','vendedor','nro_ventas','nro_nc','venta_bruta','descto1','descto2','descuento_total','venta_neta','pct_descuento','pago_efectivo','pago_tarjeta'];
+  const header = cols.join(',');
+  const rows   = window._rvData.detalles.map(d => cols.map(c => {
+    const v = d[c] !== undefined ? d[c] : '';
+    return typeof v === 'string' && v.includes(',') ? `"${v}"` : v;
+  }).join(','));
+  const csv  = [header, ...rows].join('\n');
+  const blob = new Blob(['\ufeff' + csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `reporte_ventas_${document.getElementById('rv-desde').value}_${document.getElementById('rv-hasta').value}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+}
+
+/* ── Carga de Devoluciones (NC) ─────────────────────────────────── */
+async function cargarDevoluciones(desde, hasta, vendedor) {
+  try {
+    let url = `/caja/reportes/devoluciones?fecha_desde=${desde}&fecha_hasta=${hasta}`;
+    if (vendedor) url += `&vendedor_codigo=${encodeURIComponent(vendedor)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    const badge = document.getElementById('rv-nc-badge');
+    const empty = document.getElementById('rv-nc-empty');
+    const wrap  = document.getElementById('rv-nc-table-wrap');
+
+    if (data.status !== 'success' || !data.registros.length) {
+      badge.style.display = 'none';
+      empty.style.display = 'block';
+      wrap.style.display  = 'none';
+      return;
+    }
+
+    badge.textContent = `${data.total_nc} NC · ${rvFmtBs(data.total_monto)}`;
+    badge.style.display = 'inline-block';
+    empty.style.display = 'none';
+    wrap.style.display  = 'block';
+
+    wrap.innerHTML = `
+      <table class="rv-pivot-table">
+        <thead><tr>
+          <th style="text-align:left;">Fecha</th>
+          <th style="text-align:left;">Vendedor</th>
+          <th>Nro. NC</th>
+          <th>Monto</th>
+          <th>Dto.</th>
+          <th>Neto</th>
+          <th style="text-align:left;">Observación</th>
+          <th style="text-align:center;">Factura Física</th>
+        </tr></thead>
+        <tbody>
+          ${data.registros.map(r => `
+            <tr>
+              <td style="text-align:left;">${r.fecha}</td>
+              <td style="text-align:left;">${r.vendedor}</td>
+              <td>${Math.round(r.nro_nc)}</td>
+              <td style="color:#ef4444;">${rvFmtBs(r.monto)}</td>
+              <td>${rvFmtBs(r.descto1 + r.descto2)}</td>
+              <td>${rvFmtBs(r.monto_neto)}</td>
+              <td style="text-align:left; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${r.observacion}">${r.observacion || '—'}</td>
+              <td style="text-align:center;">
+                <span style="background:rgba(245,158,11,.15); color:#f59e0b; padding:.15rem .5rem; border-radius:999px; font-size:.68rem; font-weight:700;">
+                  PENDIENTE
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr class="rv-pivot-total-row">
+            <td colspan="3" style="text-align:left;">TOTAL</td>
+            <td style="color:#ef4444; font-weight:800;">${rvFmtBs(data.total_monto)}</td>
+            <td colspan="4"></td>
+          </tr>
+        </tfoot>
+      </table>`;
+
+    // Guardar data de NC para usarla en el cierre de caja
+    window._rvNCData = data;
+  } catch(e) {
+    console.error('Error cargando devoluciones:', e);
+  }
+}
+
 </script>
+<script src="js/sidebar.js"></script>
 </body>
 </html>
