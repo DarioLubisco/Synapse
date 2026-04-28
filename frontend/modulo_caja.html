@@ -4265,11 +4265,20 @@ function renderPivot() {
   const fmtColLabel = (c) => colField === 'fecha' ? c.slice(5) : c.split(' ')[0];
   const fmtRowLabel = (r) => rowField === 'fecha'  ? r.slice(5) : r;
 
-  // Resolve row/col to fecha+vendedor for drill-down
+  // Resolve row/col to fecha + cod_vend for drill-down
+  // Build a cod_vend lookup from detalles
+  const vendNomToCod = {};
+  detalles.forEach(d => { vendNomToCod[d.vendedor] = d.cod_vend; });
+
   function drillParams(rk, ck) {
     const fecha    = rowField === 'fecha' ? rk : ck;
-    const vendedor = rowField === 'vendedor' ? rk : ck;
-    return `'${fecha}','${vendedor}'`;
+    const vNom     = rowField === 'vendedor' ? rk : ck;
+    const codVend  = vendNomToCod[vNom] || '';
+    const label    = `${vNom} — ${fecha}`;
+    // escape single quotes in label/codVend
+    const safeLabel   = label.replace(/'/g, "\\'");
+    const safeVend    = codVend.replace(/'/g, "\\'");
+    return `'${fecha}','${safeVend}','${safeLabel}'`;
   }
 
   let html = `<table class="rv-pivot-table">
@@ -4394,27 +4403,32 @@ async function cargarDevoluciones(desde, hasta, vendedor) {
 }
 
 /* ── Drill-Down: Detalle de Facturas ──────────────────────────── */
-async function rvDrillDown(fecha, vendedorNombre) {
+async function rvDrillDown(fecha, codVend, label) {
   const modal = document.getElementById('rv-drill-modal');
   const body  = document.getElementById('rv-drill-body');
   const title = document.getElementById('rv-drill-title');
 
   modal.style.display = 'block';
-  title.innerHTML = `<i class="fas fa-file-invoice" style="color:#10b981;"></i> ${vendedorNombre} — ${fecha}`;
+  title.innerHTML = `<i class="fas fa-file-invoice" style="color:#10b981;"></i> ${label || (codVend + ' — ' + fecha)}`;
   body.innerHTML  = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Cargando facturas…</div>';
-
-  // Resolve vendedor nombre → codigo
-  const vendMatch = (window._rvData?.detalles || []).find(d => d.vendedor === vendedorNombre && d.fecha === fecha);
-  const codVend = vendMatch?.cod_vend || '';
 
   try {
     let url = `/caja/reportes/ventas/detalle?fecha=${fecha}&tipo_fac=AC`;
     if (codVend) url += `&vendedor=${encodeURIComponent(codVend)}`;
+
     const res  = await fetch(url);
     const data = await res.json();
 
-    if (data.status !== 'success' || !data.facturas.length) {
-      body.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin facturas para este criterio.</p>';
+    if (!res.ok || data.status !== 'success') {
+      body.innerHTML = `<div style="text-align:center;padding:2rem;">
+        <p style="color:#ef4444; font-weight:600;"><i class="fas fa-exclamation-triangle"></i> Error del servidor</p>
+        <p style="color:var(--text-muted); font-size:.82rem; margin-top:.5rem;">${data.detail || JSON.stringify(data)}</p>
+        <p style="color:var(--text-muted); font-size:.75rem; margin-top:.5rem;">URL: ${url}</p>
+      </div>`;
+      return;
+    }
+    if (!data.facturas || data.facturas.length === 0) {
+      body.innerHTML = `<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin facturas para <strong>${label}</strong>.</p>`;
       return;
     }
 
