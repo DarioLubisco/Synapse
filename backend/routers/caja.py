@@ -1705,33 +1705,31 @@ async def detalle_facturas(
 
             sql_items_full = f"""
                 SELECT
-                    i.NumeroD           AS numero,
-                    RTRIM(i.CodItem)    AS cod_producto,
+                    i.NumeroD                           AS numero,
+                    RTRIM(i.CodItem)                    AS cod_producto,
                     RTRIM(ISNULL(p.Descrip, i.CodItem)) AS producto,
-                    i.Cantidad          AS cantidad,
-                    i.PrecioUs          AS precio_unitario,
-                    i.MontoItem         AS monto_linea,
-                    ISNULL(i.Descto1,0) AS descto1_linea,
-                    ISNULL(i.Descto2,0) AS descto2_linea
+                    i.Cantidad                          AS cantidad,
+                    i.Precio                            AS precio_unitario,
+                    i.TotalItem                         AS monto_linea,
+                    ISNULL(i.Descto, 0)                 AS descto_linea
                 FROM dbo.SAITEMFAC i
-                LEFT JOIN dbo.SAPROD p ON i.CodItem = p.CodItem
+                LEFT JOIN dbo.SAPROD p ON i.CodItem = p.CodProd
                 WHERE i.NumeroD IN ({placeholders})
-                ORDER BY i.NumeroD, i.CodItem
+                ORDER BY i.NumeroD, i.NroLinea
             """
 
             sql_items_simple = f"""
                 SELECT
-                    i.NumeroD           AS numero,
-                    RTRIM(i.CodItem)    AS cod_producto,
-                    RTRIM(i.CodItem)    AS producto,
-                    i.Cantidad          AS cantidad,
-                    i.PrecioUs          AS precio_unitario,
-                    i.MontoItem         AS monto_linea,
-                    ISNULL(i.Descto1,0) AS descto1_linea,
-                    ISNULL(i.Descto2,0) AS descto2_linea
+                    i.NumeroD                           AS numero,
+                    RTRIM(i.CodItem)                    AS cod_producto,
+                    RTRIM(i.CodItem)                    AS producto,
+                    i.Cantidad                          AS cantidad,
+                    i.Precio                            AS precio_unitario,
+                    i.TotalItem                         AS monto_linea,
+                    ISNULL(i.Descto, 0)                 AS descto_linea
                 FROM dbo.SAITEMFAC i
                 WHERE i.NumeroD IN ({placeholders})
-                ORDER BY i.NumeroD, i.CodItem
+                ORDER BY i.NumeroD, i.NroLinea
             """
 
             items_map = {}
