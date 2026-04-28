@@ -1241,6 +1241,27 @@
       </div><!-- /rv-content -->
     </section>
 
+    <!-- ── MODAL: Drill-Down Facturas ── -->
+    <div id="rv-drill-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,.6); backdrop-filter:blur(4px); overflow:auto; padding:2rem;">
+      <div style="max-width:900px; margin:auto; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:var(--radius-xl); box-shadow:var(--shadow-lg); max-height:90vh; display:flex; flex-direction:column;">
+        <!-- Header -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:1rem 1.25rem; border-bottom:1px solid var(--border-subtle);">
+          <h3 id="rv-drill-title" style="margin:0; font-size:1rem; font-weight:700;">
+            <i class="fas fa-file-invoice" style="color:#10b981;"></i> Detalle de Facturas
+          </h3>
+          <button onclick="document.getElementById('rv-drill-modal').style.display='none'" class="btn btn-secondary" style="padding:.3rem .6rem; font-size:.8rem;">
+            <i class="fas fa-times"></i> Cerrar
+          </button>
+        </div>
+        <!-- Content -->
+        <div id="rv-drill-body" style="padding:1.25rem; overflow-y:auto; flex:1;">
+          <div style="text-align:center; padding:2rem; color:var(--text-muted);">
+            <i class="fas fa-spinner fa-spin"></i> Cargando facturas…
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── MODULE: Panel Admin ── -->
 
 
@@ -4229,19 +4250,27 @@ function renderPivot() {
     return `background:rgba(${r},${g},${b},${(0.08 + t*0.22).toFixed(2)}) !important;`;
   }
 
-  function fmtCell(v) {
-    if (isPct)    return rvFmtPct(v);
-    if (isCount)  return Math.round(v);
+  function fmtCell(v, isTotal) {
+    if (!isTotal && v === 0) return '<span style="color:var(--text-muted);opacity:.3;">—</span>';
+    if (isPct)    return v === 0 ? '<span style="color:var(--text-muted);opacity:.3;">—</span>' : rvFmtPct(v);
+    if (isCount)  return v === 0 ? '<span style="color:var(--text-muted);opacity:.3;">—</span>' : Math.round(v);
     return rvFmtBs(v);
   }
   function fmtPctSub(v, tot) {
-    if (!showPct || !tot || isPct) return '';
+    if (!showPct || !tot || isPct || v === 0) return '';
     return `<span class="rv-pct-sub">${(v/tot*100).toFixed(1)}%</span>`;
   }
 
   // shorten date label
   const fmtColLabel = (c) => colField === 'fecha' ? c.slice(5) : c.split(' ')[0];
   const fmtRowLabel = (r) => rowField === 'fecha'  ? r.slice(5) : r;
+
+  // Resolve row/col to fecha+vendedor for drill-down
+  function drillParams(rk, ck) {
+    const fecha    = rowField === 'fecha' ? rk : ck;
+    const vendedor = rowField === 'vendedor' ? rk : ck;
+    return `'${fecha}','${vendedor}'`;
+  }
 
   let html = `<table class="rv-pivot-table">
     <thead><tr>
@@ -4255,19 +4284,23 @@ function renderPivot() {
     html += `<tr><td>${fmtRowLabel(rk)}</td>`;
     colVals.forEach(ck => {
       const hasData = detalles.some(d=>rowKey(d)===rk&&colKey(d)===ck);
-      if (!hasData) { html += `<td style="color:var(--text-muted); opacity:.35;">—</td>`; return; }
+      if (!hasData) { html += `<td style="color:var(--text-muted); opacity:.25;">—</td>`; return; }
       const v = resolveCell(cell[rk][ck]);
-      html += `<td style="${heatBg(v)}">${fmtCell(v)}${fmtPctSub(v,rt)}</td>`;
+      if (v === 0) {
+        html += `<td style="color:var(--text-muted); opacity:.25;">—</td>`;
+      } else {
+        html += `<td style="${heatBg(v)} cursor:pointer;" onclick="rvDrillDown(${drillParams(rk,ck)})" title="Click para ver detalle">${fmtCell(v)}${fmtPctSub(v,rt)}</td>`;
+      }
     });
-    html += `<td class="rv-pivot-total-col">${fmtCell(rt)}</td></tr>`;
+    html += `<td class="rv-pivot-total-col">${fmtCell(rt, true)}</td></tr>`;
   });
 
   // Footer totals row
   const gt = resolveCell({sum:grandSum,cnt:grandCnt,bruta:grandBruta});
   html += `</tbody><tfoot><tr class="rv-pivot-total-row">
     <td>TOTAL</td>
-    ${colVals.map(ck=>{ const v=resolveCell(colTot[ck]); return `<td>${fmtCell(v)}</td>`; }).join('')}
-    <td class="rv-pivot-total-col">${fmtCell(gt)}</td>
+    ${colVals.map(ck=>{ const v=resolveCell(colTot[ck]); return `<td>${fmtCell(v, true)}</td>`; }).join('')}
+    <td class="rv-pivot-total-col">${fmtCell(gt, true)}</td>
   </tr></tfoot></table>`;
 
   document.getElementById('rv-pivot-wrap').innerHTML = html;
@@ -4359,6 +4392,92 @@ async function cargarDevoluciones(desde, hasta, vendedor) {
     console.error('Error cargando devoluciones:', e);
   }
 }
+
+/* ── Drill-Down: Detalle de Facturas ──────────────────────────── */
+async function rvDrillDown(fecha, vendedorNombre) {
+  const modal = document.getElementById('rv-drill-modal');
+  const body  = document.getElementById('rv-drill-body');
+  const title = document.getElementById('rv-drill-title');
+
+  modal.style.display = 'block';
+  title.innerHTML = `<i class="fas fa-file-invoice" style="color:#10b981;"></i> ${vendedorNombre} — ${fecha}`;
+  body.innerHTML  = '<div style="text-align:center;padding:2rem;color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Cargando facturas…</div>';
+
+  // Resolve vendedor nombre → codigo
+  const vendMatch = (window._rvData?.detalles || []).find(d => d.vendedor === vendedorNombre && d.fecha === fecha);
+  const codVend = vendMatch?.cod_vend || '';
+
+  try {
+    let url = `/caja/reportes/ventas/detalle?fecha=${fecha}&tipo_fac=AC`;
+    if (codVend) url += `&vendedor=${encodeURIComponent(codVend)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+
+    if (data.status !== 'success' || !data.facturas.length) {
+      body.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin facturas para este criterio.</p>';
+      return;
+    }
+
+    body.innerHTML = data.facturas.map((f, i) => {
+      const isNC   = f.tipo === 'C';
+      const border = isNC ? '#ef4444' : '#10b981';
+      const badge  = isNC
+        ? '<span style="background:rgba(239,68,68,.15);color:#ef4444;padding:.1rem .45rem;border-radius:999px;font-size:.68rem;font-weight:700;">NC</span>'
+        : '<span style="background:rgba(16,185,129,.15);color:#10b981;padding:.1rem .45rem;border-radius:999px;font-size:.68rem;font-weight:700;">FAC</span>';
+
+      const prodRows = (f.productos || []).map(p => `
+        <tr style="font-size:.78rem;">
+          <td style="padding:.3rem .5rem; color:var(--text-muted);">${p.cod_producto}</td>
+          <td style="padding:.3rem .5rem;">${p.producto}</td>
+          <td style="padding:.3rem .5rem; text-align:center;">${parseFloat(p.cantidad).toFixed(0)}</td>
+          <td style="padding:.3rem .5rem; text-align:right;">${rvFmtBs(p.precio_unitario)}</td>
+          <td style="padding:.3rem .5rem; text-align:right;">${rvFmtBs(p.monto_linea)}</td>
+          <td style="padding:.3rem .5rem; text-align:right; color:var(--text-muted);">${(p.descto1_linea + p.descto2_linea) > 0 ? rvFmtBs(p.descto1_linea + p.descto2_linea) : '—'}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div style="border:1px solid var(--border-subtle); border-left:3px solid ${border}; border-radius:var(--radius-md); margin-bottom:.75rem; overflow:hidden;">
+          <!-- Factura header — clickable -->
+          <div style="display:flex; align-items:center; gap:.75rem; padding:.65rem 1rem; cursor:pointer; background:rgba(0,0,0,.15);"
+               onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.rv-drill-chevron').classList.toggle('fa-chevron-down'); this.querySelector('.rv-drill-chevron').classList.toggle('fa-chevron-right');">
+            <i class="fas fa-chevron-right rv-drill-chevron" style="font-size:.65rem; color:var(--text-muted); transition:transform .15s;"></i>
+            ${badge}
+            <span style="font-weight:700; font-size:.85rem;">#${Math.round(f.numero)}</span>
+            <span style="color:var(--text-muted); font-size:.78rem;"><i class="fas fa-clock"></i> ${f.hora || '—'}</span>
+            <span style="font-size:.82rem;"><i class="fas fa-user" style="color:var(--text-muted);"></i> ${f.cliente}</span>
+            <span style="margin-left:auto; font-weight:700; font-size:.9rem; ${isNC?'color:#ef4444;':''}">${rvFmtBs(f.monto)}</span>
+            ${(f.descto1 + f.descto2) > 0 ? `<span style="font-size:.72rem; color:#f59e0b;">Dto: ${rvFmtBs(f.descto1+f.descto2)}</span>` : ''}
+          </div>
+          <!-- Products — collapsed by default -->
+          <div style="display:none; padding:.5rem 1rem;">
+            ${f.productos?.length ? `
+              <table style="width:100%; border-collapse:collapse;">
+                <thead><tr style="font-size:.7rem; color:var(--text-muted); text-transform:uppercase;">
+                  <th style="padding:.3rem .5rem; text-align:left;">Código</th>
+                  <th style="padding:.3rem .5rem; text-align:left;">Producto</th>
+                  <th style="padding:.3rem .5rem; text-align:center;">Cant.</th>
+                  <th style="padding:.3rem .5rem; text-align:right;">P.Unit.</th>
+                  <th style="padding:.3rem .5rem; text-align:right;">Monto</th>
+                  <th style="padding:.3rem .5rem; text-align:right;">Dto.</th>
+                </tr></thead>
+                <tbody>${prodRows}</tbody>
+              </table>
+            ` : '<p style="color:var(--text-muted);font-size:.78rem;">Sin detalle de productos</p>'}
+            ${f.observacion ? `<p style="font-size:.72rem; color:var(--text-muted); margin-top:.4rem;"><i class="fas fa-comment"></i> ${f.observacion}</p>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch(e) {
+    body.innerHTML = `<p style="text-align:center;color:#ef4444;padding:2rem;">Error: ${e.message}</p>`;
+  }
+}
+
+// Close drill modal on Escape
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { document.getElementById('rv-drill-modal').style.display = 'none'; }
+});
 
 </script>
 <script src="js/sidebar.js"></script>
