@@ -1472,11 +1472,14 @@ async def reporte_ventas(
         """
         cursor.execute(sql_detalle, params_base)
         cols = [c[0] for c in cursor.description]
+        STRING_FIELDS = {'cod_vend', 'vendedor', 'fecha', 'tipo'}
         detalles = []
         for row in cursor.fetchall():
             d = dict(zip(cols, row))
             for k, v in d.items():
-                if hasattr(v, 'isoformat'):
+                if k in STRING_FIELDS:
+                    d[k] = str(v).strip() if v is not None else ''
+                elif hasattr(v, 'isoformat'):
                     d[k] = str(v)
                 elif v is None:
                     d[k] = 0
