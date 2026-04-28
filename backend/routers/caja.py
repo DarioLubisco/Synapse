@@ -1419,3 +1419,181 @@ async def reparar_fechas(req: RepararFechasRequest):
         cursor.close()
         conn.close()
 
+
+# ── Reporte de Ventas (Pivot) ─────────────────────────────────────────────────
+
+@router.get("/caja/reportes/ventas")
+async def reporte_ventas(
+    fecha_desde: str,
+    fecha_hasta: str,
+    vendedor_codigo: str | None = None,
+    incluir_nc: bool = True
+):
+    """
+    Retorna KPIs globales + detalle por vendedor×fecha para el módulo de
+    Reporte de Ventas. Alimenta la pivot grid del frontend.
+    Campos de descuento: Descto1 (cabecera dto1), Descto2 (cabecera dto2).
+    Las Notas de Crédito (TipoFac='C') se restan del total cuando incluir_nc=True.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        tipos = "('A','C')" if incluir_nc else "('A')"
+        vend_filter = "AND f.CodVend = ?" if vendedor_codigo else ""
+        params_base: list = [fecha_desde, fecha_hasta]
+        if vendedor_codigo:
+            params_base.append(vendedor_codigo)
+
+        # ── Detalle por Vendedor × Fecha ──────────────────────────────────
+        sql_detalle = f"""
+            SELECT
+                CAST(f.FechaE AS DATE)                                         AS fecha,
+                RTRIM(f.CodVend)                                               AS cod_vend,
+                RTRIM(v.Descrip)                                               AS vendedor,
+                COUNT(DISTINCT CASE WHEN f.TipoFac='A' THEN f.NumeroD END)     AS nro_ventas,
+                COUNT(DISTINCT CASE WHEN f.TipoFac='C' THEN f.NumeroD END)     AS nro_nc,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C' THEN -f.Monto    ELSE f.Monto    END),0) AS venta_bruta,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C' THEN -f.Descto1  ELSE f.Descto1  END),0) AS descto1,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C' THEN -f.Descto2  ELSE f.Descto2  END),0) AS descto2,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C' THEN -(f.Descto1+f.Descto2)
+                                                   ELSE  (f.Descto1+f.Descto2) END),0) AS descuento_total,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C'
+                                THEN -(f.Monto-(f.Descto1+f.Descto2))
+                                ELSE  (f.Monto-(f.Descto1+f.Descto2)) END),0) AS venta_neta,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C' THEN -f.CancelE  ELSE f.CancelE  END),0) AS pago_efectivo,
+                ISNULL(SUM(CASE WHEN f.TipoFac='C' THEN -f.CancelT  ELSE f.CancelT  END),0) AS pago_tarjeta
+            FROM dbo.SAFACT f
+            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
+            WHERE CAST(f.FechaE AS DATE) BETWEEN ? AND ?
+              AND f.TipoFac IN {tipos}
+              {vend_filter}
+            GROUP BY CAST(f.FechaE AS DATE), f.CodVend, v.Descrip
+            ORDER BY CAST(f.FechaE AS DATE), v.Descrip
+        """
+        cursor.execute(sql_detalle, params_base)
+        cols = [c[0] for c in cursor.description]
+        detalles = []
+        for row in cursor.fetchall():
+            d = dict(zip(cols, row))
+            for k, v in d.items():
+                if hasattr(v, 'isoformat'):
+                    d[k] = str(v)
+                elif v is None:
+                    d[k] = 0
+                else:
+                    try:
+                        d[k] = float(v)
+                    except (TypeError, ValueError):
+                        d[k] = str(v)
+            # pct_descuento: avoid divide-by-zero
+            d['pct_descuento'] = round(
+                (d['descuento_total'] / d['venta_bruta'] * 100) if d['venta_bruta'] else 0, 2
+            )
+            d['nro_facturas'] = int(d['nro_ventas'] + d['nro_nc'])
+            detalles.append(d)
+
+        # ── KPIs Globales ─────────────────────────────────────────────────
+        tot_bruta     = sum(d['venta_bruta']     for d in detalles)
+        tot_neta      = sum(d['venta_neta']      for d in detalles)
+        tot_dto       = sum(d['descuento_total'] for d in detalles)
+        tot_descto1   = sum(d['descto1']         for d in detalles)
+        tot_descto2   = sum(d['descto2']         for d in detalles)
+        tot_ventas    = int(sum(d['nro_ventas']  for d in detalles))
+        tot_nc        = int(sum(d['nro_nc']      for d in detalles))
+        pct_global    = round((tot_dto / tot_bruta * 100) if tot_bruta else 0, 2)
+        ticket_prom   = round((tot_neta / tot_ventas) if tot_ventas else 0, 2)
+
+        kpis = {
+            "venta_bruta":      round(tot_bruta, 2),
+            "venta_neta":       round(tot_neta, 2),
+            "descuento_total":  round(tot_dto, 2),
+            "descto1":          round(tot_descto1, 2),
+            "descto2":          round(tot_descto2, 2),
+            "pct_descuento":    pct_global,
+            "nro_ventas":       tot_ventas,
+            "nro_nc":           tot_nc,
+            "ticket_promedio":  round(ticket_prom, 2),
+        }
+
+        return {"status": "success", "kpis": kpis, "detalles": detalles}
+
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
+
+
+# ── Reporte de Devoluciones (NC) ──────────────────────────────────────────────
+
+@router.get("/caja/reportes/devoluciones")
+async def reporte_devoluciones(
+    fecha_desde: str,
+    fecha_hasta: str,
+    vendedor_codigo: str | None = None
+):
+    """
+    Retorna listado de Notas de Crédito (TipoFac='C') con detalle
+    para control de devoluciones en el cierre de caja.
+    Cada factura devuelta debe entregarse en físico al supervisor.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        vend_filter = "AND f.CodVend = ?" if vendedor_codigo else ""
+        params: list = [fecha_desde, fecha_hasta]
+        if vendedor_codigo:
+            params.append(vendedor_codigo)
+
+        sql = f"""
+            SELECT
+                CAST(f.FechaE AS DATE)   AS fecha,
+                RTRIM(f.CodVend)         AS cod_vend,
+                RTRIM(v.Descrip)         AS vendedor,
+                f.NumeroD                AS nro_nc,
+                f.Monto                  AS monto,
+                f.Descto1                AS descto1,
+                f.Descto2                AS descto2,
+                f.Monto - (f.Descto1 + f.Descto2) AS monto_neto,
+                f.CancelE                AS pago_efectivo,
+                f.CancelT                AS pago_tarjeta,
+                RTRIM(ISNULL(f.Observa, ''))  AS observacion
+            FROM dbo.SAFACT f
+            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
+            WHERE CAST(f.FechaE AS DATE) BETWEEN ? AND ?
+              AND f.TipoFac = 'C'
+              {vend_filter}
+            ORDER BY CAST(f.FechaE AS DATE) DESC, f.NumeroD DESC
+        """
+        cursor.execute(sql, params)
+        cols = [c[0] for c in cursor.description]
+        registros = []
+        for row in cursor.fetchall():
+            d = dict(zip(cols, row))
+            for k, val in d.items():
+                if hasattr(val, 'isoformat'):
+                    d[k] = str(val)
+                elif val is None:
+                    d[k] = 0
+                else:
+                    try:
+                        d[k] = float(val)
+                    except (TypeError, ValueError):
+                        d[k] = str(val)
+            registros.append(d)
+
+        total_nc = len(registros)
+        total_monto = round(sum(r['monto'] for r in registros), 2)
+
+        return {
+            "status": "success",
+            "total_nc": total_nc,
+            "total_monto": total_monto,
+            "registros": registros
+        }
+
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
