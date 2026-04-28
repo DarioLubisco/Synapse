@@ -1627,9 +1627,13 @@ async def detalle_facturas(
         # ── Cabeceras de factura ──
         # Intentamos con SACLIE primero, si falla (tabla no existe) usamos fallback
         def _row_to_dict(row, cols):
+            _STR_KEYS = {'numero', 'tipo', 'cod_vend', 'vendedor', 'cod_cliente',
+                         'cliente', 'hora', 'fecha', 'cod_producto', 'producto'}
             d = dict(zip(cols, row))
             for k, val in list(d.items()):
-                if hasattr(val, 'isoformat'):
+                if k in _STR_KEYS:
+                    d[k] = str(val).strip() if val is not None else ''
+                elif hasattr(val, 'isoformat'):
                     d[k] = str(val)
                 elif val is None:
                     d[k] = 0
