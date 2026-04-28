@@ -1622,37 +1622,10 @@ async def detalle_facturas(
             params.append(vendedor)
 
         # ── Cabeceras de factura ──
-        sql_fac = f"""
-            SELECT
-                f.NumeroD                        AS numero,
-                f.TipoFac                        AS tipo,
-                CAST(f.FechaE AS DATE)           AS fecha,
-                CONVERT(VARCHAR(5), f.HoraE, 108) AS hora,
-                RTRIM(f.CodVend)                 AS cod_vend,
-                RTRIM(v.Descrip)                 AS vendedor,
-                RTRIM(f.CodClie)                 AS cod_cliente,
-                RTRIM(ISNULL(c.Descrip,'CONSUMIDOR FINAL')) AS cliente,
-                f.Monto                          AS monto,
-                f.Descto1                        AS descto1,
-                f.Descto2                        AS descto2,
-                f.Monto - (f.Descto1 + f.Descto2) AS neto,
-                f.CancelE                        AS pago_efectivo,
-                f.CancelT                        AS pago_tarjeta,
-                RTRIM(ISNULL(f.Observa,''))      AS observacion
-            FROM dbo.SAFACT f
-            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
-            LEFT JOIN dbo.SACLIE c ON f.CodClie = c.CodClie
-            WHERE CAST(f.FechaE AS DATE) = ?
-              AND f.TipoFac IN {tipos}
-              {vend_filter}
-            ORDER BY f.HoraE, f.NumeroD
-        """
-        cursor.execute(sql_fac, params)
-        cols_fac = [c[0] for c in cursor.description]
-        facturas = []
-        for row in cursor.fetchall():
-            d = dict(zip(cols_fac, row))
-            for k, val in d.items():
+        # Intentamos con SACLIE primero, si falla (tabla no existe) usamos fallback
+        def _row_to_dict(row, cols):
+            d = dict(zip(cols, row))
+            for k, val in list(d.items()):
                 if hasattr(val, 'isoformat'):
                     d[k] = str(val)
                 elif val is None:
@@ -1662,40 +1635,117 @@ async def detalle_facturas(
                         d[k] = float(val)
                     except (TypeError, ValueError):
                         d[k] = str(val)
-            facturas.append(d)
+            return d
+
+        sql_fac_full = f"""
+            SELECT
+                f.NumeroD                          AS numero,
+                f.TipoFac                          AS tipo,
+                CAST(f.FechaE AS DATE)             AS fecha,
+                ISNULL(CONVERT(VARCHAR(5), CAST(f.HoraE AS TIME), 108), '') AS hora,
+                RTRIM(f.CodVend)                   AS cod_vend,
+                RTRIM(v.Descrip)                   AS vendedor,
+                RTRIM(f.CodClie)                   AS cod_cliente,
+                RTRIM(ISNULL(c.Descrip,'CONSUMIDOR FINAL')) AS cliente,
+                f.Monto                            AS monto,
+                f.Descto1                          AS descto1,
+                f.Descto2                          AS descto2,
+                f.Monto - (f.Descto1 + f.Descto2) AS neto,
+                f.CancelE                          AS pago_efectivo,
+                f.CancelT                          AS pago_tarjeta,
+                RTRIM(ISNULL(f.Observa,''))        AS observacion
+            FROM dbo.SAFACT f
+            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
+            LEFT JOIN dbo.SACLIE c ON f.CodClie = c.CodClie
+            WHERE CAST(f.FechaE AS DATE) = ?
+              AND f.TipoFac IN {tipos}
+              {vend_filter}
+            ORDER BY f.HoraE, f.NumeroD
+        """
+
+        sql_fac_simple = f"""
+            SELECT
+                f.NumeroD                          AS numero,
+                f.TipoFac                          AS tipo,
+                CAST(f.FechaE AS DATE)             AS fecha,
+                ''                                 AS hora,
+                RTRIM(f.CodVend)                   AS cod_vend,
+                RTRIM(v.Descrip)                   AS vendedor,
+                RTRIM(f.CodClie)                   AS cod_cliente,
+                RTRIM(f.CodClie)                   AS cliente,
+                f.Monto                            AS monto,
+                f.Descto1                          AS descto1,
+                f.Descto2                          AS descto2,
+                f.Monto - (f.Descto1 + f.Descto2) AS neto,
+                f.CancelE                          AS pago_efectivo,
+                f.CancelT                          AS pago_tarjeta,
+                RTRIM(ISNULL(f.Observa,''))        AS observacion
+            FROM dbo.SAFACT f
+            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
+            WHERE CAST(f.FechaE AS DATE) = ?
+              AND f.TipoFac IN {tipos}
+              {vend_filter}
+            ORDER BY f.NumeroD
+        """
+
+        facturas = []
+        try:
+            cursor.execute(sql_fac_full, params)
+            cols_fac = [c[0] for c in cursor.description]
+            for row in cursor.fetchall():
+                facturas.append(_row_to_dict(row, cols_fac))
+        except pyodbc.Error:
+            # Fallback sin SACLIE (tabla de clientes no disponible)
+            cursor.execute(sql_fac_simple, params)
+            cols_fac = [c[0] for c in cursor.description]
+            for row in cursor.fetchall():
+                facturas.append(_row_to_dict(row, cols_fac))
 
         # ── Items de cada factura ──
         if facturas:
             numeros = [int(f['numero']) for f in facturas]
             placeholders = ','.join(['?'] * len(numeros))
-            sql_items = f"""
+
+            sql_items_full = f"""
                 SELECT
                     i.NumeroD           AS numero,
                     RTRIM(i.CodItem)    AS cod_producto,
-                    RTRIM(p.Descrip)    AS producto,
+                    RTRIM(ISNULL(p.Descrip, i.CodItem)) AS producto,
                     i.Cantidad          AS cantidad,
                     i.PrecioUs          AS precio_unitario,
                     i.MontoItem         AS monto_linea,
-                    i.Descto1           AS descto1_linea,
-                    i.Descto2           AS descto2_linea
+                    ISNULL(i.Descto1,0) AS descto1_linea,
+                    ISNULL(i.Descto2,0) AS descto2_linea
                 FROM dbo.SAITEMFAC i
                 LEFT JOIN dbo.SAPROD p ON i.CodItem = p.CodItem
                 WHERE i.NumeroD IN ({placeholders})
                 ORDER BY i.NumeroD, i.CodItem
             """
-            cursor.execute(sql_items, numeros)
-            cols_it = [c[0] for c in cursor.description]
+
+            sql_items_simple = f"""
+                SELECT
+                    i.NumeroD           AS numero,
+                    RTRIM(i.CodItem)    AS cod_producto,
+                    RTRIM(i.CodItem)    AS producto,
+                    i.Cantidad          AS cantidad,
+                    i.PrecioUs          AS precio_unitario,
+                    i.MontoItem         AS monto_linea,
+                    ISNULL(i.Descto1,0) AS descto1_linea,
+                    ISNULL(i.Descto2,0) AS descto2_linea
+                FROM dbo.SAITEMFAC i
+                WHERE i.NumeroD IN ({placeholders})
+                ORDER BY i.NumeroD, i.CodItem
+            """
+
             items_map = {}
+            try:
+                cursor.execute(sql_items_full, numeros)
+            except pyodbc.Error:
+                cursor.execute(sql_items_simple, numeros)
+
+            cols_it = [c[0] for c in cursor.description]
             for row in cursor.fetchall():
-                it = dict(zip(cols_it, row))
-                for k, val in it.items():
-                    if val is None:
-                        it[k] = 0
-                    else:
-                        try:
-                            it[k] = float(val)
-                        except (TypeError, ValueError):
-                            it[k] = str(val)
+                it = _row_to_dict(row, cols_it)
                 num = int(it['numero'])
                 if num not in items_map:
                     items_map[num] = []
