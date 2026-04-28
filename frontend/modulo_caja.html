@@ -4446,7 +4446,7 @@ async function rvDrillDown(fecha, codVend, label) {
           <td style="padding:.3rem .5rem; text-align:center;">${parseFloat(p.cantidad).toFixed(0)}</td>
           <td style="padding:.3rem .5rem; text-align:right;">${rvFmtBs(p.precio_unitario)}</td>
           <td style="padding:.3rem .5rem; text-align:right;">${rvFmtBs(p.monto_linea)}</td>
-          <td style="padding:.3rem .5rem; text-align:right; color:var(--text-muted);">${(p.descto1_linea + p.descto2_linea) > 0 ? rvFmtBs(p.descto1_linea + p.descto2_linea) : '—'}</td>
+          <td style="padding:.3rem .5rem; text-align:right; color:var(--text-muted);">${p.descto_linea > 0 ? rvFmtBs(p.descto_linea) : '—'}</td>
         </tr>
       `).join('');
 
