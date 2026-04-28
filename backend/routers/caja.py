@@ -1649,7 +1649,7 @@ async def detalle_facturas(
                 f.NumeroD                          AS numero,
                 f.TipoFac                          AS tipo,
                 CAST(f.FechaE AS DATE)             AS fecha,
-                ISNULL(CONVERT(VARCHAR(5), CAST(f.HoraE AS TIME), 108), '') AS hora,
+                ISNULL(CONVERT(VARCHAR(5), f.FechaE, 108), '') AS hora,
                 RTRIM(f.CodVend)                   AS cod_vend,
                 RTRIM(v.Descrip)                   AS vendedor,
                 RTRIM(f.CodClie)                   AS cod_cliente,
@@ -1665,7 +1665,7 @@ async def detalle_facturas(
             WHERE CAST(f.FechaE AS DATE) = ?
               AND f.TipoFac IN {tipos}
               {vend_filter}
-            ORDER BY f.HoraE, f.NumeroD
+            ORDER BY f.FechaE, f.NumeroD
         """
 
         sql_fac_simple = f"""
