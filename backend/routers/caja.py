@@ -1653,10 +1653,7 @@ async def detalle_facturas(
                 f.Monto                            AS monto,
                 f.Descto1                          AS descto1,
                 f.Descto2                          AS descto2,
-                f.Monto - (f.Descto1 + f.Descto2) AS neto,
-                f.CancelE                          AS pago_efectivo,
-                f.CancelT                          AS pago_tarjeta,
-                RTRIM(ISNULL(f.Observa,''))        AS observacion
+                f.Monto - (f.Descto1 + f.Descto2) AS neto
             FROM dbo.SAFACT f
             JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
             LEFT JOIN dbo.SACLIE c ON f.CodClie = c.CodClie
@@ -1679,10 +1676,7 @@ async def detalle_facturas(
                 f.Monto                            AS monto,
                 f.Descto1                          AS descto1,
                 f.Descto2                          AS descto2,
-                f.Monto - (f.Descto1 + f.Descto2) AS neto,
-                f.CancelE                          AS pago_efectivo,
-                f.CancelT                          AS pago_tarjeta,
-                RTRIM(ISNULL(f.Observa,''))        AS observacion
+                f.Monto - (f.Descto1 + f.Descto2) AS neto
             FROM dbo.SAFACT f
             JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
             WHERE CAST(f.FechaE AS DATE) = ?

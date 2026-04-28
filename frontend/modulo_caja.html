@@ -4478,7 +4478,6 @@ async function rvDrillDown(fecha, codVend, label) {
                 <tbody>${prodRows}</tbody>
               </table>
             ` : '<p style="color:var(--text-muted);font-size:.78rem;">Sin detalle de productos</p>'}
-            ${f.observacion ? `<p style="font-size:.72rem; color:var(--text-muted); margin-top:.4rem;"><i class="fas fa-comment"></i> ${f.observacion}</p>` : ''}
           </div>
         </div>`;
     }).join('');
