@@ -18,7 +18,7 @@ const sidebarHTML = `
     </a>
     <a href="modulo_caja.html" class="nav-item" id="nav-caja">
       <i class="fas fa-cash-register"></i>
-      <span>Cierres & Calculadora</span>
+      <span>Caja y ventas</span>
     </a>
     <a href="modulo_cxp.html" class="nav-item" id="nav-cxp">
       <i class="fas fa-file-invoice-dollar"></i>
