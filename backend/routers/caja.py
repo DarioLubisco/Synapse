@@ -1700,7 +1700,7 @@ async def detalle_facturas(
 
         # ── Items de cada factura ──
         if facturas:
-            numeros = [int(f['numero']) for f in facturas]
+            numeros = [str(f['numero']).strip() for f in facturas]
             placeholders = ','.join(['?'] * len(numeros))
 
             sql_items_full = f"""
@@ -1741,13 +1741,13 @@ async def detalle_facturas(
             cols_it = [c[0] for c in cursor.description]
             for row in cursor.fetchall():
                 it = _row_to_dict(row, cols_it)
-                num = int(it['numero'])
+                num = str(it['numero']).strip()
                 if num not in items_map:
                     items_map[num] = []
                 items_map[num].append(it)
 
             for f in facturas:
-                f['productos'] = items_map.get(int(f['numero']), [])
+                f['productos'] = items_map.get(str(f['numero']).strip(), [])
         else:
             pass
 
