@@ -1655,9 +1655,10 @@ async def detalle_facturas(
                 RTRIM(f.CodClie)                   AS cod_cliente,
                 RTRIM(ISNULL(c.Descrip,'CONSUMIDOR FINAL')) AS cliente,
                 f.Monto                            AS monto,
-                f.Descto1                          AS descto1,
-                f.Descto2                          AS descto2,
-                f.Monto - (f.Descto1 + f.Descto2) AS neto
+                ISNULL(f.DesctoP, 0)               AS desctoP,
+                ISNULL(f.Descto1, 0)               AS descto1,
+                ISNULL(f.Descto2, 0)               AS descto2,
+                f.Monto - (ISNULL(f.DesctoP,0) + ISNULL(f.Descto1,0) + ISNULL(f.Descto2,0)) AS neto
             FROM dbo.SAFACT f
             JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
             LEFT JOIN dbo.SACLIE c ON f.CodClie = c.CodClie
@@ -1678,9 +1679,10 @@ async def detalle_facturas(
                 RTRIM(f.CodClie)                   AS cod_cliente,
                 RTRIM(f.CodClie)                   AS cliente,
                 f.Monto                            AS monto,
-                f.Descto1                          AS descto1,
-                f.Descto2                          AS descto2,
-                f.Monto - (f.Descto1 + f.Descto2) AS neto
+                ISNULL(f.DesctoP, 0)               AS desctoP,
+                ISNULL(f.Descto1, 0)               AS descto1,
+                ISNULL(f.Descto2, 0)               AS descto2,
+                f.Monto - (ISNULL(f.DesctoP,0) + ISNULL(f.Descto1,0) + ISNULL(f.Descto2,0)) AS neto
             FROM dbo.SAFACT f
             JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
             WHERE CAST(f.FechaE AS DATE) = ?
