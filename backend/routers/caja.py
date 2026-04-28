@@ -1597,3 +1597,119 @@ async def reporte_devoluciones(
     finally:
         cursor.close()
         conn.close()
+
+
+# ── Detalle de Facturas (Drill-Down) ─────────────────────────────────────────
+
+@router.get("/caja/reportes/ventas/detalle")
+async def detalle_facturas(
+    fecha: str,
+    vendedor: str | None = None,
+    tipo_fac: str = "A"  # A=ventas, C=NC, AC=ambos
+):
+    """
+    Retorna facturas individuales para una fecha+vendedor.
+    Incluye líneas de producto (SAITEMFAC) anidadas.
+    Usado como drill-down desde la pivot grid.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        tipos = "('A','C')" if tipo_fac == "AC" else f"('{tipo_fac}')"
+        vend_filter = "AND f.CodVend = ?" if vendedor else ""
+        params: list = [fecha]
+        if vendedor:
+            params.append(vendedor)
+
+        # ── Cabeceras de factura ──
+        sql_fac = f"""
+            SELECT
+                f.NumeroD                        AS numero,
+                f.TipoFac                        AS tipo,
+                CAST(f.FechaE AS DATE)           AS fecha,
+                CONVERT(VARCHAR(5), f.HoraE, 108) AS hora,
+                RTRIM(f.CodVend)                 AS cod_vend,
+                RTRIM(v.Descrip)                 AS vendedor,
+                RTRIM(f.CodClie)                 AS cod_cliente,
+                RTRIM(ISNULL(c.Descrip,'CONSUMIDOR FINAL')) AS cliente,
+                f.Monto                          AS monto,
+                f.Descto1                        AS descto1,
+                f.Descto2                        AS descto2,
+                f.Monto - (f.Descto1 + f.Descto2) AS neto,
+                f.CancelE                        AS pago_efectivo,
+                f.CancelT                        AS pago_tarjeta,
+                RTRIM(ISNULL(f.Observa,''))      AS observacion
+            FROM dbo.SAFACT f
+            JOIN dbo.SAVEND v ON f.CodVend = v.CodVend
+            LEFT JOIN dbo.SACLIE c ON f.CodClie = c.CodClie
+            WHERE CAST(f.FechaE AS DATE) = ?
+              AND f.TipoFac IN {tipos}
+              {vend_filter}
+            ORDER BY f.HoraE, f.NumeroD
+        """
+        cursor.execute(sql_fac, params)
+        cols_fac = [c[0] for c in cursor.description]
+        facturas = []
+        for row in cursor.fetchall():
+            d = dict(zip(cols_fac, row))
+            for k, val in d.items():
+                if hasattr(val, 'isoformat'):
+                    d[k] = str(val)
+                elif val is None:
+                    d[k] = 0
+                else:
+                    try:
+                        d[k] = float(val)
+                    except (TypeError, ValueError):
+                        d[k] = str(val)
+            facturas.append(d)
+
+        # ── Items de cada factura ──
+        if facturas:
+            numeros = [int(f['numero']) for f in facturas]
+            placeholders = ','.join(['?'] * len(numeros))
+            sql_items = f"""
+                SELECT
+                    i.NumeroD           AS numero,
+                    RTRIM(i.CodItem)    AS cod_producto,
+                    RTRIM(p.Descrip)    AS producto,
+                    i.Cantidad          AS cantidad,
+                    i.PrecioUs          AS precio_unitario,
+                    i.MontoItem         AS monto_linea,
+                    i.Descto1           AS descto1_linea,
+                    i.Descto2           AS descto2_linea
+                FROM dbo.SAITEMFAC i
+                LEFT JOIN dbo.SAPROD p ON i.CodItem = p.CodItem
+                WHERE i.NumeroD IN ({placeholders})
+                ORDER BY i.NumeroD, i.CodItem
+            """
+            cursor.execute(sql_items, numeros)
+            cols_it = [c[0] for c in cursor.description]
+            items_map = {}
+            for row in cursor.fetchall():
+                it = dict(zip(cols_it, row))
+                for k, val in it.items():
+                    if val is None:
+                        it[k] = 0
+                    else:
+                        try:
+                            it[k] = float(val)
+                        except (TypeError, ValueError):
+                            it[k] = str(val)
+                num = int(it['numero'])
+                if num not in items_map:
+                    items_map[num] = []
+                items_map[num].append(it)
+
+            for f in facturas:
+                f['productos'] = items_map.get(int(f['numero']), [])
+        else:
+            pass
+
+        return {"status": "success", "total": len(facturas), "facturas": facturas}
+
+    except pyodbc.Error as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    finally:
+        cursor.close()
+        conn.close()
