@@ -32,6 +32,12 @@ docker-compose.override.yml
 # --- Credenciales y Tokens ---
 token.json
 credentials.json
+*credential*
+Synapse_credential/
+Synapse_credentials/
+Synapse_credentials.mmd
+Synapse_cretentials.mmd
+Synapse_credential.mmd
 *.key
 *.pem
 *.p12

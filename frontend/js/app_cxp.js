@@ -4604,8 +4604,88 @@ document.addEventListener('DOMContentLoaded', () => {
                         pmCxpStatuses[rKey] = json.data;
                         const pmMontoBsInput = row.querySelector('.pm-monto-bs');
                         if (pmMontoBsInput) pmMontoBsInput.dataset.manualEdit = "false";
+                        
+                        const sel = row.querySelector('.pm-desc');
+                        const cbPP = row.querySelector('.pm-pronto-pago');
+                        const dedPP = row.querySelector('.pm-pp-deduce-iva');
+                        
+                        const pagoDateStrRaw = row.querySelector('.pm-fecha')?.value || new Date().toISOString().split('T')[0];
+                        const partsP2 = pagoDateStrRaw.split('T')[0].split('-');
+                        const pagoDate = new Date(partsP2[0], partsP2[1] - 1, partsP2[2]);
+                        pagoDate.setHours(0,0,0,0);
+
+                        if (sel && json.data) {
+                            let opts = '<option value="0">0%</option>';
+                            let bestMatch = null;
+                            if (json.data.Descuentos && json.data.Descuentos.length > 0) {
+                                const baseDateStr = json.data.BaseDiasCredito === 'EMISION' ? json.data.FechaE : (json.data.FechaI || json.data.FechaE);
+                                const baseDate = new Date(baseDateStr);
+                                baseDate.setHours(0,0,0,0);
+                                let diffDays = Math.floor((pagoDate - baseDate) / (1000 * 60 * 60 * 24));
+                                if (diffDays < 0) diffDays = 0;
+                                json.data.Descuentos.forEach((d, i) => {
+                                    opts += `<option value="${d.Porcentaje}">${d.Porcentaje.toFixed(2)}% (T-${i+1})</option>`;
+                                });
+                                bestMatch = json.data.Descuentos.find(tier => diffDays >= tier.DiasDesde && diffDays <= tier.DiasHasta);
+                            }
+                            sel.innerHTML = opts;
+                            if (bestMatch && cbPP) {
+                                sel.value = bestMatch.Porcentaje;
+                                sel.disabled = false;
+                                cbPP.checked = true;
+                                if (dedPP) {
+                                    dedPP.disabled = false;
+                                    dedPP.checked = bestMatch.DeduceIVA !== false && bestMatch.DeduceIVA !== 0 && bestMatch.DeduceIVA !== '0';
+                                }
+                            } else if (cbPP) {
+                                cbPP.checked = false;
+                                sel.disabled = true;
+                                if (dedPP) {
+                                    dedPP.disabled = true;
+                                    dedPP.checked = false;
+                                }
+                            }
+                        }
+
+                        // --- Auto-Initialize Desc Basico Checkbox based on config ---
+                        const cbDB = row.querySelector('.pm-desc-base-check');
+                        const pctTxtDB = row.querySelector('.pm-desc-base-pct');
+                        const dedDB = row.querySelector('.pm-db-deduce-iva');
+                        if (cbDB && json.data && Number(json.data.DescuentoBase_Pct) > 0) {
+                            let dbPct = Number(json.data.DescuentoBase_Pct);
+                            let appliesInitially = true;
+                            if (json.data.DescuentoBase_Condicion === 'VENCIMIENTO') {
+                                const vDateStrDB = json.data.FechaVSaint || json.data.FechaV_Calculada;
+                                const partsV = vDateStrDB.split('T')[0].split('-');
+                                let vd = new Date(partsV[0], partsV[1] - 1, partsV[2]);
+                                vd.setHours(0,0,0,0);
+                                if (pagoDate > vd) appliesInitially = false;
+                            }
+                            cbDB.checked = appliesInitially;
+                            if (pctTxtDB) {
+                                pctTxtDB.value = dbPct;
+                                pctTxtDB.readOnly = !appliesInitially;
+                            }
+                            if (dedDB) {
+                                dedDB.disabled = !appliesInitially;
+                                if (appliesInitially) {
+                                    dedDB.checked = json.data.DescuentoBase_DeduceIVA !== false && json.data.DescuentoBase_DeduceIVA !== 0 && json.data.DescuentoBase_DeduceIVA !== '0';
+                                }
+                            }
+                        } else if (cbDB) {
+                            cbDB.checked = false;
+                            if (pctTxtDB) {
+                                pctTxtDB.value = 0;
+                                pctTxtDB.readOnly = true;
+                            }
+                            if (dedDB) {
+                                dedDB.disabled = true;
+                                dedDB.checked = false;
+                            }
+                        }
                     }
                 } catch(e) { console.warn('PM recalc: error re-fetching cxp-status', e); }
+                
                 pmCalcRow(row);
                 affected++;
             }
@@ -4906,8 +4986,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const res  = await fetch(`/api/exchange-rate?fecha=${encodeURIComponent(fecha)}`);
                 if (!res.ok) return;
                 const json = await res.json();
-                const nD = row.dataset.nrounico;
-                const cxp = pmCxpStatuses[nD];
+                const rKey = row.dataset.rowkey;
+                const cxp = pmCxpStatuses[rKey];
                 if (json.rate) {
                     const dec = cxp?.DecimalesTasa !== undefined ? cxp.DecimalesTasa : 4;
                     row.querySelector('.pm-tasa').value = json.rate.toFixed(dec);
