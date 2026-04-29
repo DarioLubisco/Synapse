@@ -2138,7 +2138,7 @@ async function cargarReporteDolares() {
     const fecha = document.getElementById('calc-rep-fecha').value || new Date().toISOString().slice(0,10);
     const vendSel = document.getElementById('calc-rep-vendedor').value; // puede ser vacío para 'TODOS'
     let url = `/caja/calculadora/reporte?fecha=${fecha}&_t=${Date.now()}`;
-    if(vendSel) url += `&vendedor=${vendSel}`;
+    if(vendSel) url += `&vendedor_codigo=${vendSel}`;
     
     const res = await fetch(url);
     if(res.ok) {

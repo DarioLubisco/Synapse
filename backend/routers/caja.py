@@ -127,7 +127,7 @@ async def get_totales(vendedor_codigo: str, fecha: str, session_token: str | Non
         row_fact = cursor.fetchone()
         base_efectivo = float(row_fact[0] if row_fact else 0.0)
 
-        # 2. Desglose dinÃ¡mico usando SAIPAVTA puro con multiplicador de signo
+        # 2. Desglose diní¡mico usando SAIPAVTA puro con multiplicador de signo
         cursor.execute("""
             SELECT 
                 ISNULL(SUM(CASE WHEN t.TipoIns = 2 AND i.CodTarj NOT IN ('006', '021') THEN (CASE WHEN f.TipoFac='C' THEN -i.Monto ELSE i.Monto END) ELSE 0 END), 0) AS TotDispositivos,
@@ -151,7 +151,7 @@ async def get_totales(vendedor_codigo: str, fecha: str, session_token: str | Non
 
         tot_efectivo_bs = base_efectivo + tot_efectivo_tarj
 
-        # 3. Extraer las devoluciones (Notas de CrÃ©dito) de hoy para mostrarlas
+        # 3. Extraer las devoluciones (Notas de Crédito) de hoy para mostrarlas
         cursor.execute("""
             SELECT f.NumeroD, f.Monto, f.CancelE, f.CancelT
             FROM dbo.SAFACT f
@@ -342,7 +342,7 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                 raise Exception("No data returned from INSERT statement into CajaCierre")
             cierre_id = int(row[0])
         
-        # â”€â”€ Insert denomination breakdown (Bs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -- Insert denomination breakdown (Bs) ----------------------------
         for item in payload.efectivo_desglose:
             if item.cantidad > 0:
                 cursor.execute(
@@ -350,7 +350,7 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                     (cierre_id, item.denominacion, item.cantidad, item.total)
                 )
         
-        # â”€â”€ Insert USD denominations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -- Insert USD denominations --------------------------------------
         for item in payload.divisa_desglose:
             if item.cantidad > 0:
                 cursor.execute(
@@ -358,14 +358,14 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
                     (cierre_id, 'USD', item.denominacion, item.cantidad, item.total)
                 )
 
-        # â”€â”€ Insert POS tickets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -- Insert POS tickets --------------------------------------------
         for ticket in payload.tarjeta_desglose:
             cursor.execute(
                 "INSERT INTO Custom.CajaCierreTarjeta (cierre_id, tipo, punto_de_venta, referencia, monto) VALUES (?,?,?,?,?)",
                 (cierre_id, ticket.tipo, ticket.punto_de_venta, ticket.referencia, ticket.monto)
             )
         
-        # â”€â”€ Insert differences (always, for audit/reporting) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # -- Insert differences (always, for audit/reporting) --------------
         for diff in payload.diferencias:
             cursor.execute(
                 "INSERT INTO Custom.CajaCierreDiferencia (cierre_id, vendedor_codigo, vendedor_nombre, category, sistema, manual) VALUES (?,?,?,?,?,?)",
@@ -386,7 +386,7 @@ async def _upsert_cierre(payload: ConciliarRequest, estado: str):
         cursor.close()
         conn.close()
 
-# â”€â”€ MÃ³dulo de Reportes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Módulo de Reportes ------------------------------------------
 
 @router.get("/caja/reportes/lista")
 async def listar_reportes(fecha_desde: str, fecha_hasta: str, vendedor_codigo: str = None):
@@ -476,14 +476,14 @@ async def detalle_reporte(cierre_id: int):
         cursor.close()
         conn.close()
 
-# â”€â”€ Admin: AutenticaciÃ³n y Panel Global â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Admin: Autenticación y Panel Global --------------------------------------
 
 @router.get("/caja/usuario/perfil")
 async def get_perfil_usuario(cod_usua: str):
     """
     Consulta SSUSRS para obtener el perfil del usuario: 
-    su nombre, nivel (1=admin, 4=vendedor), el cÃ³digo de vendedor asociado,
-    y si estÃ¡ activo.
+    su nombre, nivel (1=admin, 4=vendedor), el código de vendedor asociado,
+    y si estí¡ activo.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -522,8 +522,8 @@ async def get_perfil_usuario(cod_usua: str):
 async def get_resumen_diario(fecha: str):
     """
     Vista exclusiva del Administrador:
-    - Muestra todos los vendedores activos con ventas ese dÃ­a.
-    - Indica si tienen un cierre FINALIZADO o BORRADOR o si estÃ¡n PENDIENTES.
+    - Muestra todos los vendedores activos con ventas ese día.
+    - Indica si tienen un cierre FINALIZADO o BORRADOR o si estí¡n PENDIENTES.
     - Incluye los totales del sistema (desde SAFACT) para cada uno.
     """
     conn = get_db_connection()
@@ -593,7 +593,7 @@ async def get_resumen_diario(fecha: str):
                 vendedores_sis[cod]["estado_cierre"] = str(r[2]).strip()
                 vendedores_sis[cod]["cierre_id"] = int(r[1])
                 vendedores_sis[cod]["manual_efectivo_bs"] = float(r[3] or 0)
-                # Sumar todos los electrÃ³nicos para el resumen
+                # Sumar todos los electrónicos para el resumen
                 vendedores_sis[cod]["manual_total_pos"] = float((r[5] or 0) + (r[6] or 0) + (r[7] or 0) + (r[8] or 0))
         
         # 3. Totales globales
@@ -626,7 +626,7 @@ async def get_resumen_diario(fecha: str):
         conn.close()
 
 
-# â”€â”€ Calculadora Mixta â€” Modelo de datos â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Calculadora Mixta â€” Modelo de datos --------------------------------------
 class GuardarTransaccionRequest(BaseModel):
     vendedor_codigo: str | None = None
     observacion: str | None = None
@@ -657,7 +657,7 @@ class GuardarTransaccionRequest(BaseModel):
 
 @router.post("/caja/calculadora/guardar")
 async def guardar_transaccion(payload: GuardarTransaccionRequest):
-    """Persiste una transacciÃ³n de la Calculadora Mixta."""
+    """Persiste una transacción de la Calculadora Mixta."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -690,7 +690,7 @@ async def guardar_transaccion(payload: GuardarTransaccionRequest):
         conn.commit()
         return {
             "status": "success",
-            "message": "TransacciÃ³n guardada",
+            "message": "Transacción guardada",
             "id": row[0],
             "fecha": str(row[1])
         }
@@ -705,7 +705,7 @@ async def guardar_transaccion(payload: GuardarTransaccionRequest):
 
 @router.delete("/caja/calculadora/transaccion/{transaccion_id}")
 async def eliminar_transaccion_dolares(transaccion_id: int, cod_usua: str):
-    """Anula una transacciÃ³n del registro histÃ³rico de la Calculadora Mixta. Requiere permisos Admin."""
+    """Anula una transacción del registro histórico de la Calculadora Mixta. Requiere permisos Admin."""
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -713,13 +713,13 @@ async def eliminar_transaccion_dolares(transaccion_id: int, cod_usua: str):
         cursor.execute("SELECT Level FROM SSUSRS WHERE CodUsua = ? AND Activo = 1", (cod_usua,))
         user_db = cursor.fetchone()
         if not user_db or int(user_db[0] if user_db[0] is not None else 4) > 2:
-            raise HTTPException(status_code=403, detail="Permisos insuficientes. SÃ³lo administradores pueden anular transacciones.")
+            raise HTTPException(status_code=403, detail="Permisos insuficientes. Sólo administradores pueden anular transacciones.")
 
         cursor.execute("UPDATE Custom.CajaTransaccionesDolares SET anulado = 1, observacion = ISNULL(CAST(observacion AS VARCHAR(MAX)), '') + ' [ANULADO]' WHERE id = ?", (transaccion_id,))
         if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="TransacciÃ³n no encontrada")
+            raise HTTPException(status_code=404, detail="Transacción no encontrada")
         conn.commit()
-        return {"status": "success", "message": "TransacciÃ³n eliminada correctamente."}
+        return {"status": "success", "message": "Transacción eliminada correctamente."}
     except pyodbc.Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -730,13 +730,13 @@ async def eliminar_transaccion_dolares(transaccion_id: int, cod_usua: str):
 @router.get("/caja/calculadora/reporte")
 async def reporte_dolares(fecha: str | None = None, vendedor_codigo: str | None = None):
     """
-    Retorna el resumen de dÃ³lares del dÃ­a (o de la fecha indicada):
+    Retorna el resumen de dólares del día (o de la fecha indicada):
     - Total efectivo USD recibido
     - Total Zelle recibido
     - Total vuelto USD dado
     - Saldo neto USD en caja
-    - Ãšltimas N transacciones
-    Filtra opcionalmente por un vendedor en especÃ­fico.
+    - Últimas N transacciones
+    Filtra opcionalmente por un vendedor en específico.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -744,7 +744,7 @@ async def reporte_dolares(fecha: str | None = None, vendedor_codigo: str | None 
         if not fecha:
             fecha = date.today().isoformat()
 
-        # Armar lÃ³gica condicional de filtrado para el vendedor
+        # Armar lógica condicional de filtrado para el vendedor
         filtro_vend_sql = ""
         params_summary = [fecha]
         if vendedor_codigo:
@@ -781,7 +781,7 @@ async def reporte_dolares(fecha: str | None = None, vendedor_codigo: str | None 
             "saldo_usd_caja":     float(summary_row[8]),
         }
 
-        # Ãšltimas 50 transacciones del dÃ­a
+        # Últimas 50 transacciones del día
         cursor.execute(f'''
             SELECT TOP 50
                 id, fecha, vendedor_codigo, observacion, tasa_bcv,
@@ -819,7 +819,7 @@ async def reporte_dolares(fecha: str | None = None, vendedor_codigo: str | None 
         conn.close()
 
 
-# â”€â”€ PDF Reporte de Cierre â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- PDF Reporte de Cierre -----------------------------------------------------
 
 @router.get("/caja/reportes/{cierre_id}/pdf")
 async def generar_pdf_cierre(cierre_id: int):
@@ -848,7 +848,7 @@ async def generar_pdf_cierre(cierre_id: int):
             "transferencia": float(row[11] or 0),
         }
 
-        # 2. Ãšltima venta del vendedor ese dÃ­a (hora de factura)
+        # 2. Última venta del vendedor ese día (hora de factura)
         cursor.execute("""
             SELECT TOP 1 CONVERT(varchar(8), FechaE, 8) as hora, NumeroD
             FROM dbo.SAFACT
@@ -859,7 +859,7 @@ async def generar_pdf_cierre(cierre_id: int):
         hora_ultima_venta = str(ult_vta[0]).strip() if ult_vta else "--:--:--"
         ultima_factura = str(ult_vta[1]).strip() if ult_vta else "N/A"
 
-        # 3. Totales detallados del sistema para ese vendedor ese dÃ­a
+        # 3. Totales detallados del sistema para ese vendedor ese día
         cursor.execute("""
             SELECT 
                 -- Efectivo y Divisas
@@ -916,7 +916,7 @@ async def generar_pdf_cierre(cierre_id: int):
         """, (cierre_id,))
         tickets = [{"tipo": r[0], "pos": r[1], "ref": r[2], "monto": float(r[3])} for r in cursor.fetchall()]
 
-        # 4.5. Extraer devoluciones (Notas de CrÃ©dito)
+        # 4.5. Extraer devoluciones (Notas de Crédito)
         cursor.execute("""
             SELECT f.NumeroD, f.Monto, f.CancelE, f.CancelT
             FROM dbo.SAFACT f
@@ -937,7 +937,7 @@ async def generar_pdf_cierre(cierre_id: int):
         cursor.close()
         conn.close()
 
-    # â”€â”€ Construir PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Construir PDF --------------------------------------------------------
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer, pagesize=letter,
@@ -966,13 +966,13 @@ async def generar_pdf_cierre(cierre_id: int):
     def fmtN(n): return f"{float(n):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
     estado_color = GREEN if cierre["estado"] == "FINALIZADO" else GOLD
-    estado_label = f"{'âœ“ CIERRE FINALIZADO' if cierre['estado'] == 'FINALIZADO' else 'âš  PRECIERRE (BORRADOR)'}"
+    estado_label = f"{'(OK) CIERRE FINALIZADO' if cierre['estado'] == 'FINALIZADO' else '(!) PRECIERRE (BORRADOR)'}"
 
     story = []
 
-    # â”€â”€ Encabezado â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    story.append(Paragraph("PORTAL FINANCIERO AMC", h1))
-    story.append(Paragraph("Farmacia Americana Â· Cuadre de Caja", 
+    # -- Encabezado -----------------------------------------------------------
+    story.append(Paragraph("PORTAL FINANCIERO AMC (V2.3)", h1))
+    story.append(Paragraph("Farmacia Americana · Cuadre de Caja", 
         ParagraphStyle("sub", fontSize=10, textColor=MGRAY, fontName="Helvetica", alignment=TA_CENTER)))
     story.append(Spacer(1, 0.3*cm))
 
@@ -988,15 +988,15 @@ async def generar_pdf_cierre(cierre_id: int):
     story.append(badge_tbl)
     story.append(Spacer(1, 0.5*cm))
 
-    # â”€â”€ Info del turno â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Info del turno --------------------------------------------------------
     info_data = [
         [Paragraph("<b>Responsable</b>", normal), Paragraph(cierre["nombre"], mono),
-         Paragraph("<b>CÃ³digo</b>", normal), Paragraph(cierre["cod_vend"], mono)],
+         Paragraph("<b>Código</b>", normal), Paragraph(cierre["cod_vend"], mono)],
         [Paragraph("<b>Fecha Turno</b>", normal), Paragraph(cierre["fecha"], mono),
          Paragraph("<b>Cierre ID</b>", normal), Paragraph(f"#{cierre_id}", mono)],
-        [Paragraph("<b>Ãšltima Venta</b>", normal), Paragraph(f"{hora_ultima_venta}", ParagraphStyle("hora", fontSize=10, textColor=BLUE, fontName="Courier-Bold")),
-         Paragraph("<b>Ãšltima Factura</b>", normal), Paragraph(f"#{ultima_factura}", mono)],
-        [Paragraph("<b>Facturas del dÃ­a</b>", normal), Paragraph(str(nro_facturas), mono),
+        [Paragraph("<b>Última Venta</b>", normal), Paragraph(f"{hora_ultima_venta}", ParagraphStyle("hora", fontSize=10, textColor=BLUE, fontName="Courier-Bold")),
+         Paragraph("<b>Última Factura</b>", normal), Paragraph(f"#{ultima_factura}", mono)],
+        [Paragraph("<b>Facturas del día</b>", normal), Paragraph(str(nro_facturas), mono),
          Paragraph("<b>Estado</b>", normal), Paragraph(cierre["estado"], ParagraphStyle("st", fontSize=9, textColor=estado_color, fontName="Helvetica-Bold"))],
     ]
     info_tbl = Table(info_data, colWidths=[3.5*cm, 5*cm, 3.5*cm, 4*cm])
@@ -1011,7 +1011,7 @@ async def generar_pdf_cierre(cierre_id: int):
     story.append(info_tbl)
     story.append(Spacer(1, 0.6*cm))
 
-    # â”€â”€ Comparativo Sistema vs Manual â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Comparativo Sistema vs Manual -----------------------------------------
     story.append(Paragraph("COMPARATIVO SISTEMA vs DECLARADO", h2))
     story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
     story.append(Spacer(1, 0.2*cm))
@@ -1030,8 +1030,13 @@ async def generar_pdf_cierre(cierre_id: int):
     man_pos_total = man_disp + man_bancos
 
     diff_ef   = man_ef_total - sis_efectivo
-    diff_disp = man_disp     - sis_tarjeta
-    diff_banc = man_bancos   - 0.0   # sistema no desglosa bancos por separado
+    
+    # System totals separated
+    sis_disp = sys_vals["tdd"] + sys_vals["tdc"] + sys_vals["biopago"] + sys_vals["otros"]
+    sis_bancos = sys_vals["pm"] + sys_vals["transferencia"]
+
+    diff_disp = man_disp - sis_disp
+    diff_banc = man_bancos - sis_bancos
     diff_tot  = (man_ef_total + man_pos_total) - (sis_efectivo + sis_tarjeta)
 
     def diff_color(v): return GREEN if v >= 0 else RED
@@ -1040,36 +1045,36 @@ async def generar_pdf_cierre(cierre_id: int):
     def sub_r(txt): return Paragraph(txt, ParagraphStyle("subr", fontSize=8, fontName="Helvetica", textColor=MGRAY, alignment=TA_RIGHT))
 
     comp_header = [
-        Paragraph("<b>CategorÃ­a</b>", normal),
+        Paragraph("<b>Categoría</b>", normal),
         Paragraph("<b>Sistema</b>", right),
         Paragraph("<b>Declarado</b>", right),
         Paragraph("<b>Diferencia</b>", right)
     ]
     comp_rows = [
         comp_header,
-        # â”€â”€ EFECTIVO â”€â”€
+        # -- EFECTIVO --
         [Paragraph("<b>EFECTIVO TOTAL</b>", ParagraphStyle("gr",fontSize=9,fontName="Helvetica-Bold")),
          Paragraph(fmt(sis_efectivo), ParagraphStyle("gr2",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
          Paragraph(fmt(man_ef_total), ParagraphStyle("gr3",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
          Paragraph(diff_str(diff_ef), ParagraphStyle("dg",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_ef),alignment=TA_RIGHT))],
-        [sub_p("  â†’ Efectivo Bs."), sub_r(fmt(sis_ef_bs_total)), sub_r(fmt(man_ef)), Paragraph("", right)],
-        [sub_p("  â†’ Divisas USD (en Bs.)"), sub_r(fmt(sys_vals["divisas_bs"])), sub_r(fmt(man_div)), Paragraph("", right)],
-        # â”€â”€ DISPOSITIVOS POS â”€â”€
+        [sub_p("  -> Efectivo Bs."), sub_r(fmt(sis_ef_bs_total)), sub_r(fmt(man_ef)), Paragraph("", right)],
+        [sub_p("  -> Divisas USD (en Bs.)"), sub_r(fmt(sys_vals["divisas_bs"])), sub_r(fmt(man_div)), Paragraph("", right)],
+        # -- DISPOSITIVOS POS --
         [Paragraph("<b>DISPOSITIVOS POS</b>", ParagraphStyle("gr4",fontSize=9,fontName="Helvetica-Bold")),
-         Paragraph(fmt(sis_tarjeta), ParagraphStyle("gr5",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
-         Paragraph(fmt(man_disp + man_bancos), ParagraphStyle("gr6",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
-         Paragraph(diff_str(diff_disp + diff_banc), ParagraphStyle("dd",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_disp + diff_banc),alignment=TA_RIGHT))],
-        [sub_p("  â†’ TDD (DÃ©bito)"), sub_r(fmt(sys_vals["tdd"])), sub_r(fmt(man_tdd)), Paragraph("", right)],
-        [sub_p("  â†’ TDC (CrÃ©dito)"), sub_r(fmt(sys_vals["tdc"])), sub_r(fmt(man_tdc)), Paragraph("", right)],
-        [sub_p("  â†’ Biopago"), sub_r(fmt(sys_vals["biopago"])), sub_r(fmt(man_bio)), Paragraph("", right)],
-        # â”€â”€ TRANSFERENCIAS BANCARIAS â”€â”€
-        [Paragraph("<b>PAGO MÃ“VIL / TRANSF.</b>", ParagraphStyle("gr7",fontSize=9,fontName="Helvetica-Bold")),
-         Paragraph(fmt(sys_vals["pm"] + sys_vals["transferencia"]), right),
+         Paragraph(fmt(sis_disp), ParagraphStyle("gr5",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(fmt(man_disp), ParagraphStyle("gr6",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
+         Paragraph(diff_str(diff_disp), ParagraphStyle("dd",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_disp),alignment=TA_RIGHT))],
+        [sub_p("  -> TDD (Débito)"), sub_r(fmt(sys_vals["tdd"])), sub_r(fmt(man_tdd)), Paragraph("", right)],
+        [sub_p("  -> TDC (Crédito)"), sub_r(fmt(sys_vals["tdc"])), sub_r(fmt(man_tdc)), Paragraph("", right)],
+        [sub_p("  -> Biopago"), sub_r(fmt(sys_vals["biopago"])), sub_r(fmt(man_bio)), Paragraph("", right)],
+        # -- TRANSFERENCIAS BANCARIAS --
+        [Paragraph("<b>PAGO MÓVIL / TRANSF.</b>", ParagraphStyle("gr7",fontSize=9,fontName="Helvetica-Bold")),
+         Paragraph(fmt(sis_bancos), right),
          Paragraph(fmt(man_bancos), ParagraphStyle("gr8",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
-         Paragraph("", right)],
-        [sub_p("  â†’ Pago MÃ³vil"), sub_r(fmt(sys_vals["pm"])), sub_r(fmt(man_pm)), Paragraph("", right)],
-        [sub_p("  â†’ Transferencia"), sub_r(fmt(sys_vals["transferencia"])), sub_r(fmt(man_trans)), Paragraph("", right)],
-        # â”€â”€ TOTAL â”€â”€
+         Paragraph(diff_str(diff_banc), ParagraphStyle("dd2",fontSize=9,fontName="Helvetica-Bold",textColor=diff_color(diff_banc),alignment=TA_RIGHT))],
+        [sub_p("  -> Pago Móvil"), sub_r(fmt(sys_vals["pm"])), sub_r(fmt(man_pm)), Paragraph("", right)],
+        [sub_p("  -> Transferencia"), sub_r(fmt(sys_vals["transferencia"])), sub_r(fmt(man_trans)), Paragraph("", right)],
+        # -- TOTAL --
         [Paragraph("<b>TOTAL GENERAL</b>", ParagraphStyle("tb",fontSize=9,fontName="Helvetica-Bold")),
          Paragraph(fmt(sis_efectivo+sis_tarjeta), ParagraphStyle("tr",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
          Paragraph(fmt(man_ef_total+man_pos_total), ParagraphStyle("tr2",fontSize=9,fontName="Helvetica-Bold",alignment=TA_RIGHT)),
@@ -1094,12 +1099,12 @@ async def generar_pdf_cierre(cierre_id: int):
     story.append(comp_tbl)
     story.append(Spacer(1, 0.6*cm))
 
-    # â”€â”€ Desglose Efectivo Bs. â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Desglose Efectivo Bs. -------------------------------------------------
     if billetes_bs:
-        story.append(Paragraph("DESGLOSE EFECTIVO BOLÃVARES", h2))
+        story.append(Paragraph("DESGLOSE EFECTIVO BOLíVARES", h2))
         story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
         story.append(Spacer(1, 0.2*cm))
-        ef_rows = [[Paragraph("<b>DenominaciÃ³n</b>", normal), Paragraph("<b>Cantidad</b>", right), Paragraph("<b>Subtotal</b>", right)]]
+        ef_rows = [[Paragraph("<b>Denominación</b>", normal), Paragraph("<b>Cantidad</b>", right), Paragraph("<b>Subtotal</b>", right)]]
         for b in billetes_bs:
             ef_rows.append([
                 Paragraph(f"Bs. {b['denom']:,.0f}", mono),
@@ -1122,7 +1127,7 @@ async def generar_pdf_cierre(cierre_id: int):
         story.append(ef_tbl)
         story.append(Spacer(1, 0.6*cm))
 
-    # â”€â”€ Desglose USD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Desglose USD ----------------------------------------------------------
     if billetes_usd:
         story.append(Paragraph("DESGLOSE DIVISAS (USD)", h2))
         story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
@@ -1150,9 +1155,9 @@ async def generar_pdf_cierre(cierre_id: int):
         story.append(usd_tbl)
         story.append(Spacer(1, 0.6*cm))
 
-    # â”€â”€ Tickets POS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Tickets POS -----------------------------------------------------------
     if tickets:
-        story.append(Paragraph("TICKETS POS / ELECTRÃ“NICOS ANOTADOS", h2))
+        story.append(Paragraph("TICKETS POS / ELECTRÓNICOS ANOTADOS", h2))
         story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
         story.append(Spacer(1, 0.2*cm))
         tk_rows = [[Paragraph("<b>Tipo</b>", normal), Paragraph("<b>Terminal</b>", normal),
@@ -1182,7 +1187,7 @@ async def generar_pdf_cierre(cierre_id: int):
         story.append(tk_tbl)
         story.append(Spacer(1, 0.6*cm))
 
-    # â”€â”€ Devoluciones (Notas de CrÃ©dito) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Devoluciones (Notas de Crédito) ---------------------------------------
     if devoluciones_aplicadas:
         story.append(Paragraph("DEVOLUCIONES APLICADAS AL SISTEMA", h2))
         story.append(HRFlowable(width="100%", thickness=1, color=BLUE))
@@ -1212,18 +1217,18 @@ async def generar_pdf_cierre(cierre_id: int):
         story.append(dev_tbl)
         story.append(Spacer(1, 0.6*cm))
 
-    # â”€â”€ Pie de PÃ¡gina â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # -- Pie de Página ---------------------------------------------------------
     from datetime import datetime
     story.append(HRFlowable(width="100%", thickness=1, color=MGRAY))
     story.append(Spacer(1, 0.2*cm))
     story.append(Paragraph(
-        f"Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')} Â· Portal Financiero AMC Â· Cierre #{cierre_id}",
+        f"Documento generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M:%S')} · Portal Financiero AMC · Cierre #{cierre_id}",
         ParagraphStyle("foot", fontSize=7.5, textColor=MGRAY, fontName="Helvetica", alignment=TA_CENTER)
     ))
     if cierre["estado"] == "BORRADOR":
         story.append(Spacer(1, 0.15*cm))
         story.append(Paragraph(
-            "âš  Este documento es un PRECIERRE no oficial. El cierre definitivo aÃºn no ha sido finalizado.",
+            "(!) Este documento es un PRECIERRE no oficial. El cierre definitivo aún no ha sido finalizado.",
             ParagraphStyle("warn", fontSize=8, textColor=GOLD, fontName="Helvetica-Bold", alignment=TA_CENTER)
         ))
 
@@ -1238,7 +1243,7 @@ async def generar_pdf_cierre(cierre_id: int):
     )
 
 
-# â”€â”€ Pago MÃ³vil â€” Bandeja de Captura â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# -- Pago Móvil â€” Bandeja de Captura -----------------------------------------
 
 class CapturarPagoMovilRequest(BaseModel):
     registros_ids: List[int]             # IDs de Procurement.CajaPagoMovil a capturar
@@ -1249,9 +1254,9 @@ class CapturarPagoMovilRequest(BaseModel):
 @router.get("/caja/pagomovil/pendientes")
 async def get_pagomovil_pendientes(fecha: Optional[str] = None):
     """
-    Retorna todos los registros de Procurement.CajaPagoMovil que aÃºn no han sido
+    Retorna todos los registros de Procurement.CajaPagoMovil que aún no han sido
     procesados (procesado = 0), opcionalmente filtrados por fecha.
-    Muestra el id Ãºnico para trazabilidad.
+    Muestra el id íºnico para trazabilidad.
     """
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1265,7 +1270,7 @@ async def get_pagomovil_pendientes(fecha: Optional[str] = None):
                 ORDER BY created_at DESC
             """, (fecha,))
         else:
-            # Sin filtro de fecha: muestra pendientes de hoy y ayer (ventana de 2 dÃ­as)
+            # Sin filtro de fecha: muestra pendientes de hoy y ayer (ventana de 2 días)
             cursor.execute("""
                 SELECT id, banco, monto, referencia, texto_original, created_at
                 FROM Procurement.CajaPagoMovil
@@ -1303,9 +1308,9 @@ async def get_pagomovil_pendientes(fecha: Optional[str] = None):
 @router.post("/caja/pagomovil/capturar")
 async def capturar_pagomovil(payload: CapturarPagoMovilRequest):
     """
-    Marca uno o mÃ¡s registros de Procurement.CajaPagoMovil como procesados.
-    Registra el usuario que los capturÃ³ (cod_usua) y el cierre_id si se provee.
-    Opera de forma atÃ³mica â€” si algÃºn registro ya fue procesado, ignora ese ID.
+    Marca uno o mí¡s registros de Procurement.CajaPagoMovil como procesados.
+    Registra el usuario que los capturó (cod_usua) y el cierre_id si se provee.
+    Opera de forma atómica â€” si algíºn registro ya fue procesado, ignora ese ID.
     Retorna la lista de registros efectivamente capturados para que el frontend
     los agregue como tickets al cuadre activo.
     """
@@ -1318,7 +1323,7 @@ async def capturar_pagomovil(payload: CapturarPagoMovilRequest):
         # Construir placeholders para IN clause
         placeholders = ",".join(["?" for _ in payload.registros_ids])
 
-        # Leer los registros pendientes que aÃºn no fueron tomados (previene doble captura)
+        # Leer los registros pendientes que aún no fueron tomados (previene doble captura)
         cursor.execute(f"""
             SELECT id, banco, monto, referencia
             FROM Procurement.CajaPagoMovil
@@ -1333,7 +1338,7 @@ async def capturar_pagomovil(payload: CapturarPagoMovilRequest):
         ids_disponibles = [r[0] for r in disponibles]
         placeholders2 = ",".join(["?" for _ in ids_disponibles])
 
-        # Marcar como procesados en bloque atÃ³mico
+        # Marcar como procesados en bloque atómico
         params = [1, payload.cod_usua]
         if payload.cierre_id:
             params.append(payload.cierre_id)
