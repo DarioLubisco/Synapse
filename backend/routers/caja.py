@@ -152,7 +152,9 @@ async def get_totales(vendedor_codigo: str, fecha: str, session_token: str | Non
         tot_otros        = float(row_elec[3] if row_elec else 0.0)
         tot_divisas      = float(row_elec[4] if row_elec else 0.0)
 
-        tot_efectivo_bs = base_efectivo + tot_efectivo_tarj
+        # Restamos tot_divisas porque CancelE (base_efectivo) incluye TODO el efectivo (incluyendo dólares)
+        # de lo contrario, el sistema suma los dólares en la casilla de Dólares Y en la de Efectivo Bs.
+        tot_efectivo_bs = (base_efectivo + tot_efectivo_tarj) - tot_divisas
 
         # 3. Extraer las devoluciones (Notas de Crédito) de hoy para mostrarlas
         cursor.execute("""
