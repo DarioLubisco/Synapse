@@ -6,8 +6,15 @@ ssh = paramiko.SSHClient()
 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 try:
     ssh.connect(hostname=DEBIAN_HOST, username="root", password="Twinc3pt.2", timeout=10)
-    print("Conectado.")
-    stdin, stdout, stderr = ssh.exec_command("cd /opt/stacks/synapse-app/Synapse && git fetch origin && git reset --hard origin/main && docker compose -f web-service.yml up -d --build && docker compose -f web-service.yml restart synapse-web")
+    
+    script = """
+echo "=== tailscale status ==="
+tailscale status
+echo "=== ip a ==="
+ip a show tailscale0
+"""
+    
+    stdin, stdout, stderr = ssh.exec_command(script)
     for line in iter(stdout.readline, ""):
         print(line, end="")
     for line in iter(stderr.readline, ""):

@@ -18,7 +18,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=2.3">
+    <link rel="stylesheet" href="css/style.css?v=2.6">
 </head>
 
 <body>
@@ -280,40 +280,38 @@
                 <section class="table-section ">
                     <div class="table-header">
                         <h2>Registros Recientes</h2>
-                        <div class="table-actions" style="display: flex; gap: 1rem; align-items: flex-end;">
-                            <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <label for="filterDate" style="margin: 0; font-weight: 500;">Desde:</label>
-                                <input type="date" id="filterDate" class="form-control" style="width: auto;">
-                                <label for="filterDateHasta" style="margin: 0; font-weight: 500;">Hasta:</label>
-                                <input type="date" id="filterDateHasta" class="form-control" style="width: auto;">
+                        <div class="table-actions">
+                            <div class="date-filter">
+                                <label for="filterDate">Desde:</label>
+                                <input type="date" id="filterDate" class="form-control">
+                                <label for="filterDateHasta">Hasta:</label>
+                                <input type="date" id="filterDateHasta" class="form-control">
                             </div>
                             <button id="exportCxpBtn" class="btn btn-secondary" title="Exportar a CSV">
                                 <i data-lucide="download"></i>
                                 Exportar
                             </button>
-                            <button id="openProvidersBtn" class="btn btn-secondary"
-                                title="Configurar Parámetros Indexación">
+                            <button id="openProvidersBtn" class="btn btn-secondary" title="Configurar Parámetros Indexación">
                                 <i data-lucide="settings"></i>
                                 Proveedores
                             </button>
                             <button id="btnAntigravity" class="btn btn-secondary" onclick="window.runAntigravity()"
-                                style="color: #8b5cf6; border-color: rgba(139,92,246,0.4); display: flex; align-items: center; gap: 0.4rem;">
+                                style="color: #8b5cf6; border-color: rgba(139,92,246,0.4);">
                                 <i data-lucide="zap"></i>
-                                Finanza dinamica
+                                Finanza dinámica
                             </button>
                             <button id="btnActivarModoMultiple" class="btn btn-secondary"
-                                style="color: #10b981; border-color: rgba(16,185,129,0.4); display: flex; align-items: center; gap: 0.4rem;"
+                                style="color: #10b981; border-color: rgba(16,185,129,0.4);"
                                 onclick="window.toggleMultiPayMode()">
                                 <i data-lucide="layers"></i>
                                 Modo Pago Múltiple
                             </button>
-                            <button id="refreshBtn" class="btn btn-primary"
-                                style="height: 38px; display: flex; align-items: center;">
+                            <button id="refreshBtn" class="btn btn-primary">
                                 <i data-lucide="refresh-cw"></i>
                                 Actualizar
                             </button>
                             <button id="auditarFechasBtn" class="btn btn-secondary"
-                                style="color: #f59e0b; border-color: rgba(245,158,11,0.4); height: 38px; display: flex; align-items: center; gap: 0.4rem;"
+                                style="color: #f59e0b; border-color: rgba(245,158,11,0.4);"
                                 onclick="window.abrirModalAuditarFechas()">
                                 <i data-lucide="alert-triangle"></i>
                                 Auditar Fechas
@@ -332,7 +330,7 @@
                                             class="sort-icon"></i></th>
                                     <th class="sortable" data-sort="NumeroD">Nro. Factura <i data-lucide="arrow-up-down"
                                             class="sort-icon"></i></th>
-                                    <th class="sortable" data-sort="NumeroD_SAPAGCXP">Doc. de Pago <i
+                                    <th class="sortable" data-sort="NumeroD_SAPAGCXP">Documento <i
                                             data-lucide="arrow-up-down" class="sort-icon"></i></th>
                                     <th class="sortable" data-sort="Descrip">Proveedor <i data-lucide="arrow-up-down"
                                             class="sort-icon"></i></th>
