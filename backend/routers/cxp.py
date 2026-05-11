@@ -340,8 +340,8 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
               ISNULL(abonos.TotalUsd, 0) AS TotalUsdAbonado,
               ISNULL(CASE WHEN abonos.TotalIVA > 0 THEN abonos.TotalIVA ELSE portal_ret.MontoRetenido END, 0) AS RetencionIvaAbonada,
               ISNULL(abonos.TotalISLR, 0) AS RetencionIslrAbonada,
-              ISNULL(SAPROV.PorctRet, 0) AS PorctRet,
-              ISNULL(SAPROV.EsReten, 0) AS EsReten,
+              ISNULL(ProvCond.PorctRet, 0) AS PorctRet,
+              ISNULL(ProvCond.EsReten, 0) AS EsReten,
               SAPROV.ID3 AS RIF,
               SAPROV.Descrip AS ProveedorNombre
             FROM dbo.SAACXP
@@ -364,6 +364,7 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
                 WHERE SAPAGCXP.NroUnico = SAACXP.NroUnico
             ) SAPAGCXP
             LEFT OUTER JOIN dbo.SAPROV ON SAACXP.CodProv = SAPROV.CodProv
+            LEFT OUTER JOIN EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones ProvCond ON SAACXP.CodProv = ProvCond.CodProv
             LEFT OUTER JOIN dbo.SAIPACXP ON SAACXP.NroUnico = SAIPACXP.NroUnico
             LEFT OUTER JOIN dbo.SACOMP ON SAACXP.NumeroD = SACOMP.NumeroD AND SAACXP.CodProv = SACOMP.CodProv
             LEFT OUTER JOIN EnterpriseAdmin_AMC.Procurement.InvoiceSettings inv_set ON SAACXP.CodProv = inv_set.CodProv AND SAACXP.NumeroD = inv_set.NumeroD
@@ -2586,15 +2587,15 @@ async def report_forecast_sales(desde: str = None, hasta: str = None):
         query = f"""
             SELECT 
                 FORMAT(CAST(fecha_proyeccion AS DATE), 'yyyy-MM-dd') AS Periodo,
-                CAST(monto_proyectado_ves AS FLOAT) AS VentasProyectadas,
-                CAST(monto_proyectado_usd AS FLOAT) AS VentasProyectadasUSD
+                TRY_CAST(REPLACE(monto_proyectado_ves, ',', '') AS FLOAT) AS VentasProyectadas,
+                TRY_CAST(REPLACE(monto_proyectado_usd, ',', '') AS FLOAT) AS VentasProyectadasUSD
             FROM EnterpriseAdmin_AMC.Procurement.sales_forecast WITH (NOLOCK)
             WHERE 1=1 {where_ventas}
             UNION ALL
             SELECT 
                 FORMAT(CAST(fecha AS DATE), 'yyyy-MM-dd') AS Periodo,
-                CAST(SUM(MtoVentas) AS FLOAT) AS VentasProyectadas,
-                CAST(SUM(CAST(REPLACE(MtoDolar, ',', '') AS FLOAT)) AS FLOAT) AS VentasProyectadasUSD
+                CAST(SUM(TRY_CAST(REPLACE(MtoVentas, ',', '') AS FLOAT)) AS FLOAT) AS VentasProyectadas,
+                CAST(SUM(TRY_CAST(REPLACE(MtoDolar, ',', '') AS FLOAT)) AS FLOAT) AS VentasProyectadasUSD
             FROM EnterpriseAdmin_AMC.dbo.CUSTOM_SAEVTA WITH (NOLOCK)
             WHERE 1=1 {where_reales}
             GROUP BY CAST(fecha AS DATE), FORMAT(CAST(fecha AS DATE), 'yyyy-MM-dd')
@@ -2685,16 +2686,16 @@ async def report_forecast_consolidated(
             Ventas AS (
                 SELECT 
                     CAST(DATEADD(day, {delay_days}, fecha_proyeccion) AS DATE) AS Fecha,
-                    SUM(monto_proyectado_ves) AS EntradasBs,
-                    SUM(monto_proyectado_usd) AS EntradasUSD
+                    SUM(TRY_CAST(REPLACE(monto_proyectado_ves, ',', '') AS FLOAT)) AS EntradasBs,
+                    SUM(TRY_CAST(REPLACE(monto_proyectado_usd, ',', '') AS FLOAT)) AS EntradasUSD
                 FROM EnterpriseAdmin_AMC.Procurement.sales_forecast WITH (NOLOCK)
                 WHERE {date_filter_ventas}
                 GROUP BY CAST(DATEADD(day, {delay_days}, fecha_proyeccion) AS DATE)
                 UNION ALL
                 SELECT
                     CAST(DATEADD(day, {delay_days}, fecha) AS DATE) AS Fecha,
-                    SUM(MtoVentas) AS EntradasBs,
-                    SUM(CAST(MtoDolar AS FLOAT)) AS EntradasUSD
+                    SUM(TRY_CAST(REPLACE(MtoVentas, ',', '') AS FLOAT)) AS EntradasBs,
+                    SUM(TRY_CAST(REPLACE(MtoDolar, ',', '') AS FLOAT)) AS EntradasUSD
                 FROM EnterpriseAdmin_AMC.dbo.CUSTOM_SAEVTA WITH (NOLOCK)
                 WHERE {date_filter_ventas_real}
                 GROUP BY CAST(DATEADD(day, {delay_days}, fecha) AS DATE)

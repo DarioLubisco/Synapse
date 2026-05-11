@@ -6302,8 +6302,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#genRetInvoicesTable tr').forEach((row, idx) => {
                 const base = parseFloat(row.querySelector('.ret-base')?.value) || 0;
                 const alicuota = parseFloat(row.querySelector('.ret-alicuota')?.value) || 0;
-                const ivaCausado = base * (alicuota / 100);
-                const retenido = ivaCausado * (retenPct / 100);
+                const ivaCausado = roundFixed(base * (alicuota / 100));
+                const retenido = roundFixed(ivaCausado * (retenPct / 100));
                 const monto = parseFloat(row.querySelector('.ret-monto')?.textContent) || 0;
 
                 row.querySelector('.ret-iva-display').textContent = ivaCausado.toFixed(2);

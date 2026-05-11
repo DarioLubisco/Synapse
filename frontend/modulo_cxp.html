@@ -690,22 +690,19 @@
                         <h1>Pronóstico de Salidas</h1>
                         <p class="subtitle">Flujo de caja requerido (Vista diaria)</p>
                     </div>
-                    <div class="header-right">
-                        <div class="table-actions" style="display: flex; gap: 1rem; align-items: flex-end;">
-                            <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <label for="cashflowDateDesde" style="margin: 0; font-weight: 500;">Desde:</label>
-                                <input type="date" id="cashflowDateDesde" class="form-control" style="width: auto;">
-                                <label for="cashflowDateHasta" style="margin: 0; font-weight: 500;">Hasta:</label>
-                                <input type="date" id="cashflowDateHasta" class="form-control" style="width: auto;">
-                            </div>
-                            <button id="refreshCashflowBtn" class="btn btn-primary"
-                                style="height: 38px; display: flex; align-items: center;">
-                                <i data-lucide="refresh-cw"></i>
-                                Actualizar
-                            </button>
-                        </div>
-                    </div>
                 </header>
+                
+                <section class="action-bar glassmorphism">
+                    <div class="filter-group">
+                        <label for="cashflowDateDesde">Desde:</label>
+                        <input type="date" id="cashflowDateDesde" class="form-control" style="width: auto;">
+                        <label for="cashflowDateHasta">Hasta:</label>
+                        <input type="date" id="cashflowDateHasta" class="form-control" style="width: auto;">
+                        <button id="refreshCashflowBtn" class="btn btn-primary">
+                            <i data-lucide="refresh-cw"></i> Actualizar
+                        </button>
+                    </div>
+                </section>
 
                 <!-- Chart Section -->
                 <section class="chart-section " style="margin-bottom: 2rem;">
@@ -736,26 +733,24 @@
 
             <!-- Forecast Sales View -->
             <div id="view-forecast-sales" class="view-section">
-                <header class="top-header" style="flex-wrap: wrap; gap: 1rem;">
+                <header class="top-header">
                     <div class="header-left">
                         <h1>Pronóstico de Ingresos (Ventas)</h1>
                         <p class="subtitle">Predicción basada en algoritmo Prophet (Próximos 21 días)</p>
                     </div>
-                    <div class="header-right">
-                        <div class="table-actions" style="display: flex; gap: 1rem; align-items: flex-end;">
-                            <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <label for="fsDateDesde" style="margin: 0; font-weight: 500;">Desde:</label>
-                                <input type="date" id="fsDateDesde" class="form-control" style="width: auto;">
-                                <label for="fsDateHasta" style="margin: 0; font-weight: 500;">Hasta:</label>
-                                <input type="date" id="fsDateHasta" class="form-control" style="width: auto;">
-                            </div>
-                            <button id="refreshForecastSalesBtn" class="btn btn-primary"
-                                style="height: 38px; display: flex; align-items: center;">
-                                <i data-lucide="refresh-cw"></i> Actualizar
-                            </button>
-                        </div>
-                    </div>
                 </header>
+                
+                <section class="action-bar glassmorphism">
+                    <div class="filter-group">
+                        <label for="fsDateDesde">Desde:</label>
+                        <input type="date" id="fsDateDesde" class="form-control" style="width: auto;">
+                        <label for="fsDateHasta">Hasta:</label>
+                        <input type="date" id="fsDateHasta" class="form-control" style="width: auto;">
+                        <button id="refreshForecastSalesBtn" class="btn btn-primary">
+                            <i data-lucide="refresh-cw"></i> Actualizar
+                        </button>
+                    </div>
+                </section>
                 <section class="chart-section " style="margin-bottom: 2rem;">
                     <div style="height: 300px; width: 100%;">
                         <canvas id="forecastSalesChart"></canvas>
@@ -781,39 +776,34 @@
 
             <!-- Forecast Consolidated View -->
             <div id="view-forecast-consolidated" class="view-section">
-                <header class="top-header" style="flex-wrap: wrap; gap: 1rem;">
+                <header class="top-header">
                     <div class="header-left">
                         <h1>Flujo Consolidado Diario</h1>
                         <p class="subtitle">Proyección neta de Ventas vs Pagos planificados</p>
                     </div>
-                    <div class="header-right">
-                        <div class="table-actions" style="display: flex; gap: 1rem; align-items: flex-end;">
-                            <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
-                                <label for="fcDateDesde" style="margin: 0; font-weight: 500;">Desde:</label>
-                                <input type="date" id="fcDateDesde" class="form-control" style="width: auto;">
-                                <label for="fcDateHasta" style="margin: 0; font-weight: 500;">Hasta:</label>
-                                <input type="date" id="fcDateHasta" class="form-control" style="width: auto;">
-                            </div>
-
-                            <!-- Retardo Bancario Toggle -->
-                            <div class="toggle-container"
-                                style="display: flex; align-items: center; gap: 0.5rem; background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 0.5rem 1rem; border-radius: 8px;">
-                                <label for="fcToggleDelay"
-                                    style="margin: 0; font-weight: 500; cursor: pointer; color: var(--text-primary);">Simular
-                                    Diferido</label>
-                                <label class="switch">
-                                    <input type="checkbox" id="fcToggleDelay">
-                                    <span class="slider round"></span>
-                                </label>
-                            </div>
-
-                            <button id="refreshForecastConsolidatedBtn" class="btn btn-primary"
-                                style="height: 38px; display: flex; align-items: center;">
-                                <i data-lucide="refresh-cw"></i> Actualizar
-                            </button>
-                        </div>
-                    </div>
                 </header>
+                
+                <section class="action-bar glassmorphism">
+                    <div class="filter-group">
+                        <label for="fcDateDesde">Desde:</label>
+                        <input type="date" id="fcDateDesde" class="form-control" style="width: auto;">
+                        <label for="fcDateHasta">Hasta:</label>
+                        <input type="date" id="fcDateHasta" class="form-control" style="width: auto;">
+                        <button id="refreshForecastConsolidatedBtn" class="btn btn-primary">
+                            <i data-lucide="refresh-cw"></i> Actualizar
+                        </button>
+                    </div>
+                    
+                    <div class="filter-group toggle-container" style="background: transparent; border: none; padding: 0;">
+                        <label for="fcToggleDelay" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                            <label class="switch" style="margin-bottom: 0;">
+                                <input type="checkbox" id="fcToggleDelay">
+                                <span class="slider round"></span>
+                            </label>
+                            Simular Diferido
+                        </label>
+                    </div>
+                </section>
                 <section class="chart-section " style="margin-bottom: 2rem;">
                     <div style="height: 300px; width: 100%;">
                         <canvas id="forecastConsolidatedChart"></canvas>
