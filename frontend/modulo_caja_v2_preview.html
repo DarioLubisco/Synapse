@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Financiero AMC — Preview V2</title>
+    
+    <!-- Fonts: Inter for clean, legible numbers and UI text -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CSS Architecture (Open Design Style) -->
+    <style>
+        /* CSS Variables - Design Tokens */
+        :root {
+            /* Light Theme (Default) */
+            --bg-base: #f1f5f9;
+            --bg-panel: #ffffff;
+            --bg-panel-hover: #f8fafc;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --text-tertiary: #94a3b8;
+            --border-subtle: #e2e8f0;
+            --border-strong: #cbd5e1;
+            
+            /* Accents */
+            --accent-primary: #2563eb;
+            --accent-primary-alpha: rgba(var(--primary-rgb), 0.1);
+            --accent-purple: var(--accent-neon);
+            --accent-purple-alpha: rgba(var(--accent-neon-rgb), 0.1);
+            --accent-emerald: var(--success);
+            --accent-emerald-alpha: rgba(var(--success-rgb), 0.1);
+            --accent-amber: var(--warning);
+            --accent-amber-alpha: rgba(var(--warning-rgb), 0.1);
+            --accent-danger: var(--danger);
+            --accent-danger-alpha: rgba(var(--danger-rgb), 0.1);
+
+            /* Shadows */
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-panel: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+            
+            /* Radii */
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+        }
+
+        /* Dark Theme overrides */
+        [data-theme="dark"] {
+            --bg-base: #020617; /* Very dark blue, almost black */
+            --bg-panel: #0f172a;
+            --bg-panel-hover: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-tertiary: #475569;
+            --border-subtle: #1e293b;
+            --border-strong: #334155;
+            
+            --accent-primary: var(--primary-accent);
+            --accent-primary-alpha: rgba(var(--primary-rgb), 0.15);
+            
+            --shadow-panel: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+        }
+
+        /* Reset & Base */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        .mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Layout */
+        .app-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        /* Top Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .title-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .title {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .badge {
+            background-color: var(--accent-purple-alpha);
+            color: var(--accent-purple);
+            border: 1px solid var(--accent-purple-alpha);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        /* Rate Panel */
+        .rate-panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            padding: 0.75rem 1.25rem;
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .rate-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .rate-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .rate-value-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.4rem;
+        }
+
+        .rate-bs {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--accent-amber);
+        }
+
+        .rate-usd {
+            font-size: 0.85rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+
+        .rate-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--accent-amber-alpha);
+            color: var(--accent-amber);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+        }
+        
+        .theme-toggle:hover {
+            background-color: var(--bg-panel);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            padding: 0.5rem 1rem 0.5rem 0.5rem;
+            border-radius: 999px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background-color: var(--accent-primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .username {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 2rem;
+            border-bottom: 1px solid var(--border-subtle);
+            padding-bottom: 0px;
+        }
+
+        .tab {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 600;
+            padding: 0.75rem 0;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab:hover {
+            color: var(--text-primary);
+        }
+
+        .tab.active {
+            color: var(--accent-primary);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background-color: var(--accent-primary);
+            border-radius: 2px 2px 0 0;
+        }
+
+        /* KPI Grid (Stats) */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .kpi-card {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            box-shadow: var(--shadow-panel);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card:hover {
+            border-color: var(--border-strong);
+            transform: translateY(-2px);
+        }
+
+        .kpi-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .kpi-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        /* Specific Icon Colors */
+        .icon-blue { background: var(--accent-primary-alpha); color: var(--accent-primary); }
+        .icon-emerald { background: var(--accent-emerald-alpha); color: var(--accent-emerald); }
+        .icon-purple { background: var(--accent-purple-alpha); color: var(--accent-purple); }
+        .icon-amber { background: var(--accent-amber-alpha); color: var(--accent-amber); }
+        
+        .kpi-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 1.75rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        .kpi-trend {
+            font-size: 0.85rem;
+            color: var(--text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        /* Split View Container for Cuadre */
+        .split-view {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            margin-top: 1rem;
+        }
+
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-panel);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Empty state skeleton for preview */
+        .skeleton-row {
+            height: 48px;
+            background-color: var(--bg-base);
+            border-radius: var(--radius-sm);
+            margin-bottom: 0.75rem;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- Top Header -->
+    <header class="header">
+        <div class="header-left">
+            <div class="title-row">
+                <h1 class="title">Caja y Finanzas</h1>
+                <span class="badge">V2.2 — PAGO MÓVIL REINGRESADO</span>
+            </div>
+            <p class="subtitle">Navega en las pestañas para gestionar el flujo financiero y cierres diarios.</p>
+        </div>
+
+        <div class="header-right">
+            <!-- Rate Badge -->
+            <div class="rate-panel">
+                <div class="rate-info">
+                    <span class="rate-label">Tasa BCV Vigente</span>
+                    <div class="rate-value-row">
+                        <span class="rate-bs mono">Bs. 475.01</span>
+                        <span class="rate-usd">= $1.00</span>
+                    </div>
+                </div>
+                <div class="rate-icon">
+                    <i class="fas fa-coins"></i>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()" title="Cambiar Tema">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </button>
+                <div class="user-profile">
+                    <div class="avatar">DA</div>
+                    <span class="username">Dario Lubisco</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs">
+        <button class="tab active"><i class="fas fa-cash-register"></i> Cuadre de Cajas</button>
+        <button class="tab"><i class="fas fa-calculator"></i> Calculadora Mixta</button>
+        <button class="tab"><i class="fas fa-chart-bar"></i> Reportes</button>
+        <button class="tab" style="color: var(--accent-emerald);"><i class="fas fa-chart-line"></i> Reporte Venta</button>
+    </nav>
+
+    <!-- KPI Grid (Stats Sistema) -->
+    <div class="kpi-grid">
+        <!-- Card 1 -->
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-icon icon-blue"><i class="fas fa-money-bill-wave"></i></div>
+                <span class="kpi-title">Bolívares Físico</span>
+            </div>
+            <div class="kpi-value mono">Bs. 12,450.00</div>
+            <div class="kpi-trend">
+                <span>Sistema Saint</span>
+            </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-icon icon-emerald"><i class="fas fa-credit-card"></i></div>
+                <span class="kpi-title">Tarjetas + Biopago</span>
+            </div>
+            <div class="kpi-value mono">Bs. 45,300.50</div>
+            <div class="kpi-trend">
+                <span>Puntos de Venta</span>
+            </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-icon icon-purple"><i class="fas fa-mobile-alt"></i></div>
+                <span class="kpi-title">Pago Móvil</span>
+            </div>
+            <div class="kpi-value mono">Bs. 8,200.00</div>
+            <div class="kpi-trend">
+                <span>Transferencias Bancarias</span>
+            </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="kpi-card">
+            <div class="kpi-header">
+                <div class="kpi-icon icon-amber"><i class="fas fa-dollar-sign"></i></div>
+                <span class="kpi-title">Dólares (Divisas)</span>
+            </div>
+            <div class="kpi-value mono">$ 345.00</div>
+            <div class="kpi-trend">
+                <span>Efectivo USD</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Workspace Preview -->
+    <div class="split-view">
+        <!-- Left Column: Conteo -->
+        <div class="panel">
+            <h2 class="panel-title"><i class="fas fa-money-bill-alt"></i> Registro de Efectivo y Tickets</h2>
+            <div class="skeleton-row" style="width: 100%;"></div>
+            <div class="skeleton-row" style="width: 100%;"></div>
+            <div class="skeleton-row" style="width: 100%;"></div>
+            <div class="skeleton-row" style="width: 60%;"></div>
+        </div>
+
+        <!-- Right Column: Resumen -->
+        <div class="panel" style="background-color: var(--bg-panel-hover);">
+            <h2 class="panel-title"><i class="fas fa-balance-scale"></i> Resumen del Cuadre</h2>
+            <div class="skeleton-row" style="width: 100%; height: 80px;"></div>
+            <div class="skeleton-row" style="width: 100%; height: 80px;"></div>
+            <div class="skeleton-row" style="width: 100%; height: 80px;"></div>
+            <div style="margin-top: 2rem; border-top: 1px solid var(--border-strong); padding-top: 1rem;">
+                <div style="display: flex; justify-content: space-between; font-weight: 700;">
+                    <span>Diferencia Total</span>
+                    <span class="mono" style="color: var(--accent-emerald);">Bs. 0.00</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Theme Toggle Script -->
+<script>
+    function toggleTheme() {
+        const htmlNode = document.documentElement;
+        const currentTheme = htmlNode.getAttribute('data-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        
+        htmlNode.setAttribute('data-theme', newTheme);
+        
+        // Change icon
+        const icon = document.getElementById('themeIcon');
+        if(newTheme === 'dark') {
+            icon.classList.remove('fa-sun');
+            icon.classList.add('fa-moon');
+        } else {
+            icon.classList.remove('fa-moon');
+            icon.classList.add('fa-sun');
+        }
+        
+        /* 
+        AQUÍ IRÍA EL CÓDIGO PARA RE-PINTAR CHART.JS
+        if (typeof window.miGrafico !== 'undefined') {
+             // Actualizar colores del gráfico usando CSS Vars
+             const rootStyle = getComputedStyle(document.body);
+             const textColor = rootStyle.getPropertyValue('--text-primary');
+             window.miGrafico.options.color = textColor;
+             window.miGrafico.update();
+        }
+        */
+    }
+</script>
+
+</body>
+</html>

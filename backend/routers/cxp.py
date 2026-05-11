@@ -2594,7 +2594,7 @@ async def report_forecast_sales(desde: str = None, hasta: str = None):
             SELECT 
                 FORMAT(CAST(fecha AS DATE), 'yyyy-MM-dd') AS Periodo,
                 CAST(SUM(MtoVentas) AS FLOAT) AS VentasProyectadas,
-                CAST(SUM(CAST(MtoDolar AS FLOAT)) AS FLOAT) AS VentasProyectadasUSD
+                CAST(SUM(CAST(REPLACE(MtoDolar, ',', '') AS FLOAT)) AS FLOAT) AS VentasProyectadasUSD
             FROM EnterpriseAdmin_AMC.dbo.CUSTOM_SAEVTA WITH (NOLOCK)
             WHERE 1=1 {where_reales}
             GROUP BY CAST(fecha AS DATE), FORMAT(CAST(fecha AS DATE), 'yyyy-MM-dd')

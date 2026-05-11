@@ -6,8 +6,11 @@ const sidebarHTML = `
       <i class="fas fa-atom" style="color:white; font-size:1.4rem;"></i>
     </div>
     <h2>Synapse Suite</h2>
-    <button class="btn-icon" id="sidebarToggle" style="margin-left:auto; background:transparent; border:none; color:#fff; cursor:pointer;" title="Colapsar menú">
-      <i class="fas fa-bars"></i>
+    <button id="themeBtn" class="btn-icon" onclick="toggleTheme()" style="margin-left:auto; background:transparent; border:none; color:var(--text-secondary); cursor:pointer;" title="Cambiar Tema">
+      <i data-lucide="moon" id="themeIcon"></i>
+    </button>
+    <button class="btn-icon" id="sidebarToggle" style="background:transparent; border:none; color:var(--text-secondary); cursor:pointer;" title="Colapsar menú">
+      <i data-lucide="menu"></i>
     </button>
   </div>
 
@@ -56,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('sidebarToggle').addEventListener('click', () => {
              document.querySelector('.sidebar').classList.toggle('collapsed');
         });
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     // Atajos de teclado Globales (Ej: Ctrl + Alt + C -> Calculadora)
