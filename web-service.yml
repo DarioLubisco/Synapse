@@ -7,8 +7,12 @@ services:
       context: ./backend
     container_name: synapse-api
     restart: unless-stopped
-    env_file:
-      - .env
+    environment:
+      - DB_SERVER=amc.sql\efficacis3
+      - DB_DATABASE=EnterpriseAdmin_AMC
+      - DB_USERNAME=sa
+      - DB_PASSWORD=Twinc3pt.
+      - DRIVER={ODBC Driver 18 for SQL Server}
     extra_hosts:
       - "amc.sql:10.200.8.5"
     volumes:
