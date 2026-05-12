@@ -301,7 +301,7 @@
   <main class="main-content">
 
     <!-- ── Top Header ── -->
-    <div class="top-header" style="justify-content: space-between;">
+    <div class="header" style="justify-content: space-between;">
       <div class="header-left">
         <div class="d-flex align-items-center gap-3">
           <h2 class="m-0" id="module-title" style="font-weight: 700; font-size: 1.8rem; letter-spacing: -0.5px;">Módulo Financiero / Caja</h2>
@@ -395,15 +395,15 @@
         </div>
 
         <!-- ── Totales Sistema (stat cards) ── -->
-        <div class="dashboard-stats" id="stats-sistema" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
-          <div class="stat-card ">
+        <div class="kpi-grid" id="stats-sistema" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
+          <div class="kpi-card">
             <div class="stat-icon-wrapper blue"><i class="fas fa-money-bill-wave fa-lg"></i></div>
             <div class="stat-info">
               <h3 style="font-size:0.75rem;">Bolivares</h3>
               <p id="sys-efectivo">Bs. 0.00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="kpi-card">
             <div class="stat-icon-wrapper" style="background:rgba(16,185,129,.1);color:var(--success);">
               <i class="fas fa-credit-card fa-lg"></i>
             </div>
@@ -412,7 +412,7 @@
               <p id="sys-dispositivos">Bs. 0.00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="kpi-card">
             <div class="stat-icon-wrapper" style="background:rgba(168,85,247,.1);color:#a855f7;">
               <i class="fas fa-mobile-alt fa-lg"></i>
             </div>
@@ -421,7 +421,7 @@
               <p id="sys-bancos">Bs. 0.00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="kpi-card">
             <div class="stat-icon-wrapper" style="background:rgba(245,158,11,.1);color:#f59e0b;">
               <i class="fas fa-fingerprint fa-lg"></i>
             </div>
@@ -430,7 +430,7 @@
               <p id="sys-divisas-sis">0,00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="kpi-card">
             <div class="stat-icon-wrapper" style="background:rgba(34,197,94,.1);color:var(--success);">
               <i class="fas fa-dollar-sign fa-lg"></i>
             </div>
@@ -629,7 +629,7 @@
                 <span id="res-total-diferencia">Bs. 0.00</span>
               </div>
 
-              <div class="action-bar">
+              <div class="controls-grid">
                 <button class="btn btn-warning" onclick="guardarPrecierre()">
                   <i class="fas fa-save"></i> Guardar Precierre
                 </button>
@@ -1269,27 +1269,27 @@
 
       <!-- KPIs globales -->
       <div id="admin-kpi-bar" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
-        <div class="stat-card" style="border-color:#ef4444;">
+        <div class="kpi-card" style="border-color:#ef4444;">
           <div class="stat-label">PENDIENTES</div>
           <div class="stat-value" id="kpi-pendientes" style="color:#ef4444;">-</div>
         </div>
-        <div class="stat-card" style="border-color:#f59e0b;">
+        <div class="kpi-card" style="border-color:#f59e0b;">
           <div class="stat-label">EN BORRADOR</div>
           <div class="stat-value" id="kpi-borradores" style="color:#f59e0b;">-</div>
         </div>
-        <div class="stat-card" style="border-color:#22c55e;">
+        <div class="kpi-card" style="border-color:#22c55e;">
           <div class="stat-label">FINALIZADOS</div>
           <div class="stat-value" id="kpi-finalizados" style="color:#22c55e;">-</div>
         </div>
-        <div class="stat-card" style="border-color:var(--primary-accent);">
+        <div class="kpi-card" style="border-color:var(--primary-accent);">
           <div class="stat-label">TOTAL SISTEMA</div>
           <div class="stat-value" id="kpi-tot-sis" style="font-size:1rem;">-</div>
         </div>
-        <div class="stat-card" style="border-color:var(--secondary-accent);">
+        <div class="kpi-card" style="border-color:var(--secondary-accent);">
           <div class="stat-label">TOTAL MANUAL</div>
           <div class="stat-value" id="kpi-tot-man" style="font-size:1rem;">-</div>
         </div>
-        <div class="stat-card">
+        <div class="kpi-card">
           <div class="stat-label">DIFERENCIA GLOBAL</div>
           <div class="stat-value" id="kpi-diff-global" style="font-size:1rem;">-</div>
         </div>

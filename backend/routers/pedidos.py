@@ -60,21 +60,21 @@ async def generate_report(
     subtraction_files: Optional[List[UploadFile]] = File(None),
     umbral_rotacion: float = Form(0.0),
     forced_includes: Optional[str] = Form(None),
-    preview_mode: str = Form("false")
+    preview_mode: str = Form("false"),
+    is_generic: str = Form("false")
 ):
     try:
         query = load_query()
         if not query:
             raise HTTPException(status_code=500, detail="No se pudo cargar la consulta SQL maestra.")
 
+        if is_generic.lower() == "true":
+            query = query.replace('AND NOT EXISTS (', 'AND EXISTS (')
+
         # Validar entradas
         if num_rows <= 0:
             num_rows = 5000
         
-        valid_days = ['9', '14', '21', '30', '45', '60', '75', '90', '120']
-        if pedido_days not in valid_days:
-            pedido_days = '30'
-
         # Procesar archivos de resta
         subtraction_dfs = []
         if subtraction_files:
@@ -185,7 +185,8 @@ async def generate_report(
             df_excel.to_excel(writer, sheet_name='Precios', index=False)
         output.seek(0)
 
-        filename = f"Pedido_Synapse_{datetime.now().strftime('%Y%m%d')}_{pedido_days}Dias.xlsx"
+        tipo_pedido = "Generico" if is_generic.lower() == "true" else "Marcas"
+        filename = f"Pedido_Synapse_{tipo_pedido}_{datetime.now().strftime('%Y%m%d')}_{pedido_days}Dias.xlsx"
         
         from fastapi.responses import StreamingResponse
         return StreamingResponse(

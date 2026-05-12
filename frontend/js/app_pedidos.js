@@ -307,6 +307,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const umbral = document.getElementById('umbralRotacion') ? document.getElementById('umbralRotacion').value : '0.0';
             formData.append('umbral_rotacion', umbral);
             formData.append('preview_mode', 'true'); // We want to preview the exclusions first
+            
+            const isGeneric = document.getElementById('isGeneric') ? document.getElementById('isGeneric').checked : false;
+            formData.append('is_generic', isGeneric ? 'true' : 'false');
 
             selectedFiles.forEach(file => formData.append('subtraction_files', file));
 
@@ -401,6 +404,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const umbral = document.getElementById('umbralRotacion') ? document.getElementById('umbralRotacion').value : '0.0';
             formData.append('umbral_rotacion', umbral);
             formData.append('preview_mode', 'false'); // Force final download
+            
+            const isGeneric = document.getElementById('isGeneric') ? document.getElementById('isGeneric').checked : false;
+            formData.append('is_generic', isGeneric ? 'true' : 'false');
             
             selectedFiles.forEach(file => formData.append('subtraction_files', file));
             

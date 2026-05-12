@@ -1,4 +1,4 @@
-﻿WITH RotacionAgregada AS (
+WITH RotacionAgregada AS (
   -- Se modifica la función de agregación a AVG() según tu solicitud.
   -- Esto promediará la rotación mensual si hay múltiples registros para un mismo ítem.
   SELECT

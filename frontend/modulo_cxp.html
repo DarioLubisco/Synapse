@@ -155,7 +155,7 @@
         <main class="main-content">
             <!-- Dashboard View -->
             <div id="view-dashboard" class="view-section active">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Cuentas por Pagar <span style="font-size: 0.5em; color: var(--text-secondary);">(v1.1)</span></h1>
                         <p class="subtitle">Gestión de obligaciones y pagos a proveedores</p>
@@ -169,8 +169,8 @@
                     </div>
                 </header>
 
-                <div class="dashboard-stats">
-                    <div class="stat-card ">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper blue">
                             <i data-lucide="file-text"></i>
                         </div>
@@ -179,7 +179,7 @@
                             <p id="totalDocs">0</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper red">
                             <i data-lucide="trending-down"></i>
                         </div>
@@ -188,7 +188,7 @@
                             <p id="totalSaldoBs">Bs 0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper green">
                             <i data-lucide="dollar-sign"></i>
                         </div>
@@ -198,7 +198,7 @@
                         </div>
                     </div>
                     <!-- Selection summary card -->
-                    <div class="stat-card active-selection-card">
+                    <div class="kpi-card active-selection-card">
                         <div class="stat-icon-wrapper purple">
                             <i data-lucide="check-square"></i>
                         </div>
@@ -397,7 +397,7 @@
             </div> <!-- End Dashboard View -->
 
             <!-- Debit Notes View (Refactored to @module-report-view) -->
-            <div id="view-debit-notes" class="view-section report-view-container glass-card">
+            <div id="view-debit-notes" class="view-section report-view-container">
                 <header class="report-header">
                     <h1 class="gradient-text">Notas de Débito Pendientes</h1>
                     <div class="header-actions">
@@ -480,7 +480,7 @@
 
             <!-- Credit Notes View -->
             <!-- Credit Notes View (Refactored to @module-report-view) -->
-            <div id="view-credit-notes" class="view-section report-view-container glass-card">
+            <div id="view-credit-notes" class="view-section report-view-container">
                 <header class="report-header">
                     <h1 class="gradient-text">Notas de Crédito</h1>
                     <div class="header-actions">
@@ -548,7 +548,7 @@
 
             <!-- Compras View -->
             <div id="view-compras" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Compras por Proveedor</h1>
                         <p class="subtitle">Análisis de participación por proveedor</p>
@@ -556,7 +556,7 @@
                 </header>
 
                 <div class="stats-grid">
-                    <div class="stat-card " style="grid-column: span 3;">
+                    <div class="kpi-card" style="grid-column: span 3;">
                         <div class="table-actions"
                             style="display: flex; gap: 1rem; align-items: center; padding: 1rem;">
                             <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
@@ -598,7 +598,7 @@
 
             <!-- Aging View -->
             <div id="view-aging" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-right">
                         <button id="exportAgingBtn" class="btn btn-secondary" title="Exportar a CSV">
                             <i data-lucide="download"></i> Exportar
@@ -606,8 +606,8 @@
                     </div>
                 </header>
 
-                <div class="dashboard-stats" style="margin-bottom: 2rem;">
-                    <div class="stat-card ">
+                <div class="kpi-grid" style="margin-bottom: 2rem;">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">
                             <i data-lucide="shield-check"></i>
                         </div>
@@ -616,7 +616,7 @@
                             <p class="us-amount" id="agingSummaryPorVencer" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background: rgba(234, 179, 8, 0.1); color: #eab308;">
                             <i data-lucide="alert-circle"></i>
                         </div>
@@ -625,7 +625,7 @@
                             <p class="us-amount" id="agingSummary1_30" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background: rgba(249, 115, 22, 0.1); color: #f97316;">
                             <i data-lucide="alert-triangle"></i>
                         </div>
@@ -634,7 +634,7 @@
                             <p class="us-amount" id="agingSummary31_60" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
                             <i data-lucide="flame"></i>
                         </div>
@@ -643,7 +643,7 @@
                             <p class="us-amount" id="agingSummary61_90" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background: rgba(185, 28, 28, 0.1); color: #b91c1c;">
                             <i data-lucide="skull"></i>
                         </div>
@@ -652,7 +652,7 @@
                             <p class="us-amount" id="agingSummaryMas90" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
                             <i data-lucide="wallet"></i>
                         </div>
@@ -685,14 +685,14 @@
 
             <!-- Cashflow View -->
             <div id="view-cashflow" class="view-section">
-                <header class="top-header" style="flex-wrap: wrap; gap: 1rem;">
+                <header class="header" style="flex-wrap: wrap; gap: 1rem;">
                     <div class="header-left">
                         <h1>Pronóstico de Salidas</h1>
                         <p class="subtitle">Flujo de caja requerido (Vista diaria)</p>
                     </div>
                 </header>
                 
-                <section class="action-bar glassmorphism">
+                <section class="controls-grid">
                     <div class="filter-group">
                         <label for="cashflowDateDesde">Desde:</label>
                         <input type="date" id="cashflowDateDesde" class="form-control" style="width: auto;">
@@ -733,14 +733,14 @@
 
             <!-- Forecast Sales View -->
             <div id="view-forecast-sales" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Pronóstico de Ingresos (Ventas)</h1>
                         <p class="subtitle">Predicción basada en algoritmo Prophet (Próximos 21 días)</p>
                     </div>
                 </header>
                 
-                <section class="action-bar glassmorphism">
+                <section class="controls-grid">
                     <div class="filter-group">
                         <label for="fsDateDesde">Desde:</label>
                         <input type="date" id="fsDateDesde" class="form-control" style="width: auto;">
@@ -776,14 +776,14 @@
 
             <!-- Forecast Consolidated View -->
             <div id="view-forecast-consolidated" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Flujo Consolidado Diario</h1>
                         <p class="subtitle">Proyección neta de Ventas vs Pagos planificados</p>
                     </div>
                 </header>
                 
-                <section class="action-bar glassmorphism">
+                <section class="controls-grid">
                     <div class="filter-group">
                         <label for="fcDateDesde">Desde:</label>
                         <input type="date" id="fcDateDesde" class="form-control" style="width: auto;">
@@ -831,7 +831,7 @@
 
             <!-- Cashflow Params View -->
             <div id="view-cashflow-params" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Parámetros Iniciales de Caja</h1>
                         <p class="subtitle">Punto de partida y configuraciones base para el cálculo del Saldo Real
@@ -890,7 +890,7 @@
 
             <!-- Forecast Events View -->
             <div id="view-forecast-events" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Variables Exógenas (Eventos)</h1>
                         <p class="subtitle">Registra promociones o anomalías para mejorar la precisión del modelo
@@ -941,7 +941,7 @@
 
             <!-- DPO View -->
             <div id="view-dpo" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Days Payable Outstanding (DPO)</h1>
                         <p class="subtitle">Promedio de días en pagar a proveedores</p>
@@ -965,7 +965,7 @@
 
             <!-- Expense Templates View -->
             <div id="view-expense-templates" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Plantillas de Gastos</h1>
                         <p class="subtitle">Configura los gastos recurrentes (Fijos de farmacia o Personales de dueños)
@@ -1004,7 +1004,7 @@
 
             <!-- Expense Batch View -->
             <div id="view-expense-batch" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Gastos</h1>
                         <p class="subtitle">Genera, verifica y guarda los gastos proyectados para el mes seleccionado
@@ -1012,7 +1012,7 @@
                     </div>
                 </header>
                 <div class="stats-grid">
-                    <div class="stat-card " style="grid-column: span 3;">
+                    <div class="kpi-card" style="grid-column: span 3;">
                         <div class="table-actions"
                             style="display: flex; gap: 1rem; align-items: center; padding: 1rem;">
                             <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1138,7 +1138,7 @@
 
             <!-- SEDEMATRI View -->
             <div id="view-sedematri" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Impuestos y Catastro (SEDEMATRI)</h1>
                         <p class="subtitle">Información tributaria - Municipio Maneiro (Pampatar)</p>
@@ -1148,7 +1148,7 @@
                 <div class="stats-grid"
                     style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
                     <!-- Contact Card -->
-                    <div class="stat-card "
+                    <div class="kpi-card"
                         style="flex-direction: column; align-items: flex-start; padding: 2rem; gap: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="stat-icon-wrapper blue" style="width: 3rem; height: 3rem;">
@@ -1190,7 +1190,7 @@
                     </div>
 
                     <!-- Online Portal & Credentials -->
-                    <div class="stat-card "
+                    <div class="kpi-card"
                         style="flex-direction: column; align-items: flex-start; padding: 2rem; gap: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="stat-icon-wrapper green" style="width: 3rem; height: 3rem;">
@@ -1229,7 +1229,7 @@
                     </div>
 
                     <!-- Requirements & Reminders -->
-                    <div class="stat-card "
+                    <div class="kpi-card"
                         style="grid-column: 1 / -1; flex-direction: column; align-items: flex-start; padding: 2rem; gap: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="stat-icon-wrapper purple" style="width: 3rem; height: 3rem;">
@@ -1271,7 +1271,7 @@
 
             <!-- Retenciones IVA View -->
             <!-- Retenciones IVA View (Refactored to @module-report-view) -->
-            <div id="view-retenciones" class="view-section report-view-container glass-card">
+            <div id="view-retenciones" class="view-section report-view-container">
                 <header class="report-header">
                     <h1 class="gradient-text">Retenciones de IVA</h1>
                     <div class="header-actions">
@@ -1337,7 +1337,7 @@
             </div>
 
             <!-- Retenciones ISLR View (Generated from @module-report-view) -->
-            <div id="view-retenciones-islr" class="view-section report-view-container glass-card">
+            <div id="view-retenciones-islr" class="view-section report-view-container">
                 <header class="report-header">
                     <h1 class="gradient-text">Retenciones de ISLR</h1>
                     <div class="header-actions">
@@ -1403,7 +1403,7 @@
             </div>
             <!-- Settings View -->
             <div id="view-settings" class="view-section">
-                <header class="top-header">
+                <header class="header">
                     <div class="header-left">
                         <h1>Configuración General</h1>
                         <p class="subtitle" style="margin-top: 0.2rem;">Parámetros globales del sistema de variables fiscales y cambiarias.</p>
@@ -2081,7 +2081,7 @@
                     </span>
                 </div>
 
-                <div class="action-bar custom-scroll" style="display: flex; gap: 0.8rem; overflow-x: auto; align-items: center; max-width: 100%;">
+                <div class="controls-grid custom-scroll" style="display: flex; gap: 0.8rem; overflow-x: auto; align-items: center; max-width: 100%;">
                     <span style="font-size: 0.85rem; color: var(--text-secondary); margin-right: 0.5rem; white-space: nowrap;"><i data-lucide="zap" size="14" style="vertical-align: middle;"></i> Acciones Rápidas:</span>
                     <button type="button" id="pmGoBtnND" class="btn btn-secondary" style="color: #f59e0b; border-color: rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.05); white-space: nowrap;">
                         <i data-lucide="file-plus" size="16"></i> N/D
@@ -2864,7 +2864,7 @@
             <!-- ── COMPARATIVA RÁPIDA DE ESCENARIOS ── -->
             <div id="antigScenarioComparison" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.2rem;">
                 <!-- Conservador -->
-                <div class="stat-card " id="cmpConservador" style="border-left:3px solid #10b981;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('conservador')">
+                <div class="kpi-card" id="cmpConservador" style="border-left:3px solid #10b981;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('conservador')">
                     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
                         <i data-lucide="shield" style="width:16px;height:16px;color:#10b981;"></i>
                         <span style="font-weight:600;color:#10b981;font-size:0.85rem;">Conservador</span>
@@ -2875,7 +2875,7 @@
                     <div id="cmpConservadorSavings" style="font-size:1rem;font-weight:700;color:#10b981;">$ 0.00</div>
                 </div>
                 <!-- Moderado -->
-                <div class="stat-card " id="cmpModerado" style="border-left:3px solid #f59e0b;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('moderado')">
+                <div class="kpi-card" id="cmpModerado" style="border-left:3px solid #f59e0b;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('moderado')">
                     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
                         <i data-lucide="zap" style="width:16px;height:16px;color:#f59e0b;"></i>
                         <span style="font-weight:600;color:#f59e0b;font-size:0.85rem;">Moderado</span>
@@ -2886,7 +2886,7 @@
                     <div id="cmpModeradoSavings" style="font-size:1rem;font-weight:700;color:#f59e0b;">$ 0.00</div>
                 </div>
                 <!-- Agresivo -->
-                <div class="stat-card " id="cmpAgresivo" style="border-left:3px solid #ef4444;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('agresivo')">
+                <div class="kpi-card" id="cmpAgresivo" style="border-left:3px solid #ef4444;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('agresivo')">
                     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
                         <i data-lucide="flame" style="width:16px;height:16px;color:#ef4444;"></i>
                         <span style="font-weight:600;color:#ef4444;font-size:0.85rem;">Agresivo</span>
@@ -2901,20 +2901,20 @@
             <!-- ── PANELES DE ESCENARIO ── -->
             <!-- Conservador -->
             <div id="pane-scenario-conservador" class="antg-scenario-pane active-pane">
-                <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
-                    <div class="stat-card ">
+                <div class="kpi-grid" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(139,92,246,0.1);color:#8b5cf6;"><i data-lucide="trending-down"></i></div>
                         <div class="stat-info"><h3>Volatilidad Diaria</h3><p id="antigDevMensual" style="font-size:1.2rem;">0.00%</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="dollar-sign"></i></div>
                         <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i data-lucide="pie-chart"></i></div>
                         <div class="stat-info"><h3>Gasto Comprometido (USD)</h3><p id="antigGastoUsd" style="font-size:1.2rem;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i data-lucide="percent"></i></div>
                         <div class="stat-info"><h3>Límite Liquidez</h3><p id="antigLimiteFlujo" style="font-size:1.2rem;">0%</p></div>
                     </div>
@@ -2941,20 +2941,20 @@
 
             <!-- Moderado -->
             <div id="pane-scenario-moderado" class="antg-scenario-pane" style="display:none;">
-                <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
-                    <div class="stat-card " style="border-color:rgba(245,158,11,0.3);">
+                <div class="kpi-grid" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
+                    <div class="kpi-card" style="border-color:rgba(245,158,11,0.3);">
                         <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i data-lucide="credit-card"></i></div>
                         <div class="stat-info"><h3>Monto Prestado</h3><p id="antigModCreditUsd" style="font-size:1.2rem;color:#f59e0b;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="trending-up"></i></div>
                         <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigModAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="landmark"></i></div>
                         <div class="stat-info"><h3>Costo Financiero (USD)</h3><p id="antigModCostoFinanciero" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i data-lucide="wallet"></i></div>
                         <div class="stat-info"><h3>Ahorro Neto (USD)</h3><p id="antigModAhorroNeto" style="font-size:1.2rem;color:#f59e0b;font-weight:bold;">$ 0.00</p></div>
                     </div>
@@ -2981,20 +2981,20 @@
 
             <!-- Agresivo -->
             <div id="pane-scenario-agresivo" class="antg-scenario-pane" style="display:none;">
-                <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
-                    <div class="stat-card " style="border-color:rgba(239,68,68,0.3);">
+                <div class="kpi-grid" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
+                    <div class="kpi-card" style="border-color:rgba(239,68,68,0.3);">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="credit-card"></i></div>
                         <div class="stat-info"><h3>Monto Prestado</h3><p id="antigAgrCreditUsd" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="trending-up"></i></div>
                         <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigAgrAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="landmark"></i></div>
                         <div class="stat-info"><h3>Costo Financiero (USD)</h3><p id="antigAgrCostoFinanciero" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="kpi-card">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.2);color:#ef4444;"><i data-lucide="wallet"></i></div>
                         <div class="stat-info"><h3>Ahorro Neto (USD)</h3><p id="antigAgrAhorroNeto" style="font-size:1.2rem;color:#ef4444;font-weight:bold;">$ 0.00</p></div>
                     </div>
@@ -3031,7 +3031,7 @@
     </div>
 
     <div id="helpModal" class="modal" style="z-index: 10040;">
-        <div class="modal-content glass-card" style="max-width: 500px;">
+        <div class="modal-content" style="max-width: 500px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
                 <h2 style="margin:0;display:flex;align-items:center;gap:0.5rem;"><i data-lucide="help-circle"></i> Orientación de Estatus</h2>
                 <button class="btn-icon" onclick="closeHelpModal()"><i data-lucide="x"></i></button>
@@ -3047,7 +3047,7 @@
 
     <!-- Auditar Fechas Modal -->
     <div id="auditarFechasModal" class="modal" style="z-index: 10050;">
-        <div class="modal-content glass-panel" style="max-width: 1200px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
+        <div class="modal-content" style="max-width: 1200px; width: 95%; max-height: 90vh; display: flex; flex-direction: column;">
             <div class="modal-header">
                 <h2><i data-lucide="alert-triangle" style="color: var(--warning);"></i> Auditoría de Fechas Invertidas</h2>
                 <button class="btn-icon" onclick="window.closeModalAuditarFechas()"><i data-lucide="x"></i></button>

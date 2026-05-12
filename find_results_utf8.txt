@@ -1,0 +1,45 @@
+﻿155:                <header class="top-header">
+157:                        <h1>Cuentas por Pagar <span style="font-size: 0.5em; color: var(--text-secondary);">(v1.1)</span></h1>
+211:                <div id="multiPayBanner" style="display: none;" class="multi-pay-banner glassmorphism">
+227:                <section id="planningActionBar" class="planning-action-bar glassmorphism" style="display: none;">
+302:                <section class="table-section glassmorphism">
+463:                <section class="table-section glassmorphism">
+535:                <section class="table-section glassmorphism">
+586:                <div class="chart-container glassmorphism" style="height: 400px; margin-bottom: 2rem; padding: 1.5rem;">
+590:                <section class="table-section glassmorphism">
+1154:                <header class="top-header">
+1164:                    <div class="stat-card glassmorphism"
+1206:                    <div class="stat-card glassmorphism"
+1245:                    <div class="stat-card glassmorphism"
+1419:                <header class="top-header">
+1427:                    <div class="card glassmorphism" style="padding: 2rem;">
+1508:        <div class="modal-content glassmorphism">
+1542:        <div class="modal-content glassmorphism" style="max-width: 95vw; width: 95%;">
+1585:        <div class="modal-content glassmorphism" style="max-width: 500px;">
+1616:        <div class="modal-content glassmorphism" style="max-width: 1060px;">
+1720:        <div class="modal-content glassmorphism" style="max-width: 500px;">
+1769:        <div class="modal-content glassmorphism" style="max-width: 1560px; width: 98%; max-height: 90vh; overflow-y: auto;">
+2075:        <div class="modal-content glassmorphism" style="max-width: 2035px; width: 98%; height: 85vh; overflow-y: auto;">
+2097:                <div class="action-bar custom-scroll" style="display: flex; gap: 0.8rem; overflow-x: auto; align-items: center; max-width: 100%;">
+2247:        <div class="modal-content glassmorphism" style="max-width: 1600px; width: 85%;">
+2291:        <div class="modal-content glassmorphism" style="max-width: 900px;">
+2440:        <div class="modal-content glassmorphism" style="max-width: 1280px; width: 95%;">
+2598:        <div class="modal-content glassmorphism" style="max-width: 1000px; width: 95%;">
+2664:        <div class="modal-content glassmorphism" style="max-width: 1100px; width: 95%; max-height: 90vh; overflow-y: auto;">
+2731:        <div class="modal-content glassmorphism" style="max-width: 520px;">
+2828:        <div class="modal-content glassmorphism" style="max-width: 1848px; width: 95%;">
+2880:                <div class="stat-card glassmorphism" id="cmpConservador" style="border-left:3px solid #10b981;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('conservador')">
+2891:                <div class="stat-card glassmorphism" id="cmpModerado" style="border-left:3px solid #f59e0b;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('moderado')">
+2902:                <div class="stat-card glassmorphism" id="cmpAgresivo" style="border-left:3px solid #ef4444;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('agresivo')">
+2918:                    <div class="stat-card glassmorphism">
+2922:                    <div class="stat-card glassmorphism">
+2926:                    <div class="stat-card glassmorphism">
+2930:                    <div class="stat-card glassmorphism">
+2958:                    <div class="stat-card glassmorphism" style="border-color:rgba(245,158,11,0.3);">
+2962:                    <div class="stat-card glassmorphism">
+2966:                    <div class="stat-card glassmorphism">
+2970:                    <div class="stat-card glassmorphism">
+2998:                    <div class="stat-card glassmorphism" style="border-color:rgba(239,68,68,0.3);">
+3002:                    <div class="stat-card glassmorphism">
+3006:                    <div class="stat-card glassmorphism">
+3010:                    <div class="stat-card glassmorphism">
