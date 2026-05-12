@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="css/style.css?v=2.3"/>
+  <link rel="stylesheet" href="css/style.css"/>
   <style>
     #toast-container {
       position: fixed;
@@ -396,14 +396,14 @@
 
         <!-- ── Totales Sistema (stat cards) ── -->
         <div class="dashboard-stats" id="stats-sistema" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:1rem; margin-bottom:1.5rem;">
-          <div class="stat-card ">
+          <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper blue"><i class="fas fa-money-bill-wave fa-lg"></i></div>
             <div class="stat-info">
               <h3 style="font-size:0.75rem;">Bolivares</h3>
               <p id="sys-efectivo">Bs. 0.00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper" style="background:rgba(16,185,129,.1);color:var(--success);">
               <i class="fas fa-credit-card fa-lg"></i>
             </div>
@@ -412,7 +412,7 @@
               <p id="sys-dispositivos">Bs. 0.00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper" style="background:rgba(168,85,247,.1);color:#a855f7;">
               <i class="fas fa-mobile-alt fa-lg"></i>
             </div>
@@ -421,7 +421,7 @@
               <p id="sys-bancos">Bs. 0.00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper" style="background:rgba(245,158,11,.1);color:#f59e0b;">
               <i class="fas fa-fingerprint fa-lg"></i>
             </div>
@@ -430,7 +430,7 @@
               <p id="sys-divisas-sis">0,00</p>
             </div>
           </div>
-          <div class="stat-card ">
+          <div class="stat-card glassmorphism">
             <div class="stat-icon-wrapper" style="background:rgba(34,197,94,.1);color:var(--success);">
               <i class="fas fa-dollar-sign fa-lg"></i>
             </div>
@@ -1340,7 +1340,7 @@
 
 <!-- ── Modal Cierre Diario Consolidado ── -->
 <div class="modal" id="modal-cierre-diario">
-  <div class="modal-content ">
+  <div class="modal-content glassmorphism">
     <div class="cdd-header">
       <div>
         <h2 style="margin:0; font-size:1.25rem;"><i class="fas fa-layer-group" style="color:var(--primary-accent);"></i> Cierre Diario Consolidado</h2>
@@ -1396,7 +1396,7 @@
 
 <!-- ── Modal Confirmación Cierre ── -->
 <div class="modal" id="modal-confirm">
-  <div class="modal-content ">
+  <div class="modal-content glassmorphism">
     <h2><i class="fas fa-exclamation-triangle" style="color:var(--warning);"></i> Confirmar Cierre Definitivo</h2>
     <p id="modal-diff-text" style="color:var(--text-secondary); margin-bottom:1.5rem;">
       Se sellará el turno y no podrás modificarlo. ¿Estás seguro?
@@ -1414,7 +1414,7 @@
 
 <!-- ── Modal Detalles de Reporte ── -->
 <div class="modal" id="modal-detalle-rep">
-  <div class="modal-content " style="max-width: 800px; width:90%; padding:2rem; min-height: 650px;">
+  <div class="modal-content glassmorphism" style="max-width: 800px; width:90%; padding:2rem; min-height: 650px;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; border-bottom:1px solid var(--border-subtle); padding-bottom:1rem;">
       <h2 style="margin:0;"><i class="fas fa-clipboard-check" style="color:var(--primary-accent);"></i> Detalle de Cierre <span id="mdl-rep-id" style="color:var(--text-muted);"></span></h2>
       <button class="btn-icon" onclick="document.getElementById('modal-detalle-rep').classList.remove('active')"><i class="fas fa-times"></i></button>
@@ -1460,7 +1460,7 @@
 
 <!-- ── Modal Reparar Fechas Saint ── -->
 <div class="modal" id="modal-reparar-fechas">
-  <div class="modal-content " style="max-width: 500px; width:90%; padding:2rem;">
+  <div class="modal-content glassmorphism" style="max-width: 500px; width:90%; padding:2rem;">
     <h2 style="margin-top:0;"><i class="fas fa-tools" style="color:var(--warning);"></i> Reparar Fechas de Saint</h2>
     <p style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:1.5rem;">
       Esta herramienta ejecuta un <code>UPDATE SAFACT SET FechaE=FechaT WHERE FechaT BETWEEN [Inicio] AND [Fin]</code> para solucionar problemas de fechas en el sistema Saint.
@@ -1490,7 +1490,7 @@
 
 <!-- ── Modal Reporte de Cierre Consolidado ── -->
 <div class="modal" id="modal-reporte-consolidado">
-  <div class="modal-content ">
+  <div class="modal-content glassmorphism">
     <div class="rci-header">
       <h2><i class="fas fa-clipboard-check" style="color:var(--primary-accent);"></i> Reporte de Cierre Consolidado
         <span id="rci-badge-vend" style="font-size:0.8rem;color:var(--text-muted);font-weight:400;"></span>

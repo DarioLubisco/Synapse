@@ -18,7 +18,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link rel="stylesheet" href="css/style.css?v=2.3">
+    <link rel="stylesheet" href="css/cxp_style.css">
 </head>
 
 <body>
@@ -30,10 +30,7 @@
                     <i data-lucide="wallet" class="logo-icon"></i>
                 </div>
                 <h2>Finanzas</h2>
-                <button id="themeBtn" class="btn-icon" onclick="toggleTheme()" style="margin-left: auto;" title="Cambiar Tema">
-                    <i data-lucide="moon" id="themeIcon"></i>
-                </button>
-                <button id="sidebarToggle" class="btn-icon">
+                <button id="sidebarToggle" class="btn-icon" style="margin-left: auto;">
                     <i data-lucide="menu"></i>
                 </button>
             </div>
@@ -170,7 +167,7 @@
                 </header>
 
                 <div class="dashboard-stats">
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper blue">
                             <i data-lucide="file-text"></i>
                         </div>
@@ -179,7 +176,7 @@
                             <p id="totalDocs">0</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper red">
                             <i data-lucide="trending-down"></i>
                         </div>
@@ -188,7 +185,7 @@
                             <p id="totalSaldoBs">Bs 0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper green">
                             <i data-lucide="dollar-sign"></i>
                         </div>
@@ -198,7 +195,7 @@
                         </div>
                     </div>
                     <!-- Selection summary card -->
-                    <div class="stat-card active-selection-card">
+                    <div class="stat-card glassmorphism active-selection-card">
                         <div class="stat-icon-wrapper purple">
                             <i data-lucide="check-square"></i>
                         </div>
@@ -211,7 +208,7 @@
                 </div>
 
                 <!-- Banner: Modo Pago Múltiple (oculto por defecto) -->
-                <div id="multiPayBanner" style="display: none;" class="multi-pay-banner ">
+                <div id="multiPayBanner" style="display: none;" class="multi-pay-banner glassmorphism">
                     <i data-lucide="layers" style="flex-shrink:0;"></i>
                     <span>
                         <strong>Modo Pago Múltiple Activo</strong> &mdash;
@@ -227,7 +224,7 @@
                 </div>
 
                 <!-- Payment Planning Action Bar (Hidden by default) -->
-                <section id="planningActionBar" class="planning-action-bar " style="display: none;">
+                <section id="planningActionBar" class="planning-action-bar glassmorphism" style="display: none;">
                     <div class="planning-controls">
                         <div class="input-group">
                             <label for="planFecha">Fecha Planificada:</label>
@@ -277,7 +274,7 @@
                     </div>
                 </section>
 
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-header">
                         <h2>Registros Recientes</h2>
                         <div class="table-actions" style="display: flex; gap: 1rem; align-items: flex-end;">
@@ -558,7 +555,7 @@
                 </header>
 
                 <div class="stats-grid">
-                    <div class="stat-card " style="grid-column: span 3;">
+                    <div class="stat-card glassmorphism" style="grid-column: span 3;">
                         <div class="table-actions"
                             style="display: flex; gap: 1rem; align-items: center; padding: 1rem;">
                             <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
@@ -577,11 +574,11 @@
                     </div>
                 </div>
 
-                <div class="chart-container " style="height: 400px; margin-bottom: 2rem; padding: 1.5rem;">
+                <div class="chart-container glassmorphism" style="height: 400px; margin-bottom: 2rem; padding: 1.5rem;">
                     <canvas id="comprasChart"></canvas>
                 </div>
 
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="comprasTable">
                             <thead>
@@ -609,7 +606,7 @@
                 </header>
 
                 <div class="dashboard-stats" style="margin-bottom: 2rem;">
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;">
                             <i data-lucide="shield-check"></i>
                         </div>
@@ -618,7 +615,7 @@
                             <p class="us-amount" id="agingSummaryPorVencer" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background: rgba(234, 179, 8, 0.1); color: #eab308;">
                             <i data-lucide="alert-circle"></i>
                         </div>
@@ -627,7 +624,7 @@
                             <p class="us-amount" id="agingSummary1_30" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background: rgba(249, 115, 22, 0.1); color: #f97316;">
                             <i data-lucide="alert-triangle"></i>
                         </div>
@@ -636,7 +633,7 @@
                             <p class="us-amount" id="agingSummary31_60" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
                             <i data-lucide="flame"></i>
                         </div>
@@ -645,7 +642,7 @@
                             <p class="us-amount" id="agingSummary61_90" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background: rgba(185, 28, 28, 0.1); color: #b91c1c;">
                             <i data-lucide="skull"></i>
                         </div>
@@ -654,7 +651,7 @@
                             <p class="us-amount" id="agingSummaryMas90" style="font-size: 1.5rem;">$0.00</p>
                         </div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
                             <i data-lucide="wallet"></i>
                         </div>
@@ -665,7 +662,7 @@
                     </div>
                 </div>
 
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="agingTable">
                             <thead>
@@ -710,7 +707,7 @@
                 </header>
 
                 <!-- Chart Section -->
-                <section class="chart-section " style="margin-bottom: 2rem;">
+                <section class="chart-section glassmorphism" style="margin-bottom: 2rem;">
                     <div style="height: 300px; width: 100%;">
                         <canvas id="cashflowChart"></canvas>
                     </div>
@@ -718,7 +715,7 @@
                         style="margin-top: 0.5rem; font-weight: 500; color: var(--text-primary);"></div>
                 </section>
 
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="cashflowTable">
                             <thead>
@@ -758,14 +755,14 @@
                         </div>
                     </div>
                 </header>
-                <section class="chart-section " style="margin-bottom: 2rem;">
+                <section class="chart-section glassmorphism" style="margin-bottom: 2rem;">
                     <div style="height: 300px; width: 100%;">
                         <canvas id="forecastSalesChart"></canvas>
                     </div>
                     <div id="forecastSalesUsdTotal" class="usd-total"
                         style="margin-top: 0.5rem; font-weight: 500; color: var(--text-primary);"></div>
                 </section>
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="forecastSalesTable">
                             <thead>
@@ -816,12 +813,12 @@
                         </div>
                     </div>
                 </header>
-                <section class="chart-section " style="margin-bottom: 2rem;">
+                <section class="chart-section glassmorphism" style="margin-bottom: 2rem;">
                     <div style="height: 300px; width: 100%;">
                         <canvas id="forecastConsolidatedChart"></canvas>
                     </div>
                 </section>
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="forecastConsolidatedTable">
                             <thead>
@@ -851,7 +848,7 @@
                     </div>
                 </header>
 
-                <section  style="padding: 2rem; max-width: 600px;">
+                <section class="glassmorphism" style="padding: 2rem; max-width: 600px;">
                     <form id="cashflowParamsForm">
 
                         <div style="margin-bottom: 1.5rem;">
@@ -909,7 +906,7 @@
                             Prophet</p>
                     </div>
                 </header>
-                <section class="planning-action-bar " style="margin-bottom: 2rem; display: block;">
+                <section class="planning-action-bar glassmorphism" style="margin-bottom: 2rem; display: block;">
                     <div class="planning-controls" style="flex-wrap: wrap;">
                         <div class="input-group">
                             <label for="eventFecha">Fecha del Evento:</label>
@@ -933,7 +930,7 @@
                         </button>
                     </div>
                 </section>
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="forecastEventsTable">
                             <thead>
@@ -959,7 +956,7 @@
                         <p class="subtitle">Promedio de días en pagar a proveedores</p>
                     </div>
                 </header>
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="dpoTable">
                             <thead>
@@ -989,7 +986,7 @@
                         </button>
                     </div>
                 </header>
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="expenseTemplatesTable">
                             <thead>
@@ -1024,7 +1021,7 @@
                     </div>
                 </header>
                 <div class="stats-grid">
-                    <div class="stat-card " style="grid-column: span 3;">
+                    <div class="stat-card glassmorphism" style="grid-column: span 3;">
                         <div class="table-actions"
                             style="display: flex; gap: 1rem; align-items: center; padding: 1rem;">
                             <div class="date-filter" style="display: flex; gap: 0.5rem; align-items: center;">
@@ -1062,7 +1059,7 @@
                         </div>
                     </div>
                 </div>
-                <section class="table-section " id="batchSection" style="display: none;">
+                <section class="table-section glassmorphism" id="batchSection" style="display: none;">
                     <h3 style="margin-top:0; margin-bottom: 15px; color: var(--text-primary)">Gastos Farmacia
                         (Plantillas)</h3>
                     <div class="table-responsive" style="margin-bottom: 30px;">
@@ -1120,7 +1117,7 @@
                         placeholder="Buscar por descripción..."
                         style="width: 100%; max-width: 300px; background: rgba(0,0,0,0.2);">
                 </div>
-                <section class="table-section ">
+                <section class="table-section glassmorphism">
                     <div class="table-responsive">
                         <table id="expenseSavedBatchTable">
                             <thead>
@@ -1160,7 +1157,7 @@
                 <div class="stats-grid"
                     style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
                     <!-- Contact Card -->
-                    <div class="stat-card "
+                    <div class="stat-card glassmorphism"
                         style="flex-direction: column; align-items: flex-start; padding: 2rem; gap: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="stat-icon-wrapper blue" style="width: 3rem; height: 3rem;">
@@ -1202,7 +1199,7 @@
                     </div>
 
                     <!-- Online Portal & Credentials -->
-                    <div class="stat-card "
+                    <div class="stat-card glassmorphism"
                         style="flex-direction: column; align-items: flex-start; padding: 2rem; gap: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="stat-icon-wrapper green" style="width: 3rem; height: 3rem;">
@@ -1241,7 +1238,7 @@
                     </div>
 
                     <!-- Requirements & Reminders -->
-                    <div class="stat-card "
+                    <div class="stat-card glassmorphism"
                         style="grid-column: 1 / -1; flex-direction: column; align-items: flex-start; padding: 2rem; gap: 1.5rem;">
                         <div style="display: flex; align-items: center; gap: 1rem;">
                             <div class="stat-icon-wrapper purple" style="width: 3rem; height: 3rem;">
@@ -1423,7 +1420,7 @@
                 </header>
 
                 <div class="content-body" style="max-width: 800px; margin: 0 auto; padding-top: 1rem;">
-                    <div class="card " style="padding: 2rem;">
+                    <div class="card glassmorphism" style="padding: 2rem;">
                         <h2 style="margin-bottom: 1.5rem; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">
                             <i data-lucide="sliders"></i> Parámetros de Facturación
                         </h2>
@@ -1504,7 +1501,7 @@
 
     <!-- Edit/Add Expense Template Modal -->
     <div id="expenseTplModal" class="modal">
-        <div class="modal-content ">
+        <div class="modal-content glassmorphism">
             <h2 id="expenseTplModalTitle">Nueva Plantilla de Gasto</h2>
             <form id="expenseTplForm" style="margin-top: 1rem;">
                 <input type="hidden" id="tplId">
@@ -1538,7 +1535,7 @@
 
     <!-- Provider Conditions Modal -->
     <div id="providerCondModal" class="modal">
-        <div class="modal-content " style="max-width: 95vw; width: 95%;">
+        <div class="modal-content glassmorphism" style="max-width: 95vw; width: 95%;">
             <h2>Condiciones de Indexación de Proveedores</h2>
             <div class="table-actions"
                 style="margin-top: 1rem; margin-bottom: 1rem; display: flex; gap: 1rem; align-items: center;">
@@ -1581,7 +1578,7 @@
 
     <!-- Register Debit Note Modal -->
     <div id="registerDebitNoteModal" class="modal" style="z-index: 10005;">
-        <div class="modal-content " style="max-width: 500px;">
+        <div class="modal-content glassmorphism" style="max-width: 500px;">
             <h2>Registrar Notas de Débito</h2>
             <p style="color: var(--text-secondary); margin-bottom: 1rem; font-size: 0.9rem;">
                 Las facturas seleccionadas se marcarán como "EMITIDA" y se insertarán automáticamente en Saint administrativo. Ingrese los números legales de la Nota de Débito.
@@ -1612,7 +1609,7 @@
 
     <!-- Edit Single Provider Modal -->
     <div id="editProviderCondModal" class="modal" style="z-index: 10060;">
-        <div class="modal-content " style="max-width: 1060px;">
+        <div class="modal-content glassmorphism" style="max-width: 1060px;">
             <h2 id="editProvTitle">Editar Proveedor</h2>
             <form id="editProvForm" style="margin-top: 1rem;">
                 <input type="hidden" id="editProvCod">
@@ -1716,7 +1713,7 @@
 
     <!-- Abonos / Pagos Modal -->
     <div id="newCreditNoteModal" class="modal" style="z-index: 10040;">
-        <div class="modal-content " style="max-width: 500px;">
+        <div class="modal-content glassmorphism" style="max-width: 500px;">
             <div class="modal-header">
                 <h2>Solicitud de Nota de Crédito</h2>
                 <button class="btn-icon" onclick="closeNewCreditNoteModal()"><i data-lucide="x"></i></button>
@@ -1765,7 +1762,7 @@
 
     <!-- Abonos / Pagos Modal -->
     <div id="abonosModal" class="modal" style="z-index: 1002;">
-        <div class="modal-content " style="max-width: 1560px; width: 98%; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content glassmorphism" style="max-width: 1560px; width: 98%; max-height: 90vh; overflow-y: auto;">
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
                 <div>
                     <h2 id="abonoModalTitle" style="margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -2071,7 +2068,7 @@
 
     <!-- Pago Múltiple Modal -->
     <div id="pagoMultipleModal" class="modal" style="z-index: 10030;">
-        <div class="modal-content " style="max-width: 2035px; width: 98%; height: 85vh; overflow-y: auto;">
+        <div class="modal-content glassmorphism" style="max-width: 2035px; width: 98%; height: 85vh; overflow-y: auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h2 style="margin:0; display: flex; align-items: center; gap: 0.5rem;">
                     <i data-lucide="banknote" style="width:20px;height:20px;"></i> 
@@ -2243,7 +2240,7 @@
 
     <!-- Global Dynamic Invoice Summary Modal -->
     <div id="globalDynamicRecalculateModal" class="modal" style="z-index: 10040;">
-        <div class="modal-content " style="max-width: 1600px; width: 85%;">
+        <div class="modal-content glassmorphism" style="max-width: 1600px; width: 85%;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h3 style="margin:0; color: var(--primary-accent); display:flex; align-items:center; gap:0.5rem;"><i data-lucide="calculator" size="20"></i> Recálculo Dinámico Global</h3>
                 <button class="btn-icon" onclick="closeGlobalDynamicRecalculateModal()"><i data-lucide="x"></i></button>
@@ -2287,7 +2284,7 @@
 
     <!-- Dynamic Invoice Status Modal -->
     <div id="dynamicInvoiceStatusModal" class="modal" style="z-index: 10030;">
-        <div class="modal-content " style="max-width: 900px;">
+        <div class="modal-content glassmorphism" style="max-width: 900px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h3 style="margin:0; color: var(--primary-accent); display:flex; align-items:center; gap:0.5rem;"><i data-lucide="calculator" size="20"></i> Recálculo Dinámico</h3>
                 <button class="btn-icon" onclick="closeDynamicInvoiceStatusModal()"><i data-lucide="x"></i></button>
@@ -2436,7 +2433,7 @@
 
     <!-- Configuracion Global Modal -->
     <div id="retConfigModal" class="modal" style="z-index: 10020;">
-        <div class="modal-content " style="max-width: 1280px; width: 95%;">
+        <div class="modal-content glassmorphism" style="max-width: 1280px; width: 95%;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h2 style="margin:0;"><i data-lucide="settings" style="width:20px;height:20px;vertical-align:middle;"></i> Configuración del Sistema</h2>
                 <button class="btn-icon" onclick="closeRetConfigModal()"><i data-lucide="x"></i></button>
@@ -2594,7 +2591,7 @@
 
     <!-- Generar Retención Modal (Multi-Factura) -->
     <div id="generarRetencionModal" class="modal" style="z-index: 10040;">
-        <div class="modal-content " style="max-width: 1000px; width: 95%;">
+        <div class="modal-content glassmorphism" style="max-width: 1000px; width: 95%;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h2 style="margin:0;"><i data-lucide="receipt" style="width:20px;height:20px;vertical-align:middle;"></i> Generar Comprobante de Retención</h2>
                 <button class="btn-icon" onclick="closeGenerarRetencionModal()"><i data-lucide="x"></i></button>
@@ -2660,7 +2657,7 @@
 
     <!-- Generar Retención ISLR Modal (Multi-Factura) -->
     <div id="generarRetencionIslrModal" class="modal" style="z-index: 10045;">
-        <div class="modal-content " style="max-width: 1100px; width: 95%; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content glassmorphism" style="max-width: 1100px; width: 95%; max-height: 90vh; overflow-y: auto;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h2 style="margin:0;"><i data-lucide="file-text" style="width:20px;height:20px;vertical-align:middle;"></i> Generar Comprobante de Retención ISLR</h2>
                 <button class="btn-icon" onclick="closeGenerarRetencionIslrModal()"><i data-lucide="x"></i></button>
@@ -2727,7 +2724,7 @@
 
     <!-- Invoice Edit Modal (lateral panel style) -->
     <div id="invoiceEditModal" class="modal" style="z-index: 10020;">
-        <div class="modal-content " style="max-width: 520px;">
+        <div class="modal-content glassmorphism" style="max-width: 520px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;">
                 <h2 style="margin:0;"><i data-lucide="edit-3" style="width:20px;height:20px;vertical-align:middle;"></i> Editar Factura</h2>
                 <button class="btn-icon" onclick="closeInvoiceEditModal()"><i data-lucide="x"></i></button>
@@ -2824,7 +2821,7 @@
 
     <!-- Antigravity Optimizer Results Modal — Multi-Escenario -->
     <div id="antigravityModal" class="modal" style="z-index: 10050;">
-        <div class="modal-content " style="max-width: 1848px; width: 95%;">
+        <div class="modal-content glassmorphism" style="max-width: 1848px; width: 95%;">
 
             <!-- ── ENCABEZADO ── -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem;">
@@ -2876,7 +2873,7 @@
             <!-- ── COMPARATIVA RÁPIDA DE ESCENARIOS ── -->
             <div id="antigScenarioComparison" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.2rem;">
                 <!-- Conservador -->
-                <div class="stat-card " id="cmpConservador" style="border-left:3px solid #10b981;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('conservador')">
+                <div class="stat-card glassmorphism" id="cmpConservador" style="border-left:3px solid #10b981;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('conservador')">
                     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
                         <i data-lucide="shield" style="width:16px;height:16px;color:#10b981;"></i>
                         <span style="font-weight:600;color:#10b981;font-size:0.85rem;">Conservador</span>
@@ -2887,7 +2884,7 @@
                     <div id="cmpConservadorSavings" style="font-size:1rem;font-weight:700;color:#10b981;">$ 0.00</div>
                 </div>
                 <!-- Moderado -->
-                <div class="stat-card " id="cmpModerado" style="border-left:3px solid #f59e0b;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('moderado')">
+                <div class="stat-card glassmorphism" id="cmpModerado" style="border-left:3px solid #f59e0b;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('moderado')">
                     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
                         <i data-lucide="zap" style="width:16px;height:16px;color:#f59e0b;"></i>
                         <span style="font-weight:600;color:#f59e0b;font-size:0.85rem;">Moderado</span>
@@ -2898,7 +2895,7 @@
                     <div id="cmpModeradoSavings" style="font-size:1rem;font-weight:700;color:#f59e0b;">$ 0.00</div>
                 </div>
                 <!-- Agresivo -->
-                <div class="stat-card " id="cmpAgresivo" style="border-left:3px solid #ef4444;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('agresivo')">
+                <div class="stat-card glassmorphism" id="cmpAgresivo" style="border-left:3px solid #ef4444;cursor:pointer;transition:opacity .2s;" onclick="window.switchAntigravityScenario('agresivo')">
                     <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.4rem;">
                         <i data-lucide="flame" style="width:16px;height:16px;color:#ef4444;"></i>
                         <span style="font-weight:600;color:#ef4444;font-size:0.85rem;">Agresivo</span>
@@ -2914,19 +2911,19 @@
             <!-- Conservador -->
             <div id="pane-scenario-conservador" class="antg-scenario-pane active-pane">
                 <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(139,92,246,0.1);color:#8b5cf6;"><i data-lucide="trending-down"></i></div>
                         <div class="stat-info"><h3>Volatilidad Diaria</h3><p id="antigDevMensual" style="font-size:1.2rem;">0.00%</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="dollar-sign"></i></div>
                         <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(59,130,246,0.1);color:#3b82f6;"><i data-lucide="pie-chart"></i></div>
                         <div class="stat-info"><h3>Gasto Comprometido (USD)</h3><p id="antigGastoUsd" style="font-size:1.2rem;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i data-lucide="percent"></i></div>
                         <div class="stat-info"><h3>Límite Liquidez</h3><p id="antigLimiteFlujo" style="font-size:1.2rem;">0%</p></div>
                     </div>
@@ -2954,19 +2951,19 @@
             <!-- Moderado -->
             <div id="pane-scenario-moderado" class="antg-scenario-pane" style="display:none;">
                 <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
-                    <div class="stat-card " style="border-color:rgba(245,158,11,0.3);">
+                    <div class="stat-card glassmorphism" style="border-color:rgba(245,158,11,0.3);">
                         <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.1);color:#f59e0b;"><i data-lucide="credit-card"></i></div>
                         <div class="stat-info"><h3>Monto Prestado</h3><p id="antigModCreditUsd" style="font-size:1.2rem;color:#f59e0b;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="trending-up"></i></div>
                         <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigModAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="landmark"></i></div>
                         <div class="stat-info"><h3>Costo Financiero (USD)</h3><p id="antigModCostoFinanciero" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i data-lucide="wallet"></i></div>
                         <div class="stat-info"><h3>Ahorro Neto (USD)</h3><p id="antigModAhorroNeto" style="font-size:1.2rem;color:#f59e0b;font-weight:bold;">$ 0.00</p></div>
                     </div>
@@ -2994,19 +2991,19 @@
             <!-- Agresivo -->
             <div id="pane-scenario-agresivo" class="antg-scenario-pane" style="display:none;">
                 <div class="dashboard-stats" style="margin-bottom:1.2rem;grid-template-columns:repeat(4,1fr);">
-                    <div class="stat-card " style="border-color:rgba(239,68,68,0.3);">
+                    <div class="stat-card glassmorphism" style="border-color:rgba(239,68,68,0.3);">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="credit-card"></i></div>
                         <div class="stat-info"><h3>Monto Prestado</h3><p id="antigAgrCreditUsd" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(16,185,129,0.1);color:#10b981;"><i data-lucide="trending-up"></i></div>
                         <div class="stat-info"><h3>Ahorro Bruto (USD)</h3><p id="antigAgrAhorroUsd" style="font-size:1.2rem;color:#10b981;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.1);color:#ef4444;"><i data-lucide="landmark"></i></div>
                         <div class="stat-info"><h3>Costo Financiero (USD)</h3><p id="antigAgrCostoFinanciero" style="font-size:1.2rem;color:#ef4444;">$ 0.00</p></div>
                     </div>
-                    <div class="stat-card ">
+                    <div class="stat-card glassmorphism">
                         <div class="stat-icon-wrapper" style="background:rgba(239,68,68,0.2);color:#ef4444;"><i data-lucide="wallet"></i></div>
                         <div class="stat-info"><h3>Ahorro Neto (USD)</h3><p id="antigAgrAhorroNeto" style="font-size:1.2rem;color:#ef4444;font-weight:bold;">$ 0.00</p></div>
                     </div>
@@ -3106,7 +3103,6 @@
 
     <datalist id="datalistProviders"></datalist>
 
-    <script src="js/theme.js"></script>
     <script src="js/app_cxp.js?v=50.03"></script>
     <script src="js/modules-report.js?v=49.63"></script>
     <script>
