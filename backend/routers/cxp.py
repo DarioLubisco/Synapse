@@ -334,7 +334,7 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
               PP.ID AS Plan_ID,
               PP.Banco AS Plan_Banco,
               PP.FechaPlanificada AS Plan_Fecha,
-              CAST(CASE WHEN SAACXP.RetenIVA > 0 OR portal_ret.Id IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS Has_Retencion,
+              CAST(CASE WHEN portal_ret.Id IS NOT NULL OR abonos.TotalIVA > 0 THEN 1 ELSE 0 END AS BIT) AS Has_Retencion,
               CAST(CASE WHEN abonos.TotalBs IS NOT NULL THEN 1 ELSE 0 END AS BIT) AS Has_Abonos,
               ISNULL(abonos.TotalBs, 0) AS TotalBsAbonado,
               ISNULL(abonos.TotalUsd, 0) AS TotalUsdAbonado,

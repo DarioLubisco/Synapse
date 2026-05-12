@@ -159,6 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const formatBs = (val) => `Bs ${bsFormatter(val)}`;
 
+    // Safely evaluate SQL BIT or boolean strings
+    const hasRet = (item) => item.Has_Retencion === true || item.Has_Retencion === 1 || String(item.Has_Retencion) === '1' || String(item.Has_Retencion).toLowerCase() === 'true';
+
+
     // === Cashflow Params State Management ===
     const loadCashflowParams = () => {
         if (!paramFechaCero) return;
@@ -522,7 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const flags = [];
         if (item.Plan_ID) flags.push(`<span title="Planificado: Banco ${item.Plan_Banco}">🗓️</span>`);
         if (item.Has_Abonos) flags.push(`<span title="Tiene Abonos Parciales">💵</span>`);
-        if (item.Has_Retencion) flags.push(`<span title="Tiene Retenciones">🧾</span>`);
+        if (hasRet(item)) flags.push(`<span title="Tiene Retenciones">🧾</span>`);
 
         if (flags.length > 0) {
             html += ` <div style="display: inline-flex; gap: 0.2rem; filter: grayscale(0.2); font-size: 1.1em;">${flags.join('')}</div>`;
@@ -701,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Extra Conditions (AND Logic)
             if (requiresPlan && !item.Plan_ID) return false;
             if (requiresAbonos && !item.Has_Abonos) return false;
-            if (requiresReten && !item.Has_Retencion) return false;
+            if (requiresReten && !hasRet(item)) return false;
             if (requiresCDebito) {
                 const totAbonado = parseFloat(item.TotalBsAbonado) || 0;
                 const totOrig = parseFloat(item.Monto) || 0;
@@ -1019,7 +1023,9 @@ document.addEventListener('DOMContentLoaded', () => {
         else if (viewId === 'forecast-sales') fetchForecastSales();
         else if (viewId === 'forecast-consolidated') fetchForecastConsolidated();
         else if (viewId === 'forecast-events') fetchForecastEvents();
-        else if (viewId === 'debit-notes') fetchDebitNotes();
+        else if (viewId === 'debit-notes') {
+            if (typeof window._fetchDebitNotes === 'function') window._fetchDebitNotes();
+        }
         else if (viewId === 'credit-notes') fetchCreditNotes();
         else if (viewId === 'dpo') fetchDpo();
         else if (viewId === 'expense-templates') fetchExpenseTemplates();
@@ -1044,139 +1050,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Reports Fetches ---
-    document.getElementById('refreshDebitNotesBtn')?.addEventListener('click', () => fetchDebitNotes());
+    // Debit Notes logic has been moved completely to modules-report.js
 
-    const fetchDebitNotes = async () => {
-        const tbody = document.getElementById('debitNotesTableBody');
-        if (!tbody) return;
-
-        tbody.innerHTML = `<tr><td colspan="10" class="loading-cell"><div class="loader"></div><p>Cargando notas de débito...</p></td></tr>`;
-
-        try {
-            const search = document.getElementById('dnFilterProv')?.value || "";
-            const estatus = document.getElementById('dnFilterEstatus')?.value || "";
-            let url = `/api/procurement/debit-notes?estatus=${estatus}`;
-            if (search) url += `&search=${encodeURIComponent(search)}`;
-
-            const res = await fetch(url);
-            if (!res.ok) throw new Error("Error loading debit notes");
-            const data = await res.json();
-
-            if (!data.data || data.data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-secondary);">No hay notas de débito pendientes.</td></tr>`;
-                updateDnActionBar();
-                return;
-            }
-
-            tbody.innerHTML = data.data.map(d => {
-                const isEmitida = d.Estatus === 'EMITIDA';
-                return `
-                <tr data-cod="${d.CodProv}" data-num="${d.NumeroD}" data-reten="${d.MontoRetencionBs}">
-                    <td><input type="checkbox" class="dn-item-check" ${isEmitida ? 'disabled title="Ya emitida"' : ''}></td>
-                    <td>${d.ProveedorNombre || '-'}</td>
-                    <td><span style="font-weight: 500;">${d.NumeroD}</span></td>
-                    <td>${formatDate(d.FechaEmision)}</td>
-                    <td class="amount">${formatBs(d.MontoOriginalBs)}</td>
-                    <td class="amount">${formatBs(d.TotalBsAbonado)}</td>
-                    <td class="amount" style="color: var(--danger); font-weight: bold;">${formatBs(d.MontoNotaDebitoBs)}</td>
-                    <td class="amount" style="color: var(--warning);">${formatBs(d.MontoRetencionBs)}</td>
-                    <td style="text-align: center;">
-                        <span class="badge ${d.Estatus === 'PENDIENTE' ? 'badge-danger' : (d.Estatus === 'EMITIDA' ? 'badge-success' : 'badge-warning')}">${d.Estatus}</span>
-                    </td>
-                    <td>${d.NotaDebitoID || '-'}</td>
-                </tr>
-            `}).join('');
-
-            // Attach event listeners to checkboxes
-            const selectAllCheck = document.getElementById('dnSelectAll');
-            const itemChecks = document.querySelectorAll('.dn-item-check:not([disabled])');
-            if (selectAllCheck) {
-                selectAllCheck.checked = false;
-                selectAllCheck.addEventListener('change', (e) => {
-                    itemChecks.forEach(chk => chk.checked = e.target.checked);
-                    updateDnActionBar();
-                });
-            }
-
-            itemChecks.forEach(chk => {
-                chk.addEventListener('change', () => {
-                    if (selectAllCheck) {
-                        selectAllCheck.checked = Array.from(itemChecks).every(c => c.checked);
-                    }
-                    updateDnActionBar();
-                });
-            });
-            updateDnActionBar();
-
-        } catch (error) {
-            console.error(error);
-            tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--danger);">Error al cargar notas de débito.</td></tr>`;
-        }
-    };
-
-    const getSelectedDebitNotes = () => {
-        const rows = document.querySelectorAll('#debitNotesTableBody tr');
-        const selected = [];
-        rows.forEach(r => {
-            const chk = r.querySelector('.dn-item-check');
-            if (chk && chk.checked) {
-                selected.push({
-                    CodProv: r.getAttribute('data-cod'),
-                    NumeroD: r.getAttribute('data-num'),
-                    _estimatedReten: parseFloat(r.getAttribute('data-reten') || 0)
-                });
-            }
-        });
-        return selected;
-    };
-
-    const updateDnActionBar = () => {
-        const selected = getSelectedDebitNotes();
-        const bar = document.getElementById('debitNotesActionBar');
-        const countSpan = document.getElementById('dnSelectedCount');
-        if (selected.length > 0) {
-            countSpan.textContent = selected.length;
-            bar.style.display = 'flex';
-        } else {
-            bar.style.display = 'none';
-        }
-    };
-
-    document.getElementById('btnSendDebitNotes')?.addEventListener('click', async () => {
-        const selected = getSelectedDebitNotes();
-        if (selected.length === 0) return;
-        if (!confirm(`¿Enviar solicitud y generar correos para ${selected.length} facturas?`)) return;
-
-        const btn = document.getElementById('btnSendDebitNotes');
-        const origText = btn.innerHTML;
-        btn.innerHTML = `<i data-lucide="loader" class="rotating"></i> Enviando...`;
-        btn.disabled = true;
-
-        try {
-            const res = await fetch('/api/procurement/debit-notes/send-request', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ Invoices: selected })
-            });
-            if (!res.ok) throw new Error("Error enviando solicitud");
-            alert("Solicitudes de correo procesadas/marcadas con éxito.");
-            fetchDebitNotes();
-        } catch (err) {
-            console.error(err);
-            alert("Error al enviar solicitudes. Revise si el correo está configurado en el backend.");
-        } finally {
-            btn.innerHTML = origText;
-            btn.disabled = false;
-            lucide.createIcons();
-        }
-    });
-
-    document.getElementById('refreshDebitNotesBtn')?.addEventListener('click', () => fetchDebitNotes());
-    document.getElementById('dnFilterProv')?.addEventListener('input', () => {
-        clearTimeout(fetchTimeout);
-        fetchTimeout = setTimeout(fetchDebitNotes, 500);
-    });
-    document.getElementById('dnFilterEstatus')?.addEventListener('change', fetchDebitNotes);
 
     const registerDebitNoteModal = document.getElementById('registerDebitNoteModal');
 
@@ -1241,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok) throw new Error("Error al registrar");
             closeRegisterDebitNoteModal();
             window.onTheFlyND = null; // Clear state
-            fetchDebitNotes();
+            if (typeof window._fetchDebitNotes === 'function') window._fetchDebitNotes();
         } catch (err) {
             console.error(err);
             alert("Ocurrió un error registrando la Nota de Débito.");
@@ -2985,7 +2860,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const abBtnRetIva = document.getElementById('abBtnRetIva');
         if (abBtnRetIva) {
             const hasIva = (parseFloat(d.MtoTax) || 0) > 0 || (parseFloat(d.TGravable) || 0) > 0;
-            const hasRetIva = (d.HistorialAbonos && d.HistorialAbonos.some(a => a.TipoAbono === 'RETENCION_IVA')) || d.Has_Retencion || (parseFloat(d.RetencionIvaAbonada) || 0) > 0;
+            const hasRetIva = (d.HistorialAbonos && d.HistorialAbonos.some(a => a.TipoAbono === 'RETENCION_IVA')) || hasRet(d) || (parseFloat(d.RetencionIvaAbonada) || 0) > 0;
             if (!hasIva || hasRetIva) {
                 abBtnRetIva.style.color = '#10b981';
                 abBtnRetIva.style.borderColor = 'rgba(16,185,129,0.4)';
@@ -5287,11 +5162,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Check retentions state for action bar
             const itemsConIva = items.filter(i => (parseFloat(i.TGravable) || 0) > 0 && (parseFloat(i.MtoTax) || 0) > 0);
-            const sinRetencionIva = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !i.Has_Retencion && !(i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
+            const sinRetencionIva = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !hasRet(i) && !(i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
             
             // Si no hay items con IVA que falten por retener (ya sea porque todos se retuvieron o porque ninguno lleva IVA)
             const allIvaRetainedOrNoIva = itemsConIva.length > 0 ? (sinRetencionIva.length === 0) : true;
-            const hasAnyIvaRet = items.some(i => (parseFloat(i.RetencionIvaAbonada) || 0) > 0 || i.Has_Retencion || (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
+            const hasAnyIvaRet = items.some(i => (parseFloat(i.RetencionIvaAbonada) || 0) > 0 || hasRet(i) || (i.HistorialAbonos || []).some(a => a.TipoAbono === 'RETENCION_IVA'));
 
             const btnPmRetIva = document.getElementById('pmGoBtnRetIva');
             if (btnPmRetIva) {
@@ -5918,68 +5793,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const retencionesView = document.getElementById('view-retenciones');
 
     if (retencionesView) {
-        const fetchRetenciones = async () => {
-            const tbody = document.getElementById('retencionesTableBody');
-            if (!tbody) return;
-            tbody.innerHTML = `<tr><td colspan="7" class="loading-cell"><div class="loader"></div><p>Cargando retenciones...</p></td></tr>`;
-
-            try {
-                let url = '/api/retenciones';
-                const desde = getDateValue(document.getElementById('retencionesDesde'));
-                const hasta = getDateValue(document.getElementById('retencionesHasta'));
-                const params = new URLSearchParams();
-                if (desde) params.append('desde', desde);
-                if (hasta) params.append('hasta', hasta);
-                if (params.toString()) url += '?' + params.toString();
-
-                const res = await fetch(url);
-                if (!res.ok) throw new Error('Error al cargar');
-                const { data } = await res.json();
-
-                if (!data || data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-secondary);">No hay retenciones emitidas en el período.</td></tr>`;
-                    return;
-                }
-
-                tbody.innerHTML = data.map(item => `
-                    <tr>
-                        <td><span style="font-weight: 500;">${item.NumeroComprobante}</span></td>
-                        <td>${item.NumeroD || '-'}</td>
-                        <td>${item.CodProv}</td>
-                        <td>${formatDate(item.FechaRetencion)}</td>
-                        <td class="amount">${formatBs(item.MontoTotal || 0)}</td>
-                        <td class="amount" style="color: var(--warning); font-weight: 600;">${formatBs(item.MontoRetenido || 0)}</td>
-                        <td style="text-align: center;">
-                            <span class="badge ${item.Estado === 'EMITIDO' ? 'badge-warning' : (item.Estado === 'ENTERADO' ? 'badge-success' : 'badge-danger')}">${item.Estado}</span>
-                        </td>
-                        <td style="display:flex;gap:0.3rem;">
-                            <button class="btn-icon" title="Ver PDF" onclick="window.open('/api/retenciones/${item.Id}/pdf', '_blank')" style="color:var(--primary-color);">
-                                <i data-lucide="file-text"></i>
-                            </button>
-                            <button class="btn-icon" title="Enviar por Email" onclick="enviarRetencionEmail(${item.Id})" style="color:var(--success);">
-                                <i data-lucide="send"></i>
-                            </button>
-                            ${item.Estado !== 'ANULADO' && item.Estado !== 'ENTERADO' ? `
-                            <button class="btn-icon text-danger" title="Anular" onclick="anularRetencion(${item.Id})">
-                                <i data-lucide="x-circle"></i>
-                            </button>` : ''}
-                        </td>
-                    </tr>
-                `).join('');
-                lucide.createIcons();
-            } catch (error) {
-                console.error(error);
-                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger);">Error al cargar retenciones.</td></tr>`;
-            }
-        }; // end fetchRetenciones
-
-        // Expose so the SPA router (switchView) can call it
-        window._fetchRetenciones = fetchRetenciones;
-
-        // Date Filters - Handled by modules-report.js now
-        // document.getElementById('retencionesDesde')?.addEventListener('change', fetchRetenciones);
-        // document.getElementById('retencionesHasta')?.addEventListener('change', fetchRetenciones);
-        // document.getElementById('refreshRetencionesBtn')?.addEventListener('click', fetchRetenciones);
+        // fetchRetenciones y manejo de filtros han sido delegados a modules-report.js
 
         // Enviar Retención por Email
         window.enviarRetencionEmail = async (id) => {
@@ -6010,7 +5824,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (!res.ok) throw new Error('No se pudo anular');
                 showToast('Retención anulada correctamente.', 'success');
-                fetchRetenciones();
+                if (typeof window._fetchRetenciones === 'function') window._fetchRetenciones();
             } catch (e) {
                 console.error(e);
                 showToast('Error al anular la retención. Posiblemente ya está enterada al SENIAT.', 'error');
@@ -6030,7 +5844,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (params.toString()) url += '?' + params.toString();
 
                 window.location.href = url;
-                setTimeout(fetchRetenciones, 2500); // refresh layout
+                setTimeout(() => { if (typeof window._fetchRetenciones === 'function') window._fetchRetenciones(); }, 2500); // refresh layout
             } catch (e) {
                 console.error(e);
                 showToast('Error en la exportación', 'error');
@@ -6339,8 +6153,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const yaRetenidas = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) > 0 || i.Has_Retencion);
-            const sinRetencion = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !i.Has_Retencion);
+            const yaRetenidas = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) > 0 || hasRet(i));
+            const sinRetencion = itemsConIva.filter(i => (parseFloat(i.RetencionIvaAbonada) || 0) === 0 && !hasRet(i));
 
             if (sinRetencion.length === 0) {
                 showToast('⚠️ Todas las facturas seleccionadas ya tienen retención de IVA registrada.', 'info');
@@ -6796,7 +6610,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         // Trigger fetchRetenciones when the view is opened via SPA routing link
-        document.querySelector('.nav-item[data-view="retenciones"]')?.addEventListener('click', fetchRetenciones);
+        document.querySelector('.nav-item[data-view="retenciones"]')?.addEventListener('click', () => {
+            if (typeof window._fetchRetenciones === 'function') window._fetchRetenciones();
+        });
     }
 
     // --- Settings Logic ---
@@ -6859,7 +6675,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const cb = document.querySelector(`.row-checkbox[data-nrounico="${item.NroUnico}"]`);
         if (cb) cb.checked = true;
         recalculateSelection();
-        document.getElementById('btnGenerarRetencion')?.click();
+        
+        if (window.launchRetencionModal) {
+            window.launchRetencionModal([item]);
+        } else {
+            document.getElementById('btnGenerarRetencion')?.click();
+        }
     };
 
     window.openRetencionIslrFromMain = (codProv, numeroD) => {
@@ -6870,7 +6691,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const cb = document.querySelector(`.row-checkbox[data-nrounico="${item.NroUnico}"]`);
         if (cb) cb.checked = true;
         recalculateSelection();
-        document.getElementById('btnGenerarRetencionIslr')?.click();
+        
+        if (window.launchRetencionIslrModal) {
+            window.launchRetencionIslrModal([item]);
+        } else {
+            document.getElementById('btnGenerarRetencionIslr')?.click();
+        }
     };
 
     window.openNCFromMain = (codProv, numeroD, exceso = 0, passedTasa = null) => {

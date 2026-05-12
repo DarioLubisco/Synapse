@@ -787,3 +787,12 @@ input:checked + .slider:before {
 .sidebar.collapsed .nav-group-header i:first-child {
   margin: 0;
 }
+
+.view-section {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.view-section.active {
+  display: block;
+}

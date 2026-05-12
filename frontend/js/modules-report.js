@@ -71,7 +71,7 @@ function renderDebitNotes() {
 
     tbody.innerHTML = data.map(i => {
         return `<tr>
-            <td class="col-checkbox"><input type="checkbox" data-id="${i.NumeroD}" data-prov="${i.CodProv}" class="dn-checkbox"></td>
+            <td class="col-checkbox"><input type="checkbox" data-id="${i.NumeroD}" data-prov="${i.CodProv}" class="dn-checkbox" ${i.EstatusND === 'EMITIDA' ? 'disabled title="Ya emitida"' : ''}></td>
             <td><strong>${i.ProveedorNombre || i.Descrip || i.CodProv}</strong></td>
             <td>${i.NumeroD}</td>
             <td>${i.FechaE ? i.FechaE.split('T')[0] : 'N/A'}</td>
@@ -87,7 +87,90 @@ function renderDebitNotes() {
         </tr>`;
     }).join("");
     lucide.createIcons();
+
+    // Checkbox Listeners
+    const selectAllCheck = document.getElementById('dnSelectAll');
+    const itemChecks = document.querySelectorAll('.dn-checkbox:not([disabled])');
+    if (selectAllCheck) {
+        selectAllCheck.checked = false;
+        selectAllCheck.addEventListener('change', (e) => {
+            itemChecks.forEach(chk => chk.checked = e.target.checked);
+            updateDnActionBar();
+        });
+    }
+
+    itemChecks.forEach(chk => {
+        chk.addEventListener('change', () => {
+            if (selectAllCheck) {
+                selectAllCheck.checked = Array.from(itemChecks).every(c => c.checked);
+            }
+            updateDnActionBar();
+        });
+    });
+    updateDnActionBar();
 }
+
+function getSelectedDebitNotes() {
+    const rows = document.querySelectorAll('#debitNotesTableBody tr');
+    const selected = [];
+    rows.forEach(r => {
+        const chk = r.querySelector('.dn-checkbox');
+        if (chk && chk.checked) {
+            selected.push({
+                CodProv: chk.getAttribute('data-prov'),
+                NumeroD: chk.getAttribute('data-id'),
+                _estimatedReten: 0
+            });
+        }
+    });
+    return selected;
+}
+
+function updateDnActionBar() {
+    const selected = getSelectedDebitNotes();
+    const bar = document.getElementById('debitNotesActionBar');
+    const countSpan = document.getElementById('dnSelectedCount');
+    if (bar && countSpan) {
+        if (selected.length > 0) {
+            countSpan.textContent = selected.length;
+            bar.style.display = 'flex';
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+}
+
+// Global hook for the send button (bound once)
+window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('btnSendDebitNotes')?.addEventListener('click', async () => {
+        const selected = getSelectedDebitNotes();
+        if (selected.length === 0) return;
+        if (!confirm(`¿Enviar solicitud y generar correos para ${selected.length} facturas?`)) return;
+
+        const btn = document.getElementById('btnSendDebitNotes');
+        const origText = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader" class="rotating"></i> Enviando...`;
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/procurement/debit-notes/send-request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ Invoices: selected })
+            });
+            if (!res.ok) throw new Error("Error enviando solicitud");
+            if (window.showToast) window.showToast("Solicitudes enviadas con éxito", "success");
+            fetchDebitNotes();
+        } catch (err) {
+            console.error(err);
+            if (window.showToast) window.showToast("Error al enviar solicitudes", "error");
+        } finally {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            lucide.createIcons();
+        }
+    });
+});
 
 let sortAscDN = true;
 function sortDebitNotes(field) {
@@ -327,6 +410,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // We override original globals so that sidebar clicks trigger our new functions
     window._fetchRetenciones = fetchRetencionesView;
     window._fetchRetencionesISLR = fetchRetencionesISLR;
+    window._fetchDebitNotes = fetchDebitNotes;
     
     // Wire up sidebar for ISLR explicitly since it didn't exist before in script.js logic block
     const islrNav = document.querySelector('.nav-item[data-view="retenciones-islr"]');
