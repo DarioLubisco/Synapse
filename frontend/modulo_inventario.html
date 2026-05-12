@@ -13,69 +13,6 @@
   <script src="https://unpkg.com/lucide@latest"></script>
   
   <link rel="stylesheet" href="css/style.css?v=2.4"/>
-  <style>
-    .quality-dashboard {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1.5rem;
-      margin-bottom: 2rem;
-    }
-    
-    .status-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .status-card.critical {
-      border-left: 4px solid var(--danger);
-    }
-    
-    .status-card.warning {
-      border-left: 4px solid var(--warning);
-    }
-    
-    .status-card.good {
-      border-left: 4px solid var(--success);
-    }
-
-    .status-value {
-      font-size: 2rem;
-      font-weight: 800;
-      color: var(--text-primary);
-    }
-    
-    .status-label {
-      font-size: 0.85rem;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-    }
-    
-    th, td {
-      padding: 1rem;
-      border-bottom: 1px solid var(--border-subtle);
-    }
-    
-    th {
-      font-weight: 600;
-      color: var(--text-secondary);
-      background-color: var(--bg-surface);
-    }
-
-    .badge-critical { background: rgba(var(--danger-rgb), 0.1); color: var(--danger); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;}
-    .badge-warning { background: rgba(var(--warning-rgb), 0.1); color: var(--warning); padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600;}
-  </style>
 </head>
 <body>
 <div class="app-container">
@@ -83,7 +20,7 @@
   <aside class="sidebar" id="sidebar-container"></aside>
 
   <main class="main-content">
-    <div class="top-header">
+    <div class="header">
       <div class="header-left">
         <h1>Calidad de Inventario 🛡️</h1>
         <p class="subtitle">Monitoreo proactivo de vencimientos y salud del stock</p>
@@ -93,7 +30,7 @@
     </div>
 
     <!-- Panel de Salud -->
-    <div class="quality-dashboard">
+    <div class="kpi-grid">
       <div class="status-card" id="card-calidad">
         <span class="status-label">Índice de Calidad</span>
         <span class="status-value" id="kpi-calidad">--%</span>
