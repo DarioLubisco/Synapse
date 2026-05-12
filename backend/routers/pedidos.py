@@ -61,15 +61,50 @@ async def generate_report(
     umbral_rotacion: float = Form(0.0),
     forced_includes: Optional[str] = Form(None),
     preview_mode: str = Form("false"),
-    is_generic: str = Form("false")
+    include_generics: str = Form("true"),
+    include_brands: str = Form("true")
 ):
     try:
         query = load_query()
         if not query:
             raise HTTPException(status_code=500, detail="No se pudo cargar la consulta SQL maestra.")
 
-        if is_generic.lower() == "true":
-            query = query.replace('AND NOT EXISTS (', 'AND EXISTS (')
+        filter_condition = """
+            SELECT 1
+            FROM Procurement.principio_activo pa
+            WHERE
+              LEFT (p.Descrip, 7) = LEFT (pa.descripcion, 7)
+              OR (
+                CHARINDEX(' ', p.Descrip) > 0
+                AND CHARINDEX(' ', pa.descripcion) > 0
+                AND LEFT(
+                  SUBSTRING(
+                    p.Descrip,
+                    CHARINDEX(' ', p.Descrip) + 1,
+                    LEN(p.Descrip)
+                  ),
+                  7
+                ) = LEFT(
+                  SUBSTRING(
+                    pa.descripcion,
+                    CHARINDEX(' ', pa.descripcion) + 1,
+                    LEN(pa.descripcion)
+                  ),
+                  7
+                )
+              )
+        """
+
+        if include_generics.lower() == "true" and include_brands.lower() == "true":
+            filter_sql = "" # Sin filtro, trae todo
+        elif include_generics.lower() == "true":
+            filter_sql = f"AND EXISTS ({filter_condition})"
+        elif include_brands.lower() == "true":
+            filter_sql = f"AND NOT EXISTS ({filter_condition})"
+        else:
+            raise HTTPException(status_code=400, detail="Debe seleccionar al menos un tipo de producto (Marcas o Genéricos).")
+
+        query = query.replace('/* PRODUCT_FILTER_PLACEHOLDER */', filter_sql)
 
         # Validar entradas
         if num_rows <= 0:
@@ -185,7 +220,12 @@ async def generate_report(
             df_excel.to_excel(writer, sheet_name='Precios', index=False)
         output.seek(0)
 
-        tipo_pedido = "Generico" if is_generic.lower() == "true" else "Marcas"
+        if include_generics.lower() == "true" and include_brands.lower() == "true":
+            tipo_pedido = "Mixto"
+        elif include_generics.lower() == "true":
+            tipo_pedido = "Generico"
+        else:
+            tipo_pedido = "Marcas"
         filename = f"Pedido_Synapse_{tipo_pedido}_{datetime.now().strftime('%Y%m%d')}_{pedido_days}Dias.xlsx"
         
         from fastapi.responses import StreamingResponse

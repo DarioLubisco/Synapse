@@ -67,9 +67,18 @@ function applyTheme(theme) {
 
 function toggleTheme() {
     const htmlNode = document.documentElement;
+    
+    // Add universal transition class to synchronize element repaints
+    htmlNode.classList.add('theme-transition');
+    
     const currentTheme = htmlNode.getAttribute('data-theme') || 'dark';
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     applyTheme(newTheme);
+    
+    // Remove transition class after 300ms (matches CSS duration)
+    setTimeout(() => {
+        htmlNode.classList.remove('theme-transition');
+    }, 300);
 }
 
 // Auto-initialize theme on load

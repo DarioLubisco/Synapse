@@ -889,3 +889,8 @@ input:checked + .slider:before {
   align-items: flex-end;
   margin-bottom: 1.5rem;
 }
+
+/* Universal Theme Transition */
+.theme-transition, .theme-transition *, .theme-transition *:before, .theme-transition *:after {
+  transition: all 0.3s ease !important;
+}

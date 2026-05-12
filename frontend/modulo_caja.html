@@ -4,6 +4,12 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Portal Financiero AMC — Cuadre de Cajas</title>
+  <script>
+    (function() {
+        const theme = localStorage.getItem('synapse-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -4515,5 +4521,6 @@ document.addEventListener('keydown', e => {
 
 </script>
 <script src="js/sidebar.js"></script>
+<script src="js/theme.js"></script>
 </body>
 </html>

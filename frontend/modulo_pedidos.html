@@ -4,6 +4,12 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Synapse Suite — Pedido de Moléculas</title>
+  <script>
+    (function() {
+        const theme = localStorage.getItem('synapse-theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -228,11 +234,20 @@
                     </div>
                 </div>
 
-                <div class="input-group" style="display: flex; align-items: center; gap: 0.75rem; background: rgba(99, 102, 241, 0.05); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
-                    <input type="checkbox" id="isGeneric" style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary-accent);"/>
-                    <label for="isGeneric" style="cursor: pointer; margin-bottom: 0; font-weight: 600; color: var(--text-primary);">
-                        <i class="fas fa-pills" style="margin-right: 0.5rem; color: var(--primary-accent);"></i> Generar Pedido de Moléculas (Genéricos)
-                    </label>
+                <div class="input-group" style="display: flex; flex-direction: column; gap: 0.75rem; background: rgba(99, 102, 241, 0.05); padding: 1rem; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);">
+                    <p style="margin: 0; font-weight: 600; color: var(--text-primary); font-size: 0.9rem;">Tipos de Producto a Incluir</p>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <input type="checkbox" id="includeGenerics" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary-accent);"/>
+                        <label for="includeGenerics" style="cursor: pointer; margin-bottom: 0; color: var(--text-primary);">
+                            <i class="fas fa-pills" style="margin-right: 0.5rem; color: var(--primary-accent);"></i> Genéricos (Moléculas)
+                        </label>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <input type="checkbox" id="includeBrands" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--primary-accent);"/>
+                        <label for="includeBrands" style="cursor: pointer; margin-bottom: 0; color: var(--text-primary);">
+                            <i class="fas fa-tag" style="margin-right: 0.5rem; color: var(--primary-accent);"></i> Marcas Comerciales (No genéricos)
+                        </label>
+                    </div>
                 </div>
 
                 <button type="submit" id="submitBtn" class="btn btn-primary" style="height: 56px; font-size: 1.1rem; font-weight: 700;">
@@ -286,6 +301,7 @@
 
 <!-- SCRIPTS -->
 <script src="js/sidebar.js"></script>
+<script src="js/theme.js"></script>
 <script src="js/app_pedidos.js"></script>
 
 <script>

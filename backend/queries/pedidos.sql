@@ -42,31 +42,7 @@ RawCalculations AS (
     LEFT JOIN dbo.SAINSTA AS i ON p.CodInst = i.CodInst
   WHERE
     p.Activo = 1
-    AND NOT EXISTS (
-      SELECT 1
-      FROM Procurement.principio_activo pa
-      WHERE
-        LEFT (p.Descrip, 7) = LEFT (pa.descripcion, 7)
-        OR (
-          CHARINDEX(' ', p.Descrip) > 0
-          AND CHARINDEX(' ', pa.descripcion) > 0
-          AND LEFT(
-            SUBSTRING(
-              p.Descrip,
-              CHARINDEX(' ', p.Descrip) + 1,
-              LEN(p.Descrip)
-            ),
-            7
-          ) = LEFT(
-            SUBSTRING(
-              pa.descripcion,
-              CHARINDEX(' ', pa.descripcion) + 1,
-              LEN(pa.descripcion)
-            ),
-            7
-          )
-        )
-    )
+    /* PRODUCT_FILTER_PLACEHOLDER */
 ),
 Calculated AS (
   -- Segunda CTE aplica el redondeo estándar a los cálculos brutos.

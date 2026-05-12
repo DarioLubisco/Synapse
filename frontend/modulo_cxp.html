@@ -5,6 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cuentas Por Pagar | Dashboard</title>
+    <script>
+      (function() {
+          const theme = localStorage.getItem('synapse-theme') || 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     <!-- Modern Typography: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2561,7 +2567,7 @@
 
                 <div style="max-height: 400px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
                     <table class="data-table" style="margin: 0; font-size: 0.9rem;">
-                        <thead style="position: sticky; top: 0; background: var(--bg-secondary); z-index: 10;">
+                        <thead style="position: sticky; top: 0; background: var(--bg-surface); z-index: 10;">
                             <tr>
                                 <th>Cód.</th>
                                 <th>Descripción del Motivo</th>
@@ -2925,7 +2931,7 @@
                 </h3>
                 <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
                     <table class="data-table" style="margin:0;">
-                        <thead style="position:sticky;top:0;background:var(--bg-secondary);z-index:10;">
+                        <thead style="position:sticky;top:0;background:var(--bg-surface);z-index:10;">
                             <tr>
                                 <th>Fecha Pago</th><th>Venc. Original</th><th>Nro Doc.</th><th>Proveedor</th><th>Prioridad</th>
                                 <th class="amount" style="color:var(--text-secondary)">Deuda (Bs)</th>
@@ -2965,7 +2971,7 @@
                 </h3>
                 <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
                     <table class="data-table" style="margin:0;">
-                        <thead style="position:sticky;top:0;background:var(--bg-secondary);z-index:10;">
+                        <thead style="position:sticky;top:0;background:var(--bg-surface);z-index:10;">
                             <tr>
                                 <th>Fecha Pago</th><th>Venc. Original</th><th>Nro Doc.</th><th>Proveedor</th><th>Prioridad</th>
                                 <th class="amount" style="color:var(--text-secondary)">Deuda (Bs)</th>
@@ -3005,7 +3011,7 @@
                 </h3>
                 <div class="table-responsive" style="max-height:45vh;overflow-y:auto;">
                     <table class="data-table" style="margin:0;">
-                        <thead style="position:sticky;top:0;background:var(--bg-secondary);z-index:10;">
+                        <thead style="position:sticky;top:0;background:var(--bg-surface);z-index:10;">
                             <tr>
                                 <th>Fecha Pago</th><th>Venc. Original</th><th>Nro Doc.</th><th>Proveedor</th><th>Prioridad</th>
                                 <th class="amount" style="color:var(--text-secondary)">Deuda (Bs)</th>
@@ -3066,7 +3072,7 @@
 
                 <div class="table-responsive" style="max-height: 50vh; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
                     <table style="width: 100%; border-collapse: collapse;">
-                        <thead style="position: sticky; top: 0; background-color: var(--bg-secondary); z-index: 1;">
+                        <thead style="position: sticky; top: 0; background-color: var(--bg-surface); z-index: 1;">
                             <tr>
                                 <th style="padding: 0.5rem; text-align: center; width: 40px;"></th>
                                 <th style="padding: 0.5rem; text-align: left;">Proveedor</th>

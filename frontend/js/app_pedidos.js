@@ -308,8 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('umbral_rotacion', umbral);
             formData.append('preview_mode', 'true'); // We want to preview the exclusions first
             
-            const isGeneric = document.getElementById('isGeneric') ? document.getElementById('isGeneric').checked : false;
-            formData.append('is_generic', isGeneric ? 'true' : 'false');
+            const includeGenerics = document.getElementById('includeGenerics') ? document.getElementById('includeGenerics').checked : true;
+            const includeBrands = document.getElementById('includeBrands') ? document.getElementById('includeBrands').checked : true;
+            formData.append('include_generics', includeGenerics ? 'true' : 'false');
+            formData.append('include_brands', includeBrands ? 'true' : 'false');
 
             selectedFiles.forEach(file => formData.append('subtraction_files', file));
 
@@ -405,8 +407,10 @@ document.addEventListener('DOMContentLoaded', () => {
             formData.append('umbral_rotacion', umbral);
             formData.append('preview_mode', 'false'); // Force final download
             
-            const isGeneric = document.getElementById('isGeneric') ? document.getElementById('isGeneric').checked : false;
-            formData.append('is_generic', isGeneric ? 'true' : 'false');
+            const includeGenerics = document.getElementById('includeGenerics') ? document.getElementById('includeGenerics').checked : true;
+            const includeBrands = document.getElementById('includeBrands') ? document.getElementById('includeBrands').checked : true;
+            formData.append('include_generics', includeGenerics ? 'true' : 'false');
+            formData.append('include_brands', includeBrands ? 'true' : 'false');
             
             selectedFiles.forEach(file => formData.append('subtraction_files', file));
             
