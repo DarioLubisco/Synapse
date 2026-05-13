@@ -1661,6 +1661,27 @@
                     <label for="editProvIndexaIVA" style="margin: 0; cursor: pointer; user-select: none;">Proveedor Indexa IVA <small style="display:block;color:var(--text-secondary);font-weight:normal;">Permite crear facturas donde la base crece por divisa, pero el IVA mantiene su valor histórico en Bs.</small></label>
                 </div>
 
+                <div style="background: rgba(16, 185, 129, 0.05); padding: 1rem; border-radius: var(--radius-sm); border: 1px dashed rgba(16, 185, 129, 0.3); margin-top: 0.5rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <h4 style="margin: 0; color: #10b981;">Configuración de Retención</h4>
+                        <span title="Define si este proveedor es agente de retención y el porcentaje que se le debe retener (IVA)." style="cursor:help; color:var(--text-secondary); display:inline-flex;"><i data-lucide="info" size="16"></i></span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: end;">
+                        <div class="input-group" style="display: flex; align-items: center; gap: 0.5rem; margin: 0; height: 38px;">
+                            <input type="checkbox" id="editProvEsReten" style="width: auto; margin: 0; cursor: pointer;" checked>
+                            <label for="editProvEsReten" style="margin: 0; cursor: pointer; user-select: none;">Agente de Retención</label>
+                        </div>
+                        <div class="input-group" style="margin: 0;">
+                            <label>Porcentaje de Retención (%):</label>
+                            <select id="editProvPorctRet" class="form-control">
+                                <option value="75">75% (Gaceta)</option>
+                                <option value="100">100% (Gaceta)</option>
+                                <option value="0">0% (Exento)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; margin-bottom: 0.5rem;">
                     <p style="margin: 0; font-weight: bold; font-size: 0.9rem; color: var(--primary-accent);">
                         Tramos Pronto Pago</p>
@@ -2610,6 +2631,7 @@
                     <div class="input-group">
                         <label>% Retención (Gaceta)</label>
                         <select id="genRetPctGaceta" class="form-control">
+                            <option value="0">0% (Exento)</option>
                             <option value="75">75%</option>
                             <option value="100">100%</option>
                         </select>

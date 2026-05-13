@@ -108,7 +108,9 @@ class ProveedorCondicion(BaseModel):
     DescuentoBase_DeduceIVA: Optional[bool] = False
     Email: Optional[str] = None
     TipoPersona: Optional[str] = None
-    DecimalesTasa: Optional[int] = 4  # 'PJ' = Juridica, 'PN' = Natural, None = auto
+    DecimalesTasa: Optional[int] = 4
+    PorctRet: Optional[float] = 75.0
+    EsReten: Optional[bool] = True
 
 class InvoiceReference(BaseModel):
     CodProv: str
@@ -340,7 +342,7 @@ async def get_cuentas_por_pagar(search: str = Query("", description="Search term
               ISNULL(abonos.TotalUsd, 0) AS TotalUsdAbonado,
               ISNULL(CASE WHEN abonos.TotalIVA > 0 THEN abonos.TotalIVA ELSE portal_ret.MontoRetenido END, 0) AS RetencionIvaAbonada,
               ISNULL(abonos.TotalISLR, 0) AS RetencionIslrAbonada,
-              ISNULL(ProvCond.PorctRet, 0) AS PorctRet,
+              ISNULL(ProvCond.PorctRet, 75) AS PorctRet,
               ISNULL(ProvCond.EsReten, 0) AS EsReten,
               SAPROV.ID3 AS RIF,
               SAPROV.Descrip AS ProveedorNombre
@@ -496,7 +498,9 @@ async def get_provider_conditions():
                             ELSE NULL END
                    ) AS TipoPersona,
                    c.TipoPersona AS TipoPersonaLocal,  -- explicit local override for display
-                   p.ID3 AS RIF
+                   p.ID3 AS RIF,
+                   ISNULL(c.PorctRet, 75) AS PorctRet,
+                   ISNULL(c.EsReten, 1) AS EsReten
             FROM EnterpriseAdmin_AMC.dbo.SAPROV p WITH (NOLOCK)
             LEFT JOIN EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones c WITH (NOLOCK) ON p.CodProv = c.CodProv
             ORDER BY p.Descrip
@@ -548,24 +552,27 @@ async def update_provider_condition(cod_prov: str, payload: ProveedorCondicion):
                 UPDATE EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones
                 SET DiasNoIndexacion = ?, BaseDiasCredito = ?, DiasVencimiento = ?,
                     Email = ?, TipoPersona = ?, IndexaIVA = ?, DecimalesTasa = ?,
-                    DescuentoBase_Pct = ?, DescuentoBase_Condicion = ?, DescuentoBase_DeduceIVA = ?
+                    DescuentoBase_Pct = ?, DescuentoBase_Condicion = ?, DescuentoBase_DeduceIVA = ?,
+                    PorctRet = ?, EsReten = ?
                 WHERE CodProv = ?
             """
             cursor.execute(update_query, (
                 payload.DiasNoIndexacion, payload.BaseDiasCredito, payload.DiasVencimiento,
                 payload.Email, tipo_pers, payload.IndexaIVA, payload.DecimalesTasa,
                 payload.DescuentoBase_Pct, payload.DescuentoBase_Condicion, payload.DescuentoBase_DeduceIVA,
+                payload.PorctRet, payload.EsReten,
                 cod_prov
             ))
         else:
             insert_query = """
                 INSERT INTO EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones 
-                (CodProv, DiasNoIndexacion, BaseDiasCredito, DiasVencimiento, Email, TipoPersona, IndexaIVA, DecimalesTasa, DescuentoBase_Pct, DescuentoBase_Condicion, DescuentoBase_DeduceIVA)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (CodProv, DiasNoIndexacion, BaseDiasCredito, DiasVencimiento, Email, TipoPersona, IndexaIVA, DecimalesTasa, DescuentoBase_Pct, DescuentoBase_Condicion, DescuentoBase_DeduceIVA, PorctRet, EsReten)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """
             cursor.execute(insert_query, (
                 cod_prov, payload.DiasNoIndexacion, payload.BaseDiasCredito, payload.DiasVencimiento,
-                payload.Email, tipo_pers, payload.IndexaIVA, payload.DecimalesTasa, payload.DescuentoBase_Pct, payload.DescuentoBase_Condicion, payload.DescuentoBase_DeduceIVA
+                payload.Email, tipo_pers, payload.IndexaIVA, payload.DecimalesTasa, payload.DescuentoBase_Pct, payload.DescuentoBase_Condicion, payload.DescuentoBase_DeduceIVA,
+                payload.PorctRet, payload.EsReten
             ))
             
         # Update dynamic discounts
@@ -1912,7 +1919,7 @@ async def get_cxp_status(cod_prov: str = Query(...), numero_d: str = Query(...),
                 ISNULL(abonos.TotalBsAbonado, 0) AS TotalBsAbonado,
                 ISNULL(abonos.TotalIVA, 0) AS RetencionIvaAbonada,
                 ISNULL(abonos.TotalISLR, 0) AS RetencionIslrAbonada,
-                ISNULL(prov.PorctRet, 0) AS PorctRet,
+                ISNULL(prov.PorctRet, 75) AS PorctRet,
                 ISNULL(prov.EsReten, 0) AS EsReten,
                 prov.ID3 AS RIF,
                 -- Effective TipoPersona: LOCAL override wins, then SAINT (ID3 prefix), then NULL
@@ -2077,7 +2084,7 @@ async def get_debit_notes(search: Optional[str] = None, estatus: Optional[str] =
                 dnt.NotaDebitoID,
                 dnt.MontoRetencionBs AS DB_MontoRetencionBs,
                 COALESCE(cond.Email, prov.Email, '') AS Email,
-                ISNULL(prov.PorctRet, 0) AS PorctRet
+                ISNULL(prov.PorctRet, 75) AS PorctRet
             FROM dbo.SAACXP cxp
             INNER JOIN dbo.SAPROV prov ON cxp.CodProv = prov.CodProv
             LEFT JOIN EnterpriseAdmin_AMC.Procurement.ProveedorCondiciones cond ON cxp.CodProv = cond.CodProv

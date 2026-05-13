@@ -383,7 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const isReten = String(cxp.EsReten) === '1' || cxp.EsReten === true;
         let porctRet  = parseFloat(cxp.PorctRet) || 0;
-        if (isReten && porctRet === 0) porctRet = 75; 
+        if (isReten && isNaN(porctRet)) porctRet = 75; 
 
         const ret_iva_abonada = parseFloat(cxp.RetencionIvaAbonada) || 0;
         const ret_islr_abonada = parseFloat(cxp.RetencionIslrAbonada) || 0;
@@ -2516,6 +2516,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('editProvEmail').value = p.Email || '';
         const tpSel = document.getElementById('editProvTipoPersona');
         if (tpSel) tpSel.value = (p.TipoPersonaLocal || '').trim();
+
+        if (document.getElementById('editProvEsReten')) {
+            document.getElementById('editProvEsReten').checked = (p.EsReten !== false && p.EsReten !== 0);
+        }
+        if (document.getElementById('editProvPorctRet')) {
+            document.getElementById('editProvPorctRet').value = p.PorctRet || 75;
+        }
         
         const container = document.getElementById('descuentosContainer');
         container.innerHTML = '';
@@ -2588,7 +2595,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 Email: document.getElementById('editProvEmail').value || null,
                 IndexaIVA: document.getElementById('editProvIndexaIVA')?.checked ?? true,
                 DecimalesTasa: parseInt(document.getElementById('editProvDecimales')?.value) || 4,
-                TipoPersona: document.getElementById('editProvTipoPersona')?.value || null
+                TipoPersona: document.getElementById('editProvTipoPersona')?.value || null,
+                PorctRet: parseFloat(document.getElementById('editProvPorctRet')?.value) || 75,
+                EsReten: document.getElementById('editProvEsReten')?.checked ?? true
             };
 
             const btn = editProvForm.querySelector('button[type="submit"]');
@@ -6203,11 +6212,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let provPctRaw = itemsToRetain[0].PorctRet;
             let provPct = parseFloat(provPctRaw);
-            if (isNaN(provPct) || provPct === 0) {
+            if (isNaN(provPct)) {
                 provPct = 75;
             }
             console.log(`[CXP] Auto-loading IVA retention \% for provider ${itemsToRetain[0].CodProv}. Raw API value:`, provPctRaw, 'Parsed:', provPct);
-            document.getElementById('genRetPctGaceta').value = (provPct >= 100) ? '100' : '75';
+            const validPcts = ['0', '75', '100'];
+            document.getElementById('genRetPctGaceta').value = validPcts.includes(String(provPct)) ? String(provPct) : (provPct >= 100 ? '100' : '75');
 
             // Build invoice rows
             const tbody = document.getElementById('genRetInvoicesTable');
