@@ -216,22 +216,6 @@
                     </div>
                 </div>
 
-                <!-- Banner: Modo Pago Múltiple (oculto por defecto) -->
-                <div id="multiPayBanner" style="display: none;" class="multi-pay-banner ">
-                    <i data-lucide="layers" style="flex-shrink:0;"></i>
-                    <span>
-                        <strong>Modo Pago Múltiple Activo</strong> &mdash;
-                        <span id="multiPayCount">0</span> factura(s) seleccionada(s)
-                    </span>
-                    <span id="multiPayTotalUsd" style="font-weight: bold; color: #10b981; margin-left: auto;"></span>
-                    <span style="color: var(--text-secondary); font-size: 0.8rem;">
-                        Cambié de búsqueda: las selecciones se mantienen ✅
-                    </span>
-                    <button onclick="window.toggleMultiPayMode()" class="btn btn-secondary" style="color:#ef4444; border-color:rgba(239,68,68,0.4); padding: 0.3rem 0.7rem; font-size: 0.85rem;">
-                        <i data-lucide="x-circle"></i> Desactivar
-                    </button>
-                </div>
-
                 <!-- Payment Planning Action Bar (Hidden by default) -->
                 <section id="planningActionBar" class="planning-action-bar " style="display: none;">
                     <div class="planning-controls">
@@ -259,11 +243,7 @@
                             <i data-lucide="calendar-x"></i>
                             Reversar
                         </button>
-                        <button id="editInvoiceBtn" class="btn btn-secondary"
-                            style="color: var(--primary-accent); border-color: rgba(99,102,241,0.4); display:none;">
-                            <i data-lucide="edit-3"></i>
-                            Editar Factura
-                        </button>
+
                         <button id="btnGenerarRetencion" class="btn btn-secondary"
                     style="color: #eab308; border-color: rgba(234,179,8,0.4); display:none; align-items: center; gap: 0.5rem;">
                             <i data-lucide="receipt"></i>
@@ -274,10 +254,10 @@
                             <i data-lucide="file-text"></i>
                             Generar ISLR
                         </button>
-                        <button id="btnPagoMultiple" class="btn btn-secondary"
+                        <button id="btnProcesarPago" class="btn btn-secondary"
                     style="color: #10b981; border-color: rgba(16,185,129,0.4); display:none; align-items: center; gap: 0.5rem;">
                             <i data-lucide="banknote"></i>
-                            Pago Múltiple
+                            Procesar Pago
                         </button>
                         <button id="cancelPlanBtn" class="btn btn-secondary">Cancelar</button>
                     </div>
@@ -297,30 +277,14 @@
                                 <i data-lucide="download"></i>
                                 Exportar
                             </button>
-                            <button id="openProvidersBtn" class="btn btn-secondary" title="Configurar Parámetros Indexación">
-                                <i data-lucide="settings"></i>
-                                Proveedores
-                            </button>
                             <button id="btnAntigravity" class="btn btn-secondary" onclick="window.runAntigravity()"
                                 style="color: #8b5cf6; border-color: rgba(139,92,246,0.4);">
                                 <i data-lucide="zap"></i>
-                                Finanza dinámica
-                            </button>
-                            <button id="btnActivarModoMultiple" class="btn btn-secondary"
-                                style="color: #10b981; border-color: rgba(16,185,129,0.4);"
-                                onclick="window.toggleMultiPayMode()">
-                                <i data-lucide="layers"></i>
-                                Modo Pago Múltiple
+                                Programación Dinámica
                             </button>
                             <button id="refreshBtn" class="btn btn-primary">
                                 <i data-lucide="refresh-cw"></i>
                                 Actualizar
-                            </button>
-                            <button id="auditarFechasBtn" class="btn btn-secondary"
-                                style="color: #f59e0b; border-color: rgba(245,158,11,0.4);"
-                                onclick="window.abrirModalAuditarFechas()">
-                                <i data-lucide="alert-triangle"></i>
-                                Auditar Fechas
                             </button>
                         </div>
                     </div>
@@ -1417,6 +1381,24 @@
                 </header>
 
                 <div class="content-body" style="max-width: 800px; margin: 0 auto; padding-top: 1rem;">
+                    <div class="card " style="padding: 2rem; margin-bottom: 2rem;">
+                        <h2 style="margin-bottom: 1.5rem; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">
+                            <i data-lucide="tool"></i> Herramientas Administrativas
+                        </h2>
+                        <div style="display: flex; gap: 1rem;">
+                            <button id="openProvidersBtn" class="btn btn-secondary" title="Configurar Parámetros Indexación">
+                                <i data-lucide="settings"></i>
+                                Proveedores
+                            </button>
+                            <button id="auditarFechasBtn" class="btn btn-secondary"
+                                style="color: #f59e0b; border-color: rgba(245,158,11,0.4);"
+                                onclick="window.abrirModalAuditarFechas()">
+                                <i data-lucide="alert-triangle"></i>
+                                Auditar Fechas Manualmente
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="card " style="padding: 2rem;">
                         <h2 style="margin-bottom: 1.5rem; font-size: 1.2rem; display: flex; align-items: center; gap: 0.5rem; color: var(--text-primary);">
                             <i data-lucide="sliders"></i> Parámetros de Facturación

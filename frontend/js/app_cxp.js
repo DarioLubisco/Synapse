@@ -56,47 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // ── Modo Pago Múltiple ──────────────────────────────────────────────
     window.getItemKey = (item) => `${item.CodProv}_${item.NumeroD}`;
     // Store multi-pay selections globally across pages/filters
-    window.multiPayMode = false;
+    window.multiPayMode = true;
     window.multiPaySelection = new Set();     // Set<String rowKey>
     window.multiPaySelectionData = new Map(); // Map<String rowKey, item>
-
-    window.toggleMultiPayMode = () => {
-        window.multiPayMode = !window.multiPayMode;
-
-        const banner = document.getElementById('multiPayBanner');
-        const toggleBtn = document.getElementById('btnActivarModoMultiple');
-        const table = document.getElementById('cxpTable');
-
-        if (window.multiPayMode) {
-            // Activar
-            banner?.style && (banner.style.display = 'flex');
-            table?.classList.add('multi-pay-mode-active');
-            if (toggleBtn) {
-                toggleBtn.style.color = '#ef4444';
-                toggleBtn.style.borderColor = 'rgba(239,68,68,0.5)';
-                toggleBtn.innerHTML = '<i data-lucide="layers"></i> Modo Múltiple: ON';
-            }
-        } else {
-            // Desactivar: limpiar todo
-            banner?.style && (banner.style.display = 'none');
-            table?.classList.remove('multi-pay-mode-active');
-            window.multiPaySelection.clear();
-            window.multiPaySelectionData.clear();
-            // Desmarcar todos los checkboxes visibles
-            document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
-            if (toggleBtn) {
-                toggleBtn.style.color = '#10b981';
-                toggleBtn.style.borderColor = 'rgba(16,185,129,0.4)';
-                toggleBtn.innerHTML = '<i data-lucide="layers"></i> Modo Pago Múltiple';
-            }
-            recalculateSelection();
-            lucide.createIcons();
-        }
-        if (window.multiPayMode) {
-            recalculateSelection();
-            lucide.createIcons();
-        }
-    };
 
 
     // Fetch Global Configs on Load
@@ -561,6 +523,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 return 0;
             });
 
+            // Background audit for inverted dates (Emission > Expiration)
+            const invertedDates = window.currentData.filter(item => {
+                const dateE = (item.FechaE || '').split('T')[0];
+                const dateV = (item.FechaV || '').split('T')[0];
+                return dateE && dateV && dateE > dateV;
+            });
+            if (invertedDates.length > 0) {
+                const numStr = invertedDates.map(i => i.NumeroD).join(', ');
+                window.showToast(`Auditoría: Se encontraron ${invertedDates.length} facturas con fechas invertidas (Emisión > Vencimiento): ${numStr}`, 'warning', 12000);
+            }
+
             window.renderTable();
         } catch (error) {
             console.error('Fetch error:', error);
@@ -605,15 +578,10 @@ document.addEventListener('DOMContentLoaded', () => {
             : selectedCheckboxes.length;
 
         // Show/hide action bar
-        const editInvoiceBtn = document.getElementById('editInvoiceBtn');
         if (effectiveCount > 0) {
             planningActionBar.style.display = 'flex';
         } else {
             planningActionBar.style.display = 'none';
-        }
-        // Show edit button only when exactly 1 row selected (solo modo normal)
-        if (editInvoiceBtn) {
-            editInvoiceBtn.style.display = (!window.multiPayMode && selectedCheckboxes.length === 1) ? 'inline-flex' : 'none';
         }
 
         const btnGenerarRetencion = document.getElementById('btnGenerarRetencion');
@@ -649,21 +617,35 @@ document.addEventListener('DOMContentLoaded', () => {
             btnGenerarRetencionIslr.style.display = effectiveCount >= 1 ? 'inline-flex' : 'none';
         }
 
-        const btnPagoMultiple = document.getElementById('btnPagoMultiple');
-        if (btnPagoMultiple) {
-            btnPagoMultiple.style.display = effectiveCount >= 2 ? 'inline-flex' : 'none';
+        const btnProcesarPago = document.getElementById('btnProcesarPago');
+        if (btnProcesarPago) {
+            btnProcesarPago.style.display = effectiveCount >= 1 ? 'inline-flex' : 'none';
         }
 
-        // Actualizar banner de modo múltiple
-        const banner = document.getElementById('multiPayBanner');
-        if (banner && window.multiPayMode) {
-            document.getElementById('multiPayCount').textContent = window.multiPaySelection.size;
-            document.getElementById('multiPayTotalUsd').textContent = usdFormatter(selUsd);
-        }
+        // Disable checkboxes from other providers if 1+ selected
+        const selectedProvider = window.multiPaySelectionData.size > 0 
+            ? window.multiPaySelectionData.values().next().value.CodProv 
+            : null;
+        
+        document.querySelectorAll('.row-checkbox').forEach(cb => {
+            if (selectedProvider) {
+                const item = window.currentData[cb.getAttribute('data-index')];
+                if (item && item.CodProv !== selectedProvider && !cb.checked) {
+                    cb.disabled = true;
+                    cb.parentElement.style.opacity = '0.5';
+                } else {
+                    cb.disabled = false;
+                    cb.parentElement.style.opacity = '1';
+                }
+            } else {
+                cb.disabled = false;
+                cb.parentElement.style.opacity = '1';
+            }
+        });
 
         // Update 'Select All' state (solo aplica a filas visibles)
-        const allVisible = document.querySelectorAll('.row-checkbox').length;
-        selectAllCheckbox.checked = allVisible > 0 && selectedCheckboxes.length === allVisible;
+        const allVisible = document.querySelectorAll('.row-checkbox:not(:disabled)').length;
+        selectAllCheckbox.checked = allVisible > 0 && document.querySelectorAll('.row-checkbox:checked').length === allVisible;
     };
 
     window.renderTable = () => {
@@ -4017,7 +3999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCashflowParams();
 
     // --- Toast Utility ---
-    window.showToast = (message, type = 'success') => {
+    window.showToast = (message, type = 'success', duration = 4500) => {
         let container = document.getElementById('toastContainer');
         if (!container) {
             container = document.createElement('div');
@@ -4042,7 +4024,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toast.style.opacity = '0';
             toast.style.transform = 'translateX(20px)';
             setTimeout(() => { toast.remove(); }, 300);
-        }, 4500);
+        }, duration);
     };
 
     // --- Helper for forcefully rendering modals ---
@@ -4072,11 +4054,7 @@ document.addEventListener('DOMContentLoaded', () => {
         forceHideModal(invoiceEditModal);
     };
 
-    document.getElementById('editInvoiceBtn')?.addEventListener('click', () => {
-        const checked = document.querySelectorAll('.row-checkbox:checked');
-        if (checked.length !== 1) return;
-        const nroUnico = parseInt(checked[0].getAttribute('data-nrounico'));
-        const item = window.currentData.find(d => d.NroUnico === nroUnico);
+    window.abrirModalEdicion = (item) => {
         if (!item) return;
 
         document.getElementById('ieNumeroD').value = item.NumeroD || '';
@@ -4122,7 +4100,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         forceShowModal(invoiceEditModal);
         lucide.createIcons();
-    });
+    };
 
     // --- Interactive Recalculation Logic (Phase 8) ---
     const ieFactor = document.getElementById('ieFactor');
@@ -5129,21 +5107,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // ── Build rows when modal opens ─────────────────────────────────
-        document.getElementById('btnPagoMultiple')?.addEventListener('click', async () => {
-            const pmMontoTotalReal = document.getElementById('pmMontoTotalReal');
-            if (pmMontoTotalReal) {
-                pmMontoTotalReal.value = "";
-                pmMontoTotalReal.dataset.manualEdit = "false";
-            }
+        document.getElementById('btnProcesarPago')?.addEventListener('click', async () => {
             let items = [];
 
-            if (window.multiPayMode && window.multiPaySelection.size >= 2) {
+            if (window.multiPayMode && window.multiPaySelection.size >= 1) {
                 // En modo múltiple: usar el Set completo (incluye facturas de otras búsquedas)
                 window.multiPaySelectionData.forEach(item => items.push(item));
             } else {
                 // Modo normal: solo checkboxes visibles
                 const checked = document.querySelectorAll('.row-checkbox:checked');
-                if (checked.length < 2) return;
+                if (checked.length < 1) return;
                 checked.forEach(cb => {
                     const dataIndex = cb.getAttribute('data-index');
                     const item = window.currentData[dataIndex];
@@ -5151,7 +5124,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            if (items.length < 2) return;
+            if (items.length === 0) return;
+
+            if (items.length === 1) {
+                window.abrirModalEdicion(items[0]);
+                return;
+            }
+
+            const pmMontoTotalReal = document.getElementById('pmMontoTotalReal');
+            if (pmMontoTotalReal) {
+                pmMontoTotalReal.value = "";
+                pmMontoTotalReal.dataset.manualEdit = "false";
+            }
 
             const provs = new Set(items.map(i => i.CodProv));
             if (provs.size > 1) {
