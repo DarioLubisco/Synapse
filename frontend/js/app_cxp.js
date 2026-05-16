@@ -756,9 +756,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${item.Descrip || '-'}</td>
                     <td class="amount">${formatBs(saldoActualizadoBs)}</td>
                     <td class="amount us-amount">${usdFormatter(montoUsd)}</td>
-                    <td>${getStatusHtml(item)}</td>
-                    <td>
-                        <button class="btn-icon" title="Gestionar Pagos" onclick="openAbonosPanel('${item.CodProv}', '${item.NumeroD}', ${item.NroUnico})">
+                    <td style="white-space:nowrap;">
+                        ${getStatusHtml(item)}
+                        <button class="btn-icon" title="Gestionar Pagos" onclick="openAbonosPanel('${item.CodProv}', '${item.NumeroD}', ${item.NroUnico})" style="margin-left:4px; vertical-align:middle;">
                             <i data-lucide="calculator" size="16"></i>
                         </button>
                     </td>
