@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Synapse Control Center | Gemini 2.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg: #0b0f1a;
+            --sidebar: #131826;
+            --glass: rgba(30, 41, 59, 0.5);
+            --accent-blue: #3b82f6;
+            --accent-purple: #a855f7;
+            --terminal-green: #10b981;
+            --accent-red: #ef4444;
+        }
+        body { 
+            background-color: var(--bg); 
+            color: #f8fafc; 
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+        }
+        .glass-panel {
+            background: var(--glass);
+            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .terminal-font { font-family: 'Fira Code', monospace; }
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        
+        /* Streaming cursor animation */
+        .typing::after {
+            content: '█';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+        /* Mic pulse animation */
+        .pulse-red {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row">
+
+    <!-- Sidebar - Flota e Infraestructura -->
+    <aside class="w-full md:w-80 bg-[#131826] border-r border-white/10 flex flex-col">
+        <div class="p-6 border-b border-white/5">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center neon-glow">
+                    <i data-lucide="zap" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none">Synapse</h1>
+                    <span class="text-xs text-blue-400 font-mono">PORTERO V3.2</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+            <!-- Network Status -->
+            <section>
+                <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Conectividad</h2>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                            <span class="text-sm">Tailscale</span>
+                        </div>
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="network" class="w-4 h-4 text-emerald-400"></i>
+                            <span class="text-sm">ZeroTier</span>
+                        </div>
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Channels / Agents -->
+            <section>
+                <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Sub-Agentes Activos</h2>
+                <div class="space-y-2">
+                    <div class="channel-btn p-3 rounded-lg bg-blue-500/10 border border-blue-500/50 transition-colors cursor-pointer group" onclick="switchChannel('portero')">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-semibold text-blue-400 channel-text">Portero Central</span>
+                            <span class="w-2 h-2 bg-emerald-400 rounded-full channel-dot"></span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 terminal-font">n8n • Gemini 2.0</div>
+                    </div>
+                    <div class="channel-btn p-3 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer" onclick="switchChannel('hermes')">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-semibold channel-text">Orquestrador Hermes</span>
+                            <span class="w-2 h-2 bg-slate-500 rounded-full channel-dot"></span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 terminal-font">Debian • Local Core</div>
+                    </div>
+                    <div class="channel-btn p-3 rounded-lg bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer" onclick="switchChannel('it')">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-sm font-semibold channel-text">Sub-Agente IT</span>
+                            <span class="w-2 h-2 bg-slate-500 rounded-full channel-dot"></span>
+                        </div>
+                        <div class="text-[10px] text-slate-400 terminal-font">Debian • DeepSeek V4</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shortcuts -->
+            <section>
+                <h2 class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Comandos Rápidos</h2>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="p-2 text-[11px] bg-white/5 rounded border border-white/5 hover:border-blue-500/50 text-left">
+                        /status_flota
+                    </button>
+                    <button class="p-2 text-[11px] bg-white/5 rounded border border-white/5 hover:border-red-500/50 text-left">
+                        /stop_all
+                    </button>
+                </div>
+            </section>
+        </div>
+        
+        <div class="p-4 border-t border-white/5 bg-black/20">
+            <div class="flex items-center gap-3 opacity-60">
+                <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
+                    <i data-lucide="user" class="w-4 h-4"></i>
+                </div>
+                <div class="text-xs">
+                    <p class="font-semibold">Dario Lubisco</p>
+                    <p class="text-[10px] text-slate-400">Root Admin</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Chat Interface -->
+    <main class="flex-1 flex flex-col relative bg-[#0b0f1a]">
+        <!-- Top bar -->
+        <header class="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-black/10 -webkit-backdrop-blur-md backdrop-blur-md sticky top-0 z-10">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div id="channel-color-dot" class="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <span id="channel-title" class="font-semibold text-sm">Canal: Portero Central (Gemini 2.0)</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button onclick="clearHistory()" class="text-slate-400 hover:text-white transition-colors" title="Limpiar historial">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </button>
+                <div class="h-4 w-[1px] bg-white/10"></div>
+                <div class="flex -space-x-2">
+                    <div class="w-7 h-7 rounded-full border-2 border-[#0b0f1a] bg-blue-600 flex items-center justify-center text-[10px] font-bold">G2</div>
+                    <div class="w-7 h-7 rounded-full border-2 border-[#0b0f1a] bg-purple-600 flex items-center justify-center text-[10px] font-bold">SY</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Messages Area -->
+        <div id="chat-container" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+            <!-- Messages injected dynamically -->
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-6 bg-gradient-to-t from-[#0b0f1a] via-[#0b0f1a] to-transparent">
+            <div class="max-w-4xl mx-auto relative">
+                <!-- Preview Image -->
+                <div id="image-preview-container" class="hidden absolute bottom-full left-0 mb-4 p-2 glass-panel rounded-xl">
+                    <div class="relative">
+                        <img id="image-preview" src="" class="h-32 rounded-lg object-cover">
+                        <button onclick="removeImage()" class="absolute -top-2 -right-2 bg-red-500 rounded-full p-1 shadow-lg">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Recording Status -->
+                <div id="recording-status" class="hidden absolute bottom-full left-0 mb-4 p-3 glass-panel rounded-xl flex items-center gap-3">
+                    <div class="w-3 h-3 bg-red-500 rounded-full pulse-red"></div>
+                    <span class="text-xs font-mono text-red-400">GRABANDO AUDIO...</span>
+                    <span id="recording-timer" class="text-xs font-mono">00:00</span>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-2 flex items-end gap-2 border-white/10 focus-within:border-blue-500/50 transition-all shadow-2xl">
+                    <div class="flex flex-col flex-1">
+                        <textarea 
+                            id="user-input"
+                            rows="1" 
+                            placeholder="Comando, imagen o pulsa el micro..." 
+                            class="w-full bg-transparent border-none focus:ring-0 text-sm p-3 resize-none custom-scrollbar max-h-40"
+                            onkeydown="handleKeydown(event)"
+                        ></textarea>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 p-1">
+                        <input type="file" id="file-input" accept="image/*" class="hidden" onchange="handleFileSelect(event)">
+                        <button onclick="document.getElementById('file-input').click()" class="p-2 text-slate-400 hover:text-blue-400 hover:bg-blue-400/10 rounded-xl transition-all" title="Subir imagen">
+                            <i data-lucide="image" class="w-5 h-5"></i>
+                        </button>
+                        <button id="mic-btn" onclick="toggleRecording()" class="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all" title="Grabar audio">
+                            <i data-lucide="mic" class="w-5 h-5"></i>
+                        </button>
+                        <button id="send-btn" onclick="sendMessage()" class="p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all neon-glow">
+                            <i data-lucide="send" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-2 text-[10px] text-slate-500 flex justify-between px-2">
+                    <span>Shift + Enter para nueva línea</span>
+                    <span id="model-indicator" class="terminal-font">MODEL: GEMINI-2.0-FLASH</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const ENDPOINTS = {
+            portero: 'https://n8n.farmaciaamericana.es/webhook/9199549e-eee4-466a-9f3d-6f54ab23abe9/chat',
+            hermes: '/api/hermes/chat', // Ajustar si el proxy es distinto
+            it: '/api/hermes/chat'
+        };
+
+        const defaultHistories = {
+            portero: [
+                { role: 'sys', content: 'Terminal Synapse operativa. Autenticación via Tailscale completada.<br><br><strong>Gemini 2.0 Flash</strong> listo para orquestar. Ahora soporto audio, visión y razonamiento avanzado. ¿Qué necesitas ejecutar hoy?' }
+            ],
+            hermes: [
+                { role: 'sys', content: 'Orquestrador <strong>Hermes Core</strong> conectado. Esperando directivas globales de infraestructura.' }
+            ],
+            it: [
+                { role: 'sys', content: 'Sub-Agente <strong>IT (DeepSeek V4)</strong> en línea. Monitoreo de logs, gestión de contenedores y terminal Sudo listos.' }
+            ]
+        };
+
+        let currentImageBase64 = null;
+        let activeChannel = 'portero';
+        
+        let chatHistories = JSON.parse(localStorage.getItem('synapse_histories'));
+        if (!chatHistories) {
+            chatHistories = defaultHistories;
+        }
+        
+        // Convert old synapse_history to portero if upgrading
+        const oldHistory = localStorage.getItem('synapse_history');
+        if (oldHistory) {
+            chatHistories.portero = JSON.parse(oldHistory);
+            localStorage.removeItem('synapse_history');
+            localStorage.setItem('synapse_histories', JSON.stringify(chatHistories));
+        }
+
+        // Session ID
+        let sessionId = localStorage.getItem('synapse_session_id');
+        if (!sessionId) {
+            sessionId = 'session-' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+            localStorage.setItem('synapse_session_id', sessionId);
+        }
+
+        // Audio variables
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let recordingTimerInterval;
+        let currentAudioBase64 = null;
+
+        lucide.createIcons();
+
+        window.onload = () => {
+            switchChannel('portero');
+        };
+
+        function switchChannel(channel) {
+            activeChannel = channel;
+            
+            // Update Sidebar UI
+            document.querySelectorAll('.channel-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-500/10', 'border-blue-500/50');
+                btn.classList.add('bg-white/5', 'border-white/5');
+                const text = btn.querySelector('.channel-text');
+                if (text) text.classList.remove('text-blue-400', 'text-purple-400', 'text-emerald-400');
+                const dot = btn.querySelector('.channel-dot');
+                if (dot) { dot.classList.remove('bg-emerald-400'); dot.classList.add('bg-slate-500'); }
+            });
+            
+            const activeBtn = document.querySelector(`.channel-btn[onclick="switchChannel('${channel}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-white/5', 'border-white/5');
+                activeBtn.classList.add('bg-blue-500/10', 'border-blue-500/50');
+                
+                const text = activeBtn.querySelector('.channel-text');
+                const dot = activeBtn.querySelector('.channel-dot');
+                
+                if (channel === 'portero') {
+                    if(text) text.classList.add('text-blue-400');
+                    document.getElementById('channel-color-dot').className = 'w-2 h-2 rounded-full bg-blue-500';
+                    document.getElementById('channel-title').innerText = "Canal: Portero Central (Gemini 2.0)";
+                    document.getElementById('model-indicator').innerText = "MODEL: GEMINI-2.0-FLASH";
+                } else if (channel === 'hermes') {
+                    if(text) text.classList.add('text-purple-400');
+                    document.getElementById('channel-color-dot').className = 'w-2 h-2 rounded-full bg-purple-500';
+                    document.getElementById('channel-title').innerText = "Canal: Orquestrador Hermes";
+                    document.getElementById('model-indicator').innerText = "MODEL: HERMES-LOCAL";
+                } else if (channel === 'it') {
+                    if(text) text.classList.add('text-emerald-400');
+                    document.getElementById('channel-color-dot').className = 'w-2 h-2 rounded-full bg-emerald-500';
+                    document.getElementById('channel-title').innerText = "Canal: Sub-Agente IT";
+                    document.getElementById('model-indicator').innerText = "MODEL: DEEPSEEK-V4-FLASH";
+                }
+                if (dot) { dot.classList.remove('bg-slate-500'); dot.classList.add('bg-emerald-400'); }
+            }
+
+            renderChat();
+        }
+
+        function renderChat() {
+            const container = document.getElementById('chat-container');
+            container.innerHTML = '';
+            chatHistories[activeChannel].forEach(msg => {
+                appendMessageUI(msg.role, msg.content, msg.image, msg.audio);
+            });
+            scrollToBottom();
+        }
+
+        // --- Audio Recording Logic ---
+        async function toggleRecording() {
+            const micBtn = document.getElementById('mic-btn');
+            const statusDiv = document.getElementById('recording-status');
+            const timerSpan = document.getElementById('recording-timer');
+
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = (event) => {
+                        audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        currentAudioBase64 = await blobToBase64(audioBlob);
+                        
+                        micBtn.classList.remove('text-red-400', 'bg-red-400/10');
+                        micBtn.classList.add('text-emerald-400', 'bg-emerald-400/10');
+                        stream.getTracks().forEach(track => track.stop());
+                    };
+
+                    mediaRecorder.start();
+                    isRecording = true;
+                    micBtn.classList.add('text-red-400', 'bg-red-400/10');
+                    micBtn.innerHTML = '<i data-lucide="square" class="w-5 h-5 fill-current"></i>';
+                    lucide.createIcons();
+                    statusDiv.classList.remove('hidden');
+                    
+                    let seconds = 0;
+                    recordingTimerInterval = setInterval(() => {
+                        seconds++;
+                        const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                        const secs = (seconds % 60).toString().padStart(2, '0');
+                        timerSpan.innerText = `${mins}:${secs}`;
+                    }, 1000);
+
+                } catch (err) {
+                    console.error("No se pudo acceder al micrófono:", err);
+                    alert("Error: No se pudo acceder al micrófono.");
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                clearInterval(recordingTimerInterval);
+                statusDiv.classList.add('hidden');
+                timerSpan.innerText = "00:00";
+                micBtn.innerHTML = '<i data-lucide="mic" class="w-5 h-5"></i>';
+                lucide.createIcons();
+            }
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // --- Core Functions ---
+        function handleKeydown(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                currentImageBase64 = event.target.result;
+                document.getElementById('image-preview').src = currentImageBase64;
+                document.getElementById('image-preview-container').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeImage() {
+            currentImageBase64 = null;
+            document.getElementById('image-preview-container').classList.add('hidden');
+            document.getElementById('file-input').value = '';
+        }
+
+        async function sendMessage() {
+            const inputEl = document.getElementById('user-input');
+            const micBtn = document.getElementById('mic-btn');
+            const text = inputEl.value.trim();
+            
+            if (!text && !currentImageBase64 && !currentAudioBase64) return;
+
+            // Clear inputs
+            inputEl.value = '';
+            inputEl.style.height = 'auto';
+            micBtn.classList.remove('text-emerald-400', 'bg-emerald-400/10');
+
+            const contentText = text || (currentAudioBase64 ? "[Nota de Audio]" : "");
+            
+            // Add user message to UI & History
+            saveToHistory('user', contentText, currentImageBase64, currentAudioBase64);
+            appendMessageUI('user', contentText, currentImageBase64, currentAudioBase64);
+            
+            const imageToSend = currentImageBase64;
+            const audioToSend = currentAudioBase64;
+            
+            removeImage();
+            currentAudioBase64 = null;
+            scrollToBottom();
+
+            // Prepare for AI response
+            const responseId = 'ai-' + Date.now();
+            const messageDiv = createMessageElement('sys', '', responseId);
+            const contentDiv = messageDiv.querySelector('.message-content');
+            contentDiv.classList.add('typing');
+            scrollToBottom();
+
+            try {
+                let payload = {};
+                if (activeChannel === 'portero') {
+                    payload = {
+                        chatInput: text || "Procesa este audio/imagen",
+                        sessionId: sessionId,
+                        image: imageToSend ? imageToSend.split(',')[1] : null,
+                        audio: audioToSend ? audioToSend.split(',')[1] : null
+                    };
+                } else {
+                    payload = {
+                        message: text || "Procesa este comando",
+                        session_id: sessionId,
+                        target: activeChannel === 'hermes' ? 'hermes' : 'it_agent'
+                    };
+                }
+
+                const response = await fetch(ENDPOINTS[activeChannel], {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error HTTP ${response.status}`);
+                }
+
+                const contentType = response.headers.get("content-type");
+                
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await response.json();
+                    const aiText = data.output || data.response || data.text || "Completado.";
+                    contentDiv.innerHTML = formatText(aiText);
+                    contentDiv.classList.remove('typing');
+                    saveToHistory('sys', aiText);
+                } else {
+                    // Streaming fallback
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let fullText = '';
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        fullText += decoder.decode(value, { stream: true });
+                        contentDiv.innerHTML = formatText(fullText);
+                        scrollToBottom();
+                    }
+                    contentDiv.classList.remove('typing');
+                    saveToHistory('sys', fullText);
+                }
+
+            } catch (error) {
+                contentDiv.classList.remove('typing');
+                contentDiv.innerHTML = `<span class="text-red-400">Error de conexión:</span><br><span class="text-xs text-slate-400">${error.message}</span>`;
+                console.error(error);
+            }
+        }
+
+        function createMessageElement(role, content, id) {
+            const container = document.getElementById('chat-container');
+            const div = document.createElement('div');
+            div.className = 'flex gap-4 fade-in';
+            if (id) div.id = id;
+
+            const isUser = role === 'user';
+            let icon = 'bot';
+            let color = 'blue-400';
+            let label = 'System Portero';
+            let bgColor = 'blue-600/20';
+            let borderColor = 'blue-500/30';
+
+            if (isUser) {
+                icon = 'user';
+                color = 'slate-400';
+                label = 'Operador Admin';
+                bgColor = 'white/5';
+                borderColor = 'white/10';
+            } else {
+                if (activeChannel === 'hermes') {
+                    color = 'purple-400';
+                    label = 'Hermes Core';
+                    bgColor = 'purple-600/20';
+                    borderColor = 'purple-500/30';
+                    icon = 'network';
+                } else if (activeChannel === 'it') {
+                    color = 'emerald-400';
+                    label = 'Sub-Agente IT';
+                    bgColor = 'emerald-600/20';
+                    borderColor = 'emerald-500/30';
+                    icon = 'terminal';
+                }
+            }
+
+            div.innerHTML = `
+                <div class="w-9 h-9 rounded-lg bg-${bgColor} border border-${borderColor} flex items-center justify-center shrink-0">
+                    <i data-lucide="${icon}" class="w-5 h-5 text-${color}"></i>
+                </div>
+                <div class="space-y-1 max-w-2xl w-full overflow-hidden">
+                    <div class="text-[10px] font-bold text-${color} uppercase tracking-tighter">${label}</div>
+                    <div class="message-content text-sm leading-relaxed text-slate-300 glass-panel p-4 rounded-2xl rounded-tl-none">
+                        ${formatText(content)}
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(div);
+            lucide.createIcons();
+            return div;
+        }
+
+        function appendMessageUI(role, content, imageData = null, audioData = null) {
+            const div = createMessageElement(role, content);
+            const contentArea = div.querySelector('.message-content');
+            
+            if (imageData) {
+                const img = document.createElement('img');
+                img.src = imageData;
+                img.className = 'max-w-xs rounded-lg mt-3 border border-white/10 shadow-lg mb-2';
+                contentArea.prepend(img);
+            }
+            
+            if (audioData) {
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = audioData;
+                audio.className = 'mt-2 h-8 w-full max-w-[200px] opacity-70 invert grayscale';
+                contentArea.appendChild(audio);
+            }
+        }
+
+        function formatText(text) {
+            if (!text) return '';
+            return text
+                .replace(/\n/g, '<br>')
+                .replace(/```([\s\S]*?)```/g, '<pre class="bg-black/50 p-3 rounded-lg mt-2 terminal-font text-xs overflow-x-auto border border-white/5">$1</pre>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        }
+
+        function saveToHistory(role, content, image = null, audio = null) {
+            chatHistories[activeChannel].push({ role, content, image, audio });
+            if (chatHistories[activeChannel].length > 50) chatHistories[activeChannel].shift();
+            localStorage.setItem('synapse_histories', JSON.stringify(chatHistories));
+        }
+
+        function clearHistory() {
+            if (confirm('¿Limpiar historial de ' + activeChannel + '?')) {
+                chatHistories[activeChannel] = [];
+                localStorage.setItem('synapse_histories', JSON.stringify(chatHistories));
+                renderChat();
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+        }
+
+        const tx = document.getElementById('user-input');
+        tx.addEventListener("input", function() {
+            this.style.height = "auto";
+            this.style.height = (this.scrollHeight) + "px";
+        }, false);
+    </script>
+</body>
+</html>
