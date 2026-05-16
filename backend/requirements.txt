@@ -3,23 +3,23 @@
 # Generado desde Python 3.13 local (la misma versión del Docker)
 # =============================================================
 
-fastapi==0.135.3
-uvicorn==0.41.0
-starlette==0.52.1
-pydantic==2.12.5
-pydantic-settings==2.13.1
+fastapi>=0.115.3
+uvicorn>=0.31.0
+starlette>=0.40.0
+pydantic>=2.9.0
+pydantic-settings>=2.5.0
 
-reportlab==4.4.10
-pandas==2.2.3
-numpy==2.3.4
-openpyxl==3.1.5
-python-multipart==0.0.22
-pyodbc==5.2.0
-python-dotenv==1.2.2
+reportlab>=4.2.0
+pandas>=2.2.0
+numpy>=2.0.0
+openpyxl>=3.1.0
+python-multipart>=0.0.9
+pyodbc>=5.1.0
+python-dotenv>=1.0.0
 
-google-api-python-client==2.193.0
-google-auth-httplib2==0.2.1
-google-auth-oauthlib==1.2.3
-fpdf==1.7.2
-pulp==3.3.0
-httpx==0.28.1
+google-api-python-client>=2.100.0
+google-auth-httplib2>=0.2.0
+google-auth-oauthlib>=1.2.0
+fpdf>=1.7.2
+pulp>=2.8.0
+httpx>=0.27.0
