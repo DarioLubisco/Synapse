@@ -459,6 +459,22 @@ body {
 .table-responsive {
   overflow-x: auto;
   border: 1px solid var(--border-subtle);
+  /* Custom scrollbar to ensure it is always visible even on Windows */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) var(--bg-dark);
+}
+.table-responsive::-webkit-scrollbar {
+  height: 10px;
+}
+.table-responsive::-webkit-scrollbar-track {
+  background: var(--bg-dark);
+}
+.table-responsive::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 5px;
+}
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 table {
@@ -893,18 +909,4 @@ input:checked + .slider:before {
 /* Universal Theme Transition */
 .theme-transition, .theme-transition *, .theme-transition *:before, .theme-transition *:after {
   transition: all 0.3s ease !important;
-}
-
-/* Sticky Actions Column */
-#cxpTable th:last-child,
-#cxpTable td:last-child {
-  position: sticky;
-  right: 0;
-  background-color: var(--bg-surface);
-  z-index: 2;
-  box-shadow: -2px 0 5px rgba(0,0,0,0.05);
-}
-#cxpTable thead th:last-child {
-  background-color: var(--bg-dark);
-  z-index: 3;
 }
