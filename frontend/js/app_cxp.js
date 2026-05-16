@@ -852,6 +852,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const el = document.getElementById(id);
             if (el) el.checked = false;
         });
+        if (window.multiPayMode) {
+            window.multiPaySelection.clear();
+            window.multiPaySelectionData.clear();
+        }
         fetchData();
     });
     filterDate.addEventListener('change', fetchData);
@@ -5738,6 +5742,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const resendBtn = document.getElementById('btnPmResendEmail');
                 if (resendBtn) resendBtn.disabled = false;
 
+                if (window.multiPayMode) {
+                    window.multiPaySelection.clear();
+                    window.multiPaySelectionData.clear();
+                }
                 if (typeof fetchData === 'function') fetchData();
             } catch (err) {
                 console.error(err);
@@ -6360,6 +6368,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         lucide.createIcons();
                     }
                 } else {
+                    if (window.multiPayMode) {
+                        window.multiPaySelection.clear();
+                        window.multiPaySelectionData.clear();
+                    }
                     if (typeof fetchData === 'function') await fetchData();
                     closeGenerarRetencionModal();
                 }
@@ -6591,6 +6603,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         lucide.createIcons();
                     }
                 } else {
+                    if (window.multiPayMode) {
+                        window.multiPaySelection.clear();
+                        window.multiPaySelectionData.clear();
+                    }
                     if (typeof fetchData === 'function') await fetchData();
                     closeGenerarRetencionIslrModal();
                 }
