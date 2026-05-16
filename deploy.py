@@ -95,8 +95,8 @@ def deploy_server():
         for label, cmd in zip(labels, commands):
             print(f"\n   {label}")
             stdin, stdout, stderr = ssh.exec_command(cmd, timeout=180)
-            out = stdout.read().decode('utf-8', errors='ignore').strip()
-            err = stderr.read().decode('utf-8', errors='ignore').strip()
+            out = stdout.read().decode('utf-8', errors='replace').strip()
+            err = stderr.read().decode('utf-8', errors='replace').strip()
             if out: print(f"   {out}")
             if err and "error" in err.lower(): print(f"{WARN} {err}")
 
