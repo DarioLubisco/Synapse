@@ -894,3 +894,17 @@ input:checked + .slider:before {
 .theme-transition, .theme-transition *, .theme-transition *:before, .theme-transition *:after {
   transition: all 0.3s ease !important;
 }
+
+/* Sticky Actions Column */
+#cxpTable th:last-child,
+#cxpTable td:last-child {
+  position: sticky;
+  right: 0;
+  background-color: var(--bg-surface);
+  z-index: 2;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+}
+#cxpTable thead th:last-child {
+  background-color: var(--bg-dark);
+  z-index: 3;
+}
