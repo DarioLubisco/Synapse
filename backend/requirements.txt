@@ -10,8 +10,8 @@ pydantic
 pydantic-settings
 
 reportlab
-pandas
-numpy
+pandas<2.2.0
+numpy<2.0.0
 openpyxl
 python-multipart
 pyodbc
