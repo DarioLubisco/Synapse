@@ -7,6 +7,8 @@ services:
       context: ./backend
     container_name: synapse-api
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     environment:
       - DB_SERVER=amc.sql\efficacis3
       - DB_DATABASE=EnterpriseAdmin_AMC
