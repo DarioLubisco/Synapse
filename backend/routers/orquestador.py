@@ -110,6 +110,7 @@ async def run_scraper_task(task: AutomationTask):
             atr = item.get("atributos", {})
             scraped_results.append({
                 "codigo": reg.get("codigo"),
+                "codbarras": reg.get("codbarras"),
                 "principio_activo_Des": atr.get("principio_activo"),
                 "concentracion_Des": atr.get("concentracion"),
                 "forma_farmaceutica_Des": atr.get("forma_farmaceutica")
