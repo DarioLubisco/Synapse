@@ -8,6 +8,13 @@ from database import get_db_connection
 
 import os
 
+def write_log(msg):
+    try:
+        with open("/app/orq.log", "a") as f:
+            f.write(msg + "\\n")
+    except:
+        pass
+
 router = APIRouter(prefix="/api/orquestador", tags=["Orquestador"])
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 class AutomationTask(BaseModel):
@@ -31,7 +38,7 @@ def fetch_pending_records(limit=100):
         conn.close()
         return lote
     except Exception as e:
-        print(f"Error DB: {e}")
+        write_log(f"Error DB: {e}")
         return []
 
 async def analyze_with_ai(lote):
@@ -77,24 +84,24 @@ async def analyze_with_ai(lote):
                 content = content[:-3]
             return json.loads(content.strip())
         except Exception as e:
-            print(f"Error AI: {e}")
+            write_log(f"Error AI: {e}")
             return []
 
 async def run_scraper_task(task: AutomationTask):
-    print(f"[Orquestador] Iniciando tarea: {task.ActionCommand} (ID: {task.TriggerID})")
+    write_log(f"[Orquestador] Iniciando tarea: {task.ActionCommand} (ID: {task.TriggerID})")
     webhook_url = "https://n8n.farmaciaamericana.es/webhook/osint-resultados"
     try:
         # Traer registros de base de datos
         lote = await asyncio.to_thread(fetch_pending_records, 100)
         
         if not lote:
-            print("[Orquestador] No hay registros pendientes.")
+            write_log("[Orquestador] No hay registros pendientes.")
             # Mandar webhook de todos modos para que n8n cierre el trigger
             async with httpx.AsyncClient() as client:
                 await client.post(webhook_url, json={"TriggerID": task.TriggerID, "status": "Vacio", "data": []}, timeout=30.0)
             return
 
-        print(f"[Orquestador] Procesando {len(lote)} registros con IA...")
+        write_log(f"[Orquestador] Procesando {len(lote)} registros con IA...")
         resultados_ia = await analyze_with_ai(lote)
 
         scraped_results = []
@@ -108,7 +115,7 @@ async def run_scraper_task(task: AutomationTask):
                 "forma_farmaceutica_Des": atr.get("forma_farmaceutica")
             })
 
-        print(f"[Orquestador] IA finalizada. Enviando {len(scraped_results)} items a n8n...")
+        write_log(f"[Orquestador] IA finalizada. Enviando {len(scraped_results)} items a n8n...")
 
         payload = {
             "TriggerID": task.TriggerID,
@@ -120,12 +127,12 @@ async def run_scraper_task(task: AutomationTask):
         async with httpx.AsyncClient() as client:
             response = await client.post(webhook_url, json=payload, timeout=30.0)
             if response.status_code == 200:
-                print(f"[Orquestador] Webhook exitoso.")
+                write_log(f"[Orquestador] Webhook exitoso.")
             else:
-                print(f"[Orquestador] Webhook falló: {response.status_code}")
+                write_log(f"[Orquestador] Webhook falló: {response.status_code}")
 
     except Exception as e:
-        print(f"[Orquestador] Error crítico en tarea {task.TriggerID}: {e}")
+        write_log(f"[Orquestador] Error crítico en tarea {task.TriggerID}: {e}")
         try:
             async with httpx.AsyncClient() as client:
                 await client.post(webhook_url, json={"TriggerID": task.TriggerID, "status": "Error", "data": []})
