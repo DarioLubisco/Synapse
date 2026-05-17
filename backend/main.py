@@ -53,12 +53,14 @@ from routers.cxp import router as cxp_router
 from routers.pedidos import router as pedidos_router
 from routers.inventario import router as inventario_router
 from routers.n8n_webhook import router as n8n_webhook_router
+from routers.orquestador import router as orquestador_router
 
 app.include_router(caja_router)
 app.include_router(cxp_router)
 app.include_router(pedidos_router)
 app.include_router(inventario_router)
 app.include_router(n8n_webhook_router)
+app.include_router(orquestador_router)
 
 # app.include_router(pedidos_router)
 
