@@ -116,6 +116,35 @@ async def run_scraper_task(task: AutomationTask):
                 "forma_farmaceutica_Des": atr.get("forma_farmaceutica")
             })
 
+        write_log(f"[Orquestador] IA finalizada. Actualizando DB localmente para {len(scraped_results)} items...")
+        
+        # Realizamos el update de DB localmente usando pyodbc
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            for res in scraped_results:
+                cb = res.get("codbarras")
+                if not cb: continue
+                pa = res.get("principio_activo_Des")
+                con = res.get("concentracion_Des")
+                ff = res.get("forma_farmaceutica_Des")
+                
+                # Update by codbarras safely
+                query = """
+                    UPDATE Procurement.por_aprobacion_equivalencias 
+                    SET principio_activo_Des = ?,
+                        concentracion_Des = ?,
+                        forma_farmaceutica_Des = ?,
+                        origen_dato = 'IA_INVESTIGATED_V10_CLEANSE'
+                    WHERE codbarras = ?
+                """
+                cursor.execute(query, pa, con, ff, cb)
+            conn.commit()
+            conn.close()
+            write_log("[Orquestador] DB actualizada con éxito.")
+        except Exception as e:
+            write_log(f"[Orquestador] Error actualizando DB: {e}")
+
         write_log(f"[Orquestador] IA finalizada. Enviando {len(scraped_results)} items a n8n...")
 
         payload = {
